@@ -1,0 +1,2310 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PricePulse - Categorization & Label Aggregations</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Custom scrollbar and subtle transitions */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--background, #0f172a); }
+    ::-webkit-scrollbar-thumb { background: var(--border, #334155); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground, #64748b); }
+  </style>
+</head>
+<body class="bg-[var(--background,#090d16)] text-[var(--foreground,#f1f5f9)] h-full flex flex-col font-sans antialiased">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="bg-[var(--card,#111827)] border-b border-[var(--border,#1f2937)] sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between shadow-sm">
+    <div class="flex items-center gap-6">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+        </div>
+        <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">PricePulse</span>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="hidden md:flex items-center gap-1 bg-[var(--background,#0b1120)] p-1 rounded-xl border border-[var(--border,#1e293b)] text-sm">
+        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all duration-150 flex items-center gap-2 bg-emerald-500 text-white shadow-sm">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          Dashboard
+        </button>
+        <button onclick="switchTab('tags')" id="tab-btn-tags" class="px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all duration-150 flex items-center gap-2 text-[var(--muted-foreground,#94a3b8)] hover:text-white hover:bg-[var(--card,#1e293b)]">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+          Tag Manager
+        </button>
+      </nav>
+    </div>
+
+    <!-- Header Actions (Quick Run, Add URL, Profile Dropdown) -->
+    <div class="flex items-center gap-3">
+      <!-- Quick Scraping Trigger -->
+      <button onclick="triggerImmediateRun()" id="btn-trigger-run" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold whitespace-nowrap rounded-lg bg-[var(--card,#1e293b)] text-slate-200 border border-[var(--border,#334155)] hover:border-slate-500 hover:text-white transition">
+        <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" id="icon-refresh" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        <span>Run Check (99 Items)</span>
+      </button>
+
+      <!-- Primary Add Button -->
+      <button onclick="openAddItemModal()" class="flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-md shadow-emerald-500/20 transition active:scale-95">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        <span>Track New URL</span>
+      </button>
+
+      <!-- Google Connected Profile Pill with Dropdown Trigger -->
+      <div class="relative pl-3 border-l border-[var(--border,#1e293b)]">
+        <button id="user-menu-btn" onclick="toggleUserDropdown(event)" class="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-800/60 transition group focus:outline-none">
+          <div class="relative">
+            <img class="w-8 h-8 rounded-full ring-2 ring-emerald-500/30 group-hover:ring-emerald-500/60 transition" src="https://ui-avatars.com/api/?name=Eugene+G&background=0284c7&color=fff&bold=true" alt="User">
+            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[var(--card,#111827)]" title="Google Sheets API Connected"></span>
+          </div>
+          <div class="hidden lg:block text-left text-xs leading-tight pr-1">
+            <p class="font-medium text-slate-200 flex items-center gap-1">
+              Eugene G.
+              <svg class="w-3 h-3 text-slate-400 group-hover:text-slate-200 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </p>
+            <p class="text-[11px] text-emerald-400 font-mono">Labels Active</p>
+          </div>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div id="user-dropdown-menu" class="hidden absolute right-0 mt-2 w-64 bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl shadow-2xl py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+          <div class="px-4 py-3 border-b border-slate-800/80">
+            <p class="font-bold text-white text-sm">Eugene Garkavtcev</p>
+            <p class="text-slate-400 font-mono text-[11px] truncate">eugene.g@gmail.com</p>
+            <div class="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              99 Positions & Labels Synced
+            </div>
+          </div>
+
+          <div class="py-1">
+            <button onclick="switchTab('health'); toggleUserDropdown(event)" class="w-full text-left px-4 py-2.5 text-slate-200 hover:text-white hover:bg-slate-800/70 flex items-center gap-2.5 transition">
+              <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              <div class="flex-1">
+                <span class="font-medium block text-slate-100">System Health</span>
+                <span class="text-[10px] text-slate-400">Logs review</span>
+              </div>
+            </button>
+
+            <button onclick="switchTab('tags'); toggleUserDropdown(event)" class="w-full text-left px-4 py-2.5 text-slate-200 hover:text-white hover:bg-slate-800/70 flex items-center gap-2.5 transition">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+              <div class="flex-1">
+                <span class="font-medium block text-slate-100">Tag & Category Manager</span>
+                <span class="text-[10px] text-slate-400">Edit, rename, color & manage tags</span>
+              </div>
+            </button>
+
+            <button onclick="selectSettingsFromMenu()" class="w-full text-left px-4 py-2.5 text-slate-200 hover:text-white hover:bg-slate-800/70 flex items-center gap-2.5 transition">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              <div class="flex-1">
+                <span class="font-medium block text-slate-100">G-Sync & Configuration</span>
+                <span class="text-[10px] text-slate-400">Sheet ID, Gmail alerts, schedule</span>
+              </div>
+            </button>
+
+            <a href="https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" target="_blank" class="w-full text-left px-4 py-2.5 text-slate-200 hover:text-white hover:bg-slate-800/70 flex items-center gap-2.5 transition">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              <div class="flex-1">
+                <span class="font-medium block text-slate-100">Open Google Sheet</span>
+                <span class="text-[10px] text-slate-400">View Items & Bought_Items tabs</span>
+              </div>
+            </a>
+          </div>
+
+          <div class="pt-1 border-t border-slate-800/80">
+            <button onclick="handleSignOut()" class="w-full text-left px-4 py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 flex items-center gap-2 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+              <span>Switch / Disconnect Account</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN SCROLLABLE CONTENT AREA -->
+  <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+
+    <!-- ========================================== -->
+    <!-- VIEW 1: DASHBOARD & POSITIONS DATA GRID (DEFAULT) -->
+    <!-- ========================================== -->
+    <section id="view-dashboard" class="space-y-6">
+      
+      <!-- Top Metric Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Metric 1: Active Tracking Positions -->
+        <div class="bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl p-5 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-[var(--muted-foreground,#94a3b8)] uppercase tracking-wider">Active Monitoring</p>
+            <h3 class="text-3xl font-extrabold mt-1 text-white tracking-tight" id="stat-active-count">99</h3>
+            <p class="text-xs text-emerald-400 mt-1 flex items-center gap-1 font-medium">
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span id="stat-active-sub">19 Tags &bull; 99 Tracked</span>
+            </p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </div>
+        </div>
+
+        <!-- Metric 2: Realized Saved Costs -->
+        <div class="bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl p-5 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-[var(--muted-foreground,#94a3b8)] uppercase tracking-wider">Total Saved Costs</p>
+            <h3 class="text-3xl font-extrabold mt-1 text-emerald-400 tracking-tight" id="stat-realized-savings">$1,842.50</h3>
+            <p class="text-xs text-slate-400 mt-1 font-medium" id="stat-savings-sub">
+              Verified across 12 items in <code class="text-slate-300 font-mono">Bought_Items</code>
+            </p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+        </div>
+
+        <!-- Metric 3: Cloud Run Engine Status -->
+        <div class="bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl p-5 shadow-sm flex items-center justify-between sm:col-span-2 lg:col-span-1">
+          <div>
+            <p class="text-xs font-medium text-[var(--muted-foreground,#94a3b8)] uppercase tracking-wider">Engine Health</p>
+            <h3 class="text-2xl font-bold mt-1 text-emerald-400 flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span> Operational
+            </h3>
+            <p class="text-xs text-[var(--muted-foreground,#94a3b8)] mt-1">Batch duration: <span class="text-slate-200 font-mono">18.4s</span> (99 checks pooled)</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- TOTAL PRICE DYNAMIC & MARKET TRAJECTORY (%) (NORMALIZED) -->
+      <!-- ======================================================= -->
+      <div class="bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl p-6 shadow-sm space-y-4">
+        
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+              Total Price Dynamic & Market Trajectory (%)
+            </h3>
+            <p class="text-xs text-[var(--muted-foreground,#94a3b8)]">Normalized % price delta from baseline (0%) across categorized series to observe macro discount events</p>
+          </div>
+
+          <!-- Quick Presets -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 hidden sm:inline">Presets:</span>
+            <button onclick="setChartPreset('top5')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition">
+              Top 5 Drops
+            </button>
+            <button onclick="setChartPreset('all')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 hover:text-white hover:bg-slate-700 transition">
+              All in View
+            </button>
+          </div>
+        </div>
+
+        <!-- Two Column Layout: Left SVG Multi-Series Chart, Right Checkboxes Series Selector -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          
+          <!-- Left: SVG Normalized % Multi-Series Chart (3 Cols on desktop) -->
+          <div class="lg:col-span-3 bg-[var(--background,#090d16)] border border-[var(--border,#1e293b)] rounded-2xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800/80 pb-2.5 mb-2">
+              <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1.5 font-mono text-[11px] text-slate-300">
+                  <span class="w-3 h-0.5 bg-slate-500 border-t border-dashed"></span> 0.0% Baseline
+                </span>
+                <span class="flex items-center gap-1.5 font-mono text-[11px] text-emerald-400">
+                  &darr; Negative % = Price Drop
+                </span>
+              </div>
+              <div id="chart-visible-count-stat" class="font-mono text-xs text-slate-400">
+                Visible: 5 of 99 items
+              </div>
+            </div>
+
+            <!-- SVG Multi-Line Chart Canvas -->
+            <div class="h-64 w-full relative">
+              <svg id="dashboard-svg-chart" class="w-full h-full" viewBox="0 0 700 230" preserveAspectRatio="none">
+                <!-- Rendered dynamically via JavaScript -->
+              </svg>
+            </div>
+
+            <div class="flex justify-between text-[11px] text-slate-500 font-mono pt-2 border-t border-slate-900 px-2" id="dashboard-timeline-labels">
+              <span>6 Days Ago</span>
+              <span>4 Days Ago</span>
+              <span>2 Days Ago</span>
+              <span>Yesterday</span>
+              <span>Latest Check (Pooled)</span>
+            </div>
+          </div>
+
+          <!-- Right: Checkboxes with Filter & Select/Unselect All (1 Col on desktop) -->
+          <div class="lg:col-span-1 bg-[var(--background,#090d16)] border border-[var(--border,#1e293b)] rounded-2xl p-4 flex flex-col justify-between space-y-3">
+            <div>
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span class="text-xs font-bold text-white uppercase tracking-wider">Series Visible</span>
+                <button onclick="toggleSelectAllSeries()" id="btn-toggle-all-series" class="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition">
+                  Select All
+                </button>
+              </div>
+
+              <!-- Moved: Filter by Tag selector below Select All, above search -->
+              <div class="pt-2.5 pb-1">
+                <div class="flex items-center justify-between mb-1">
+                  <label for="chart-category-filter" class="text-[11px] font-semibold text-slate-400">Filter by Tag:</label>
+                  <span class="text-[10px] text-emerald-400 font-mono">⚡ Synced with Grid</span>
+                </div>
+                <select id="chart-category-filter" onchange="filterChartByCategory(this.value)" class="w-full bg-[var(--card,#111827)] border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer">
+                  <option value="ALL">All Tags (99)</option>
+                </select>
+              </div>
+
+              <div class="my-1.5">
+                <input type="text" id="series-search-input" oninput="filterSeriesList()" placeholder="Filter series..." class="w-full bg-[var(--card,#111827)] border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 outline-none focus:ring-1 focus:ring-emerald-500">
+              </div>
+
+              <div id="chart-series-checkboxes" class="space-y-1.5 py-1 max-h-52 overflow-y-auto pr-1">
+                <!-- Injected via JavaScript -->
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-900 text-[10px] text-slate-500 leading-tight">
+              Tip: Hover over points to see exact dollar prices, labels, and percentage drops.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- DATA GRID REPRESENTATION (WITH CATEGORIZATION & AGGREGATIONS) -->
+      <!-- ========================================== -->
+      <div class="bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl p-6 shadow-sm space-y-4">
+        
+        <!-- Table View Selector: Active Tracking vs Bought Items Archive -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+          <div class="flex items-center gap-2">
+            <button onclick="switchGridView('active')" id="btn-grid-active" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              Active Positions (<span id="count-tab-active">99</span>)
+            </button>
+            <button onclick="switchGridView('bought')" id="btn-grid-bought" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent">
+              <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Bought Items Sheet (<span id="count-tab-bought">12</span>)
+            </button>
+          </div>
+
+          <!-- Controls: Group By Mode, Search, and Add -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <!-- AGGREGATION GROUP BY SELECTOR -->
+            <div class="flex items-center gap-1.5 bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-2.5 py-1.5">
+              <span class="text-[11px] text-slate-400 font-semibold">Group By:</span>
+              <select id="grid-group-by" onchange="changeGroupBy(this.value)" class="bg-transparent text-xs text-emerald-400 font-medium outline-none cursor-pointer">
+                <option value="none" selected>Flat List (None)</option>
+                <option value="tag">Tag</option>
+              </select>
+            </div>
+
+            <!-- Search -->
+            <div class="relative sm:w-56">
+              <svg class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input type="text" id="grid-search-input" oninput="applyFiltersAndSort()" placeholder="Search items or tags..." class="w-full bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none">
+            </div>
+
+            <button onclick="openAddItemModal()" class="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition shadow-sm">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>Add URL</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Horizontal Tag Filter Quick-Bar for Tabular View -->
+        <div class="flex items-center gap-1.5 overflow-x-auto py-1 text-xs" id="table-label-filter-bar">
+          <span class="text-slate-500 text-[11px] flex-shrink-0 font-medium">Filter by Tag:</span>
+          <!-- Injected via JavaScript -->
+        </div>
+
+        <!-- 1. ACTIVE POSITIONS DATA GRID (WITH TAGS) -->
+        <div id="container-active-grid" class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold select-none">
+                <th class="py-3 px-3 cursor-pointer hover:text-white" onclick="changeSort('name')">
+                  Product Name <span id="sort-icon-name">↕</span>
+                </th>
+                <th class="py-3 px-3">
+                  Tags
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white" onclick="changeSort('initialPrice')">
+                  Baseline <span id="sort-icon-initialPrice">↕</span>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white" onclick="changeSort('currentPrice')">
+                  Current Price <span id="sort-icon-currentPrice">↕</span>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white" onclick="changeSort('targetPrice')">
+                  Target Alert <span id="sort-icon-targetPrice">↕</span>
+                </th>
+                <th class="py-3 px-3 w-32">Trend Dynamic</th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white" onclick="changeSort('dropPct')">
+                  Drop % <span id="sort-icon-dropPct">↕</span>
+                </th>
+                <th class="py-3 px-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="active-grid-tbody" class="divide-y divide-slate-800/60">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 2. BOUGHT ITEMS SHEET DATA GRID -->
+        <div id="container-bought-grid" class="overflow-x-auto hidden">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-purple-300 uppercase tracking-wider font-semibold">
+                <th class="py-3 px-3">Purchased Product (Click for Item Card)</th>
+                <th class="py-3 px-3">Tags</th>
+                <th class="py-3 px-3">Baseline Price</th>
+                <th class="py-3 px-3">Purchased At</th>
+                <th class="py-3 px-3">Realized Savings</th>
+                <th class="py-3 px-3">Purchased Date</th>
+                <th class="py-3 px-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="bought-grid-tbody" class="divide-y divide-slate-800/60 font-mono">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800/80 text-xs text-slate-400" id="pagination-wrapper">
+          <div id="pagination-info" class="font-mono">
+            Showing 1–15 of 99 items
+          </div>
+          
+          <div class="flex items-center gap-1.5" id="pagination-buttons">
+            <!-- Dynamically populated page buttons -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VIEW 2: SYSTEM HEALTH & TELEMETRY -->
+    <!-- ========================================== -->
+    <section id="view-health" class="hidden space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-[var(--card,#111827)] border border-emerald-500/30 rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">GCP Cloud Run Service</span>
+            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400">ONLINE</span>
+          </div>
+          <h4 class="text-xl font-bold text-white font-mono">playwright-scraper-v1</h4>
+          <p class="text-xs text-slate-400 mt-2">Scale: <span class="text-emerald-400 font-mono font-medium">99 URLs Batch Managed</span></p>
+          <p class="text-xs text-slate-400">Concurrency: <span class="text-slate-200 font-mono font-medium">8 Headless Workers</span></p>
+        </div>
+
+        <div class="bg-[var(--card,#111827)] border border-emerald-500/30 rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Google Sheets Storage</span>
+            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400">SYNCED</span>
+          </div>
+          <h4 class="text-xl font-bold text-white font-mono">PriceTracker_DB</h4>
+          <p class="text-xs text-slate-400 mt-2">Active Rows: <span class="text-emerald-400 font-mono">99 Active + 12 Bought</span></p>
+          <p class="text-xs text-slate-400">Labels Column: <span class="text-slate-200 font-mono font-medium">JSON Array Synced</span></p>
+        </div>
+
+        <div class="bg-[var(--card,#111827)] border border-emerald-500/30 rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Gmail Notification Gateway</span>
+            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400">READY</span>
+          </div>
+          <h4 class="text-xl font-bold text-white font-mono">Gmail API (OAuth2)</h4>
+          <p class="text-xs text-slate-400 mt-2">Batch Alerts Digest: <span class="text-slate-200 font-mono">Categorized Digest</span></p>
+          <p class="text-xs text-slate-400">Delivery Success: <span class="text-emerald-400 font-mono font-medium">100%</span></p>
+        </div>
+      </div>
+
+      <div class="bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl p-6 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-white">Cloud Scheduler Execution Logs</h3>
+            <p class="text-xs text-[var(--muted-foreground,#94a3b8)]">Automated batch checks with categorized telemetry</p>
+          </div>
+          <span class="text-xs font-mono text-slate-400">Schedule: Every 4 hours</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+                <th class="py-3 px-3">Run Timestamp</th>
+                <th class="py-3 px-3">Status</th>
+                <th class="py-3 px-3">Items Checked</th>
+                <th class="py-3 px-3">Extraction Breakdown</th>
+                <th class="py-3 px-3">Total Duration</th>
+                <th class="py-3 px-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="telemetry-table-body" class="divide-y divide-slate-800/60 font-mono">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VIEW 3: G-SYNC & CONFIGURATION -->
+    <!-- ========================================== -->
+    <section id="view-settings" class="hidden space-y-6">
+      <div class="max-w-3xl bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl p-6 shadow-sm space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-white">Google Workspace & Cloud Run Settings</h3>
+            <p class="text-xs text-[var(--muted-foreground,#94a3b8)]">Manage sheet bindings, alert policies, and label taxonomies</p>
+          </div>
+          <button onclick="switchTab('dashboard')" class="text-xs text-slate-400 hover:text-white flex items-center gap-1">
+            &larr; Back to Dashboard
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Target Google Sheet ID</label>
+            <input type="text" value="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" class="w-full font-mono bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Notification Email Recipient</label>
+            <input type="email" value="user@gmail.com" class="w-full font-mono bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Alert Notification Mode</label>
+              <select class="w-full bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                <option value="consolidated" selected>Consolidated Batch Digest (Grouped by Category)</option>
+                <option value="instant">Instant per Drop</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Scraper Check Interval</label>
+              <select class="w-full bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                <option value="4" selected>Every 4 Hours</option>
+                <option value="8">Every 8 Hours</option>
+                <option value="12">Every 12 Hours</option>
+                <option value="24">Daily Digest</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-800 flex justify-end">
+            <button onclick="saveSettingsNotification()" class="px-5 py-2 rounded-xl bg-emerald-500 text-white font-semibold text-xs hover:bg-emerald-600 transition shadow-md shadow-emerald-500/20">
+              Save Configuration
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VIEW 4: TAG MANAGER (1-LEVEL DATA GRID) -->
+    <!-- ========================================== -->
+    <section id="view-tags" class="hidden space-y-6">
+      
+      <!-- Header Banner & Action -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-white">Tag Manager</h2>
+            <p class="text-xs text-[var(--muted-foreground,#94a3b8)]">Create, color-code, rename, or remove tags across all tracked positions.</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-2.5">
+          <button onclick="toggleNewTagForm()" class="px-4 py-2 rounded-xl bg-emerald-500 text-white font-semibold text-xs hover:bg-emerald-600 transition flex items-center gap-1.5 shadow-md shadow-emerald-500/20 whitespace-nowrap">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <span>Create New Tag</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Expandable New Tag Creator Card (Only Tag Name & Color Theme) -->
+      <div id="tagmgr-create-form" class="hidden bg-[var(--card,#111827)] border border-emerald-500/40 rounded-2xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <h3 class="text-sm font-bold text-white">Create New Tag</h3>
+          </div>
+          <button onclick="toggleNewTagForm()" class="text-slate-400 hover:text-white text-xs">✕ Close</button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div>
+            <label for="tagmgr-input-name" class="block font-semibold text-slate-300 mb-1">Tag Name</label>
+            <input type="text" id="tagmgr-input-name" placeholder="e.g. Prime Day, Home Gym, Wishlist..." class="w-full bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label for="tagmgr-select-color" class="block font-semibold text-slate-300 mb-1">Color Theme</label>
+            <select id="tagmgr-select-color" class="w-full bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="purple" selected>Purple / Violet</option>
+              <option value="amber">Amber / Gold</option>
+              <option value="emerald">Emerald / Green</option>
+              <option value="blue">Blue / Sky</option>
+              <option value="rose">Rose / Coral</option>
+              <option value="cyan">Cyan / Teal</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+          <p class="text-[11px] text-slate-400">Newly created tags can immediately be assigned to any item or used in filters.</p>
+          <div class="flex items-center gap-2">
+            <button onclick="toggleNewTagForm()" class="px-3 py-1.5 rounded-xl text-slate-400 hover:text-white text-xs">Cancel</button>
+            <button onclick="createNewTagFromManager()" class="px-4 py-1.5 rounded-xl bg-emerald-500 text-white font-semibold text-xs hover:bg-emerald-600 transition shadow-md shadow-emerald-500/20">
+              Save Tag
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Grid Container -->
+      <div class="bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-2xl p-6 shadow-sm space-y-4">
+        <!-- Toolbar: Tag Count & Search -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          <div class="flex items-center gap-2 text-xs">
+            <span class="font-bold text-white">All Tags</span>
+            <span id="tagmgr-total-count" class="px-2 py-0.5 rounded-full bg-slate-800 text-emerald-400 font-mono font-bold text-[11px]">19</span>
+          </div>
+          <div class="w-full sm:w-72">
+            <input type="text" id="tagmgr-search-input" oninput="renderTagTable()" placeholder="Search tags..." class="w-full bg-[var(--background,#0b1120)] border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <!-- 2-Column Tag Management Data Grid -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold text-[11px]">
+                <th class="py-3 px-4 w-1/3">Tag Name</th>
+                <th class="py-3 px-4 w-2/3">Additional Info &amp; Edit Options</th>
+              </tr>
+            </thead>
+            <tbody id="tagmgr-table-body" class="divide-y divide-slate-800/60">
+              <!-- Injected dynamically via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL 1: ADD PRODUCT URL -->
+  <!-- ========================================== -->
+  <div id="modal-add-item" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Track New Product URL</h3>
+            <p class="text-xs text-slate-400">Playwright will extract price & automatically assign category</p>
+          </div>
+        </div>
+        <button onclick="closeAddItemModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-semibold text-slate-300">Product Web Page URL</label>
+        <div class="flex gap-2">
+          <input type="url" id="input-url" placeholder="https://www.store.com/product/..." value="https://www.apple.com/shop/buy-iphone/iphone-16-pro" class="flex-1 bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-3.5 py-2 text-xs text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 font-mono">
+          <button onclick="simulateScrapePreview()" id="btn-fetch-preview" class="px-4 py-2 bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <span>Preview</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="scrape-preview-card" class="p-4 bg-[var(--background,#090d16)] border border-[var(--border,#1e293b)] rounded-2xl space-y-4">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+          <span class="text-xs font-semibold text-slate-400">Extracted Product Data</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            Auto-Tagged
+          </span>
+        </div>
+
+        <div class="flex gap-4 items-start">
+          <img id="preview-img" src="https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=300" class="w-20 h-20 object-cover rounded-xl border border-slate-700 bg-slate-800" alt="Thumbnail">
+          <div class="flex-1 space-y-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 uppercase font-semibold">Title (Editable)</label>
+              <input type="text" id="preview-title" value="Apple iPhone 16 Pro 128GB Black Titanium" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] text-slate-400 uppercase font-semibold">Current Price</label>
+                <div class="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1">
+                  <span class="text-xs text-slate-400">$</span>
+                  <input type="number" id="preview-price" value="999.00" step="0.01" class="w-full bg-transparent text-xs text-emerald-400 font-mono font-bold outline-none">
+                </div>
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-400 uppercase font-semibold">Tags (comma-separated)</label>
+                <input type="text" id="preview-tags" value="Smartphones, Apple Store" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button onclick="closeAddItemModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition">Cancel</button>
+        <button onclick="saveNewItem()" class="px-5 py-2 rounded-xl bg-emerald-500 text-white font-semibold text-xs hover:bg-emerald-600 shadow-lg shadow-emerald-500/25 transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          <span>Save & Add to Pool</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================================================== -->
+  <!-- MODAL 2: ITEM CARD (WITH MANAGEABLE TAGS) -->
+  <!-- =============================================================== -->
+  <div id="modal-item-details" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[var(--card,#111827)] border border-[var(--border,#1f2937)] rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+      
+      <!-- Card Header -->
+      <div class="flex items-start justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <img id="detail-img" src="" class="w-14 h-14 rounded-xl object-cover bg-slate-800 border border-slate-700" alt="Product">
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="detail-status-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full">Status</span>
+            </div>
+            <h3 id="detail-header-title" class="text-sm font-bold text-white mt-1 line-clamp-1">Product Details</h3>
+          </div>
+        </div>
+        <button onclick="closeItemDetailsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Price Dynamic Interactive Chart Inside Window -->
+      <div class="bg-[var(--background,#090d16)] border border-[var(--border,#1e293b)] rounded-2xl p-4 space-y-2">
+        <div class="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800/80 pb-2">
+          <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-emerald-400 rounded"></span> Price Dynamics</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-rose-400 border-t border-dashed"></span> Target Threshold</span>
+          </div>
+          <span id="detail-chart-stat" class="font-mono text-emerald-400 font-semibold text-xs">Current: $0.00</span>
+        </div>
+        <div class="h-44 w-full relative">
+          <svg id="detail-svg-chart" class="w-full h-full" viewBox="0 0 600 170" preserveAspectRatio="none">
+            <!-- Rendered by JS -->
+          </svg>
+        </div>
+      </div>
+
+      <!-- MANAGEABLE TAGS SECTION -->
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+            Assigned Tags
+          </span>
+        </div>
+
+        <!-- Rendered Tag Chips (with remove x) -->
+        <div class="flex items-center gap-1.5 flex-wrap" id="detail-labels-chips">
+          <!-- Dynamically injected -->
+        </div>
+
+        <!-- Add Tag Input Form -->
+        <div class="flex items-center gap-2 pt-1 border-t border-slate-800">
+          <input type="text" id="input-new-custom-tag" placeholder="Type tag name (e.g. Gift Idea, Amazon, Prime Day)..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500">
+          <button onclick="addCustomTagToItem()" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <span>Add Tag</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Editable Details -->
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Product Title</label>
+          <input type="text" id="detail-input-title" class="w-full bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-400 mb-1">Baseline Price</label>
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 font-mono font-bold" id="detail-val-initial">
+              $0.00
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-400 mb-1">Current Tracked Price</label>
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold" id="detail-val-current">
+              $0.00
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Alert Target Price</label>
+            <div class="flex items-center gap-1 bg-[var(--background,#0b1120)] border border-[var(--border,#334155)] rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-emerald-500">
+              <span class="text-slate-400">$</span>
+              <input type="number" id="detail-input-target" step="0.01" class="w-full bg-transparent text-rose-400 font-mono font-bold outline-none">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <a id="detail-store-link" href="#" target="_blank" class="text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 text-xs font-semibold">
+            <span>Open Original Retailer Web Page</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+          <span class="text-[11px] text-slate-500" id="detail-last-checked-label">Last checked 14m ago</span>
+        </div>
+      </div>
+
+      <!-- "Buy" Container: Moves Item to Dedicated Bought Items Sheet -->
+      <div id="detail-buy-box" class="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div>
+          <h4 class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+            Bought this item? Move to Bought Items Sheet
+          </h4>
+          <p class="text-[11px] text-slate-400 mt-0.5">Stops active scraper tracking and writes record to the dedicated <code class="text-emerald-400 font-mono">Bought_Items</code> sheet.</p>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <div class="flex items-center gap-1 bg-slate-900 border border-emerald-500/40 rounded-xl px-2.5 py-1.5">
+            <span class="text-xs text-slate-400">$</span>
+            <input type="number" id="input-buy-price" step="0.01" class="w-20 bg-transparent text-xs font-mono font-bold text-white outline-none" title="Purchase Price">
+          </div>
+          <button onclick="executeBuyItem()" class="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-1.5">
+            <span>Confirm Buy</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Purchased Archive State Container -->
+      <div id="detail-already-bought-box" class="hidden p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-purple-200" id="detail-bought-text">Archived in Bought_Items Sheet</p>
+            <p class="text-[11px] text-slate-400">Scraper monitoring is stopped. Verified realized savings calculated.</p>
+          </div>
+        </div>
+        <button onclick="resumeTrackingItem()" class="text-xs text-purple-300 hover:text-white underline font-medium">
+          Move back to Active Tracking
+        </button>
+      </div>
+
+      <!-- Action Footer: Delete from Sheet & Save Changes -->
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+        <button onclick="deleteCurrentItem()" class="px-3.5 py-2 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/60 font-semibold text-xs transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>Delete Position</span>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button onclick="closeItemDetailsModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition">Close</button>
+          <button onclick="saveItemDetails()" class="px-5 py-2 rounded-xl bg-emerald-500 text-white font-semibold text-xs hover:bg-emerald-600 shadow-md shadow-emerald-500/20 transition">
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- JAVASCRIPT APPLICATION CONTROLLER -->
+  <script>
+    const SERIES_COLORS = [
+      '#10b981', '#38bdf8', '#a855f7', '#f59e0b', '#ec4899', 
+      '#6366f1', '#14b8a6', '#f97316', '#84cc16', '#06b6d4',
+      '#e11d48', '#8b5cf6', '#d97706', '#059669', '#2563eb'
+    ];
+
+    // CATEGORY LIST WITH EMOJIS FOR AGGREGATION
+    const CATEGORIES = [
+      { id: 'Audio', label: 'Audio', icon: '🎧' },
+      { id: 'Laptops', label: 'Laptops & PCs', icon: '💻' },
+      { id: 'Smartphones', label: 'Smartphones', icon: '📱' },
+      { id: 'TVs & Displays', label: 'TVs & Displays', icon: '📺' },
+      { id: 'Gaming', label: 'Gaming', icon: '🎮' },
+      { id: 'Cameras & Drones', label: 'Cameras & Drones', icon: '📷' }
+    ];
+
+    // GENERATE 99 REALISTIC MOCK ITEMS WITH DEFAULT & CUSTOM LABELS
+    function generate99MockItems() {
+      const stores = ['Amazon', 'Best Buy', 'Apple Store', 'Target', 'B&H Photo', 'Newegg'];
+      const rawCategories = [
+        { category: 'Audio', brand: 'Sony', name: 'WH-1000XM5 Noise Cancelling Headphones', base: 399.99, maxDrop: 0.22, img: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300' },
+        { category: 'Laptops', brand: 'Apple', name: 'MacBook Air M3 15-inch 16GB/512GB', base: 1499.00, maxDrop: 0.15, img: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300' },
+        { category: 'Smartphones', brand: 'Apple', name: 'iPhone 16 Pro Max 256GB Desert Titanium', base: 1199.00, maxDrop: 0.08, img: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=300' },
+        { category: 'TVs & Displays', brand: 'LG', name: 'C3 65-inch OLED 4K Smart TV', base: 1699.99, maxDrop: 0.25, img: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=300' },
+        { category: 'TVs & Displays', brand: 'Dell', name: 'UltraSharp 32-inch 4K USB-C Hub Monitor', base: 849.99, maxDrop: 0.18, img: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=300' },
+        { category: 'Audio', brand: 'Bose', name: 'QuietComfort Ultra Spatial Audio Earbuds', base: 299.00, maxDrop: 0.20, img: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=300' },
+        { category: 'Gaming', brand: 'Nintendo', name: 'Switch OLED Model Mario Red Edition', base: 349.99, maxDrop: 0.12, img: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=300' },
+        { category: 'Smartphones', brand: 'Samsung', name: 'Galaxy S24 Ultra 512GB Titanium Gray', base: 1379.99, maxDrop: 0.20, img: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=300' },
+        { category: 'Laptops', brand: 'Logitech', name: 'MX Master 3S Wireless Performance Mouse', base: 99.99, maxDrop: 0.25, img: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=300' },
+        { category: 'Gaming', brand: 'Sony', name: 'PlayStation VR2 Horizon Call of the Mountain', base: 599.99, maxDrop: 0.17, img: 'https://images.unsplash.com/photo-1622979135225-d2ba269bc1df?w=300' },
+        { category: 'Cameras & Drones', brand: 'DJI', name: 'Mini 4 Pro Fly More Combo Drone', base: 1099.00, maxDrop: 0.10, img: 'https://images.unsplash.com/photo-1527977966376-1c8408f9f108?w=300' },
+        { category: 'Smart Home', brand: 'Dyson', name: 'V15 Detect Absolute Cordless Vacuum', base: 749.99, maxDrop: 0.24, img: 'https://images.unsplash.com/photo-1558317374-067fb5f30001?w=300' }
+      ];
+
+      const customTagPool = ['Black Friday', 'Gift Idea', 'Office Setup', 'High Priority', 'Holiday Deal', 'Wishlist'];
+
+      const list = [];
+      for (let i = 1; i <= 99; i++) {
+        const cat = rawCategories[(i - 1) % rawCategories.length];
+        const store = stores[(i * 3) % stores.length];
+        const hasDiscount = (i % 3 !== 0);
+        const dropPct = hasDiscount ? (0.04 + ((i * 7) % 24) / 100) : 0;
+        const currentPrice = +(cat.base * (1 - dropPct)).toFixed(2);
+        const targetPrice = +(cat.base * (1 - cat.maxDrop)).toFixed(2);
+
+        // Assign 1-level flat tags
+        const tags = Array.from(new Set([
+          store,
+          cat.category,
+          ...(i % 2 === 0 ? [customTagPool[i % customTagPool.length]] : []),
+          ...(i % 5 === 0 ? ['Black Friday'] : [])
+        ]));
+
+        list.push({
+          id: `item-${i}`,
+          index: i,
+          name: `${cat.brand} ${cat.name} ${i > 12 ? 'Gen-' + (i % 4 + 1) : ''}`.trim(),
+          tags: tags,
+          url: `https://www.${store.toLowerCase().replace(/[^a-z]/g, '')}.com/dp/item-${i}`,
+          image: cat.img,
+          currency: '$',
+          initialPrice: cat.base,
+          currentPrice: currentPrice,
+          targetPrice: targetPrice,
+          lowestPrice: currentPrice,
+          status: (currentPrice <= targetPrice || dropPct > 0.05) ? 'DISCOUNT' : 'ACTIVE',
+          dropPct: Math.round(dropPct * 100),
+          lastChecked: `${(i % 55) + 5}m ago`,
+          history: [
+            { time: '6d ago', price: cat.base },
+            { time: '4d ago', price: +(cat.base * (1 - dropPct * 0.3)).toFixed(2) },
+            { time: '2d ago', price: +(cat.base * (1 - dropPct * 0.6)).toFixed(2) },
+            { time: '1d ago', price: +(cat.base * (1 - dropPct * 0.85)).toFixed(2) },
+            { time: 'Today', price: currentPrice }
+          ]
+        });
+      }
+      return list;
+    }
+
+    function generate12BoughtItems() {
+      const items = [
+        { name: 'PlayStation 5 Pro Digital Console 2TB SSD', store: 'Target', cat: 'Gaming', base: 699.99, bought: 628.00, date: 'Nov 01, 2026' },
+        { name: 'Apple iPad Air M2 11-inch 128GB Starlight', store: 'Best Buy', cat: 'Laptops', base: 599.00, bought: 499.00, date: 'Oct 28, 2026' },
+        { name: 'Sony A7 IV Full-Frame Mirrorless Camera', store: 'B&H Photo', cat: 'Cameras & Drones', base: 2498.00, bought: 2198.00, date: 'Oct 24, 2026' },
+        { name: 'Samsung 49-inch Odyssey G9 Curved Gaming Monitor', store: 'Amazon', cat: 'TVs & Displays', base: 1299.99, bought: 999.99, date: 'Oct 20, 2026' },
+        { name: 'Sonos Arc Premium Smart Soundbar Dolby Atmos', store: 'Best Buy', cat: 'Audio', base: 899.00, bought: 719.00, date: 'Oct 15, 2026' },
+        { name: 'GoPro HERO12 Black Action Camera Bundle', store: 'Amazon', cat: 'Cameras & Drones', base: 449.99, bought: 349.99, date: 'Oct 12, 2026' },
+        { name: 'Kindle Scribe 64GB with Premium Pen', store: 'Amazon', cat: 'Laptops', base: 419.99, bought: 319.99, date: 'Oct 09, 2026' },
+        { name: 'Brevillle Barista Touch Espresso Machine', store: 'Target', cat: 'Smart Home', base: 999.95, bought: 799.95, date: 'Oct 05, 2026' },
+        { name: 'Garmin Epix Pro Gen 2 Sapphire 51mm', store: 'Newegg', cat: 'Gaming', base: 999.99, bought: 849.99, date: 'Oct 01, 2026' },
+        { name: 'Keychron Q1 Pro Wireless Custom Mechanical Keyboard', store: 'Newegg', cat: 'Laptops', base: 199.00, bought: 159.00, date: 'Sep 26, 2026' },
+        { name: 'Anker Prime 27,650mAh Power Bank 250W', store: 'Amazon', cat: 'Smartphones', base: 179.99, bought: 129.99, date: 'Sep 22, 2026' },
+        { name: 'Philips Hue White & Color Ambiance Starter Kit', store: 'Best Buy', cat: 'Smart Home', base: 199.99, bought: 149.99, date: 'Sep 18, 2026' }
+      ];
+
+      return items.map((it, idx) => ({
+        id: `item-bought-${idx + 1}`,
+        name: it.name,
+        tags: [it.store, it.cat, 'Purchased'],
+        url: 'https://example.com/store/item',
+        image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=300',
+        currency: '$',
+        initialPrice: it.base,
+        purchasedPrice: it.bought,
+        savedCost: +(it.base - it.bought).toFixed(2),
+        purchasedDate: it.date,
+        history: [
+          { time: '6d ago', price: it.base },
+          { time: '4d ago', price: it.base },
+          { time: '2d ago', price: +(it.base * 0.9).toFixed(2) },
+          { time: 'Bought', price: it.bought }
+        ]
+      }));
+    }
+
+    const allGeneratedItems = generate99MockItems();
+    const allGeneratedBought = generate12BoughtItems();
+    const top5DropIds = [...allGeneratedItems].sort((a,b) => b.dropPct - a.dropPct).slice(0, 5).map(i => i.id);
+
+    const state = {
+      items: allGeneratedItems,
+      boughtItems: allGeneratedBought,
+      activeModalItemId: null,
+      activeModalIsBought: false,
+      currentGridView: 'active',
+      
+      // Selected series on percentage chart
+      selectedSeriesIds: top5DropIds,
+      seriesSearchQuery: '',
+      
+      // Active Filters & Aggregations
+      activeLabelFilter: 'ALL', // 'ALL' or specific tag name
+      groupByMode: 'none', // 'none', 'tag'
+      collapsedGroups: {},
+
+      // Tag Manager Registry (1-level flat tags)
+      tagRegistry: [
+        { name: 'Black Friday', color: 'amber' },
+        { name: 'Gift Idea', color: 'purple' },
+        { name: 'Office Setup', color: 'blue' },
+        { name: 'High Priority', color: 'rose' },
+        { name: 'Wishlist', color: 'emerald' },
+        { name: 'Holiday Deal', color: 'cyan' },
+        { name: 'Audio', color: 'emerald' },
+        { name: 'Laptops', color: 'blue' },
+        { name: 'Smartphones', color: 'purple' },
+        { name: 'TVs & Displays', color: 'cyan' },
+        { name: 'Gaming', color: 'rose' },
+        { name: 'Cameras & Drones', color: 'amber' },
+        { name: 'Smart Home', color: 'emerald' },
+        { name: 'Amazon', color: 'amber' },
+        { name: 'Best Buy', color: 'blue' },
+        { name: 'B&H Photo', color: 'emerald' },
+        { name: 'Target', color: 'rose' },
+        { name: 'Newegg', color: 'purple' },
+        { name: 'Micro Center', color: 'cyan' }
+      ],
+
+      // Pagination & Sorting
+      currentPage: 1,
+      itemsPerPage: 15,
+      sortField: 'dropPct',
+      sortOrder: 'desc',
+      filterSearch: '',
+
+      telemetry: [
+        { runId: 'run-8821', time: 'Today 11:30', status: 'SUCCESS', count: 99, breakdown: '99/99 Parsed (Categorized & Tagged)', duration: '18,420 ms' },
+        { runId: 'run-8820', time: 'Today 07:30', status: 'SUCCESS', count: 99, breakdown: '99/99 Parsed (Categorized & Tagged)', duration: '17,890 ms' },
+        { runId: 'run-8819', time: 'Yesterday 23:30', status: 'SUCCESS', count: 99, breakdown: '99/99 Parsed (Categorized & Tagged)', duration: '18,110 ms' },
+        { runId: 'run-8818', time: 'Yesterday 19:30', status: 'DEGRADED', count: 99, breakdown: '98/99 Parsed (1 Challenge retry)', duration: '22,450 ms' }
+      ]
+    };
+
+    // TAB NAVIGATION CONTROLLER
+    function switchTab(tabId) {
+      ['dashboard', 'tags', 'health', 'settings'].forEach(id => {
+        const view = document.getElementById(`view-${id}`);
+        const btn = document.getElementById(`tab-btn-${id}`);
+        if (id === tabId) {
+          if (view) view.classList.remove('hidden');
+          if (btn) btn.className = "px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all duration-150 flex items-center gap-2 bg-emerald-500 text-white shadow-sm";
+        } else {
+          if (view) view.classList.add('hidden');
+          if (btn) btn.className = "px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all duration-150 flex items-center gap-2 text-[var(--muted-foreground,#94a3b8)] hover:text-white hover:bg-[var(--card,#1e293b)]";
+        }
+      });
+      if (tabId === 'dashboard') {
+        renderNormalizedPercentageChart();
+      } else if (tabId === 'tags') {
+        renderTagManagerPage();
+      }
+    }
+
+    function switchGridView(viewName) {
+      state.currentGridView = viewName;
+      state.currentPage = 1;
+      const btnActive = document.getElementById('btn-grid-active');
+      const btnBought = document.getElementById('btn-grid-bought');
+      const containerActive = document.getElementById('container-active-grid');
+      const containerBought = document.getElementById('container-bought-grid');
+
+      if (viewName === 'active') {
+        btnActive.className = "px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+        btnBought.className = "px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent";
+        containerActive.classList.remove('hidden');
+        containerBought.classList.add('hidden');
+        document.getElementById('pagination-wrapper').classList.remove('hidden');
+      } else {
+        btnBought.className = "px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-purple-500/10 text-purple-300 border border-purple-500/30";
+        btnActive.className = "px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent";
+        containerBought.classList.remove('hidden');
+        containerActive.classList.add('hidden');
+        document.getElementById('pagination-wrapper').classList.add('hidden');
+      }
+      applyFiltersAndSort();
+    }
+
+    function toggleUserDropdown(event) {
+      if (event) event.stopPropagation();
+      const menu = document.getElementById('user-dropdown-menu');
+      menu.classList.toggle('hidden');
+    }
+
+    function selectSettingsFromMenu() {
+      const menu = document.getElementById('user-dropdown-menu');
+      if (menu) menu.classList.add('hidden');
+      switchTab('settings');
+      showToast('Opened G-Sync & Configuration', 'info');
+    }
+
+    function handleSignOut() {
+      const menu = document.getElementById('user-dropdown-menu');
+      if (menu) menu.classList.add('hidden');
+      showToast('Google OAuth session reset. Redirecting...', 'info');
+    }
+
+    window.addEventListener('click', (e) => {
+      const menu = document.getElementById('user-dropdown-menu');
+      const btn = document.getElementById('user-menu-btn');
+      if (menu && !menu.classList.contains('hidden')) {
+        if (!menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
+          menu.classList.add('hidden');
+        }
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const menu = document.getElementById('user-dropdown-menu');
+        if (menu) menu.classList.add('hidden');
+        closeAddItemModal();
+        closeItemDetailsModal();
+      }
+    });
+
+    // =========================================================================
+    // TAG FILTERING & SYNC
+    // =========================================================================
+    function getTagTheme(tagName) {
+      const found = state.tagRegistry.find(t => t.name === tagName);
+      return (found && (found.color || found.theme)) ? (found.color || found.theme) : 'slate';
+    }
+
+    function getTagBadgeClasses(theme) {
+      const map = {
+        emerald: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+        blue: 'text-blue-300 bg-blue-500/10 border-blue-500/20',
+        purple: 'text-purple-300 bg-purple-500/10 border-purple-500/20',
+        amber: 'text-amber-300 bg-amber-500/10 border-amber-500/20',
+        rose: 'text-rose-300 bg-rose-500/10 border-rose-500/20',
+        cyan: 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20',
+        slate: 'text-slate-300 bg-slate-700/40 border-slate-600/40'
+      };
+      return map[theme] || map.slate;
+    }
+
+    function renderTableLabelFilterBar() {
+      const bar = document.getElementById('table-label-filter-bar');
+      if (!bar) return;
+      bar.innerHTML = '<span class="text-slate-500 text-[11px] flex-shrink-0 font-medium">Filter by Tag:</span>';
+
+      // Gather distinct tags from active items
+      const set = new Set();
+      state.items.forEach(i => {
+        (i.tags || []).forEach(t => set.add(t));
+      });
+
+      const labels = ['ALL', ...Array.from(set)];
+      labels.forEach(l => {
+        const isActive = state.activeLabelFilter === l;
+        const btn = document.createElement('button');
+        btn.className = `px-2.5 py-0.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition border ${isActive ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'}`;
+        btn.innerText = l === 'ALL' ? 'Show All' : `🏷️ ${l}`;
+        btn.onclick = () => selectLabelFilter(l);
+        bar.appendChild(btn);
+      });
+    }
+
+    function selectLabelFilter(labelName) {
+      state.activeLabelFilter = labelName;
+      state.currentPage = 1;
+      renderTableLabelFilterBar();
+      applyFiltersAndSort();
+
+      // Bi-directional sync: Update chart tag dropdown
+      const chartSelect = document.getElementById('chart-category-filter');
+      if (chartSelect && chartSelect.value !== labelName) {
+        let hasOpt = false;
+        for (let opt of chartSelect.options) {
+          if (opt.value === labelName) { hasOpt = true; break; }
+        }
+        if (!hasOpt && labelName !== 'ALL') {
+          const opt = document.createElement('option');
+          opt.value = labelName;
+          opt.innerText = `🏷️ ${labelName}`;
+          chartSelect.appendChild(opt);
+        }
+        chartSelect.value = labelName;
+      }
+
+      // Sync chart series
+      filterChartByCategory(labelName, true);
+    }
+
+    function changeGroupBy(mode) {
+      state.groupByMode = mode;
+      applyFiltersAndSort();
+    }
+
+    function toggleGroupCollapse(groupId) {
+      state.collapsedGroups[groupId] = !state.collapsedGroups[groupId];
+      applyFiltersAndSort();
+    }
+
+    // ==========================================
+    // MODAL 1: ADD PRODUCT URL
+    // ==========================================
+    function openAddItemModal() {
+      document.getElementById('modal-add-item').classList.remove('hidden');
+    }
+
+    function closeAddItemModal() {
+      document.getElementById('modal-add-item').classList.add('hidden');
+    }
+
+    function simulateScrapePreview() {
+      showToast('Page parsed automatically! Suggested tags: Smartphones, Apple Store', 'success');
+    }
+
+    function saveNewItem() {
+      const title = document.getElementById('preview-title').value;
+      const price = parseFloat(document.getElementById('preview-price').value);
+      const rawTags = document.getElementById('preview-tags').value || '';
+      const parsedTags = rawTags
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean);
+      const tags = parsedTags.length > 0 ? Array.from(new Set(parsedTags)) : ['New Addition'];
+      tags.forEach(t => {
+        if (!state.tagRegistry.some(r => r.name.toLowerCase() === t.toLowerCase())) {
+          state.tagRegistry.push({ name: t, color: 'purple', icon: '🏷️' });
+        }
+      });
+      const url = document.getElementById('input-url').value;
+      const img = document.getElementById('preview-img').src;
+
+      const newItem = {
+        id: 'item-' + (state.items.length + state.boughtItems.length + 1),
+        name: title,
+        tags: tags,
+        url: url,
+        image: img,
+        currency: '$',
+        initialPrice: price,
+        currentPrice: price,
+        targetPrice: price * 0.9,
+        lowestPrice: price,
+        status: 'ACTIVE',
+        dropPct: 0,
+        lastChecked: 'Just now',
+        history: [{ time: 'Initial', price: price }]
+      };
+
+      state.items.unshift(newItem);
+      state.selectedSeriesIds.push(newItem.id);
+      closeAddItemModal();
+      renderAll();
+      showToast(`Position added to active tracking pool! Total: ${state.items.length}`, 'success');
+    }
+
+    // ==========================================
+    // MODAL 2: ITEM CARD WITH MANAGEABLE TAGS
+    // ==========================================
+    function openItemDetailsModal(itemId, isBought = false) {
+      state.activeModalItemId = itemId;
+      state.activeModalIsBought = isBought;
+
+      const item = isBought 
+        ? state.boughtItems.find(i => i.id === itemId)
+        : state.items.find(i => i.id === itemId);
+
+      if (!item) return;
+
+      document.getElementById('detail-img').src = item.image;
+      document.getElementById('detail-header-title').innerText = item.name;
+      document.getElementById('detail-input-title').value = item.name;
+      document.getElementById('detail-store-link').href = item.url;
+      document.getElementById('detail-val-initial').innerText = `${item.currency}${item.initialPrice.toFixed(2)}`;
+
+      renderDetailLabelsChips(item);
+
+      const statusBadge = document.getElementById('detail-status-badge');
+      const buyBox = document.getElementById('detail-buy-box');
+      const alreadyBoughtBox = document.getElementById('detail-already-bought-box');
+
+      if (isBought) {
+        statusBadge.className = "text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30";
+        statusBadge.innerText = "BOUGHT & ARCHIVED";
+        document.getElementById('detail-val-current').innerText = `${item.currency}${item.purchasedPrice.toFixed(2)}`;
+        document.getElementById('detail-input-target').value = "—";
+        document.getElementById('detail-last-checked-label').innerText = `Purchased: ${item.purchasedDate}`;
+        buyBox.classList.add('hidden');
+        alreadyBoughtBox.classList.remove('hidden');
+        document.getElementById('detail-bought-text').innerText = `Archived in Bought_Items (Saved ${item.currency}${item.savedCost.toFixed(2)})`;
+      } else {
+        if (item.currentPrice < item.initialPrice) {
+          statusBadge.className = "text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white";
+          statusBadge.innerText = `-${item.dropPct}% DISCOUNT`;
+        } else {
+          statusBadge.className = "text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700";
+          statusBadge.innerText = "TRACKING ACTIVE";
+        }
+        document.getElementById('detail-val-current').innerText = `${item.currency}${item.currentPrice.toFixed(2)}`;
+        document.getElementById('detail-input-target').value = item.targetPrice.toFixed(2);
+        document.getElementById('input-buy-price').value = item.currentPrice.toFixed(2);
+        document.getElementById('detail-last-checked-label').innerText = `Last checked: ${item.lastChecked}`;
+        buyBox.classList.remove('hidden');
+        alreadyBoughtBox.classList.add('hidden');
+      }
+
+      renderDetailChart(item);
+      document.getElementById('modal-item-details').classList.remove('hidden');
+    }
+
+    function renderDetailLabelsChips(item) {
+      const container = document.getElementById('detail-labels-chips');
+      container.innerHTML = '';
+
+      (item.tags || []).forEach(tag => {
+        const theme = getTagTheme(tag);
+        const cls = getTagBadgeClasses(theme);
+        const tagBadge = document.createElement('span');
+        tagBadge.className = `px-2 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1.5 ${cls}`;
+        tagBadge.innerHTML = `
+          <span>🏷️ ${tag}</span>
+          <button onclick="removeCustomTagFromItem('${tag.replace(/'/g, "\\'")}')" class="opacity-70 hover:opacity-100 hover:text-white font-bold ml-1" title="Remove tag">&times;</button>
+        `;
+        container.appendChild(tagBadge);
+      });
+    }
+
+    function addCustomTagToItem() {
+      const input = document.getElementById('input-new-custom-tag');
+      const val = input.value.trim();
+      if (!val) return;
+
+      const item = state.activeModalIsBought 
+        ? state.boughtItems.find(i => i.id === state.activeModalItemId)
+        : state.items.find(i => i.id === state.activeModalItemId);
+
+      if (!item) return;
+      if (!item.tags) item.tags = [];
+      if (!item.tags.includes(val)) {
+        item.tags.push(val);
+      }
+      if (!state.tagRegistry.some(t => t.name.toLowerCase() === val.toLowerCase())) {
+        state.tagRegistry.push({ name: val, color: 'purple', icon: '🏷️' });
+      }
+      input.value = '';
+      renderDetailLabelsChips(item);
+      renderAll();
+      showToast(`Tag "${val}" attached to item and synced to Sheets!`, 'success');
+    }
+
+    function removeCustomTagFromItem(tagName) {
+      const item = state.activeModalIsBought 
+        ? state.boughtItems.find(i => i.id === state.activeModalItemId)
+        : state.items.find(i => i.id === state.activeModalItemId);
+
+      if (!item) return;
+      item.tags = (item.tags || []).filter(t => t !== tagName);
+      renderDetailLabelsChips(item);
+      renderAll();
+      showToast(`Tag "${tagName}" removed`, 'info');
+    }
+
+    function closeItemDetailsModal() {
+      document.getElementById('modal-item-details').classList.add('hidden');
+      state.activeModalItemId = null;
+    }
+
+    function saveItemDetails() {
+      if (state.activeModalIsBought) {
+        const item = state.boughtItems.find(i => i.id === state.activeModalItemId);
+        if (item) item.name = document.getElementById('detail-input-title').value;
+      } else {
+        const item = state.items.find(i => i.id === state.activeModalItemId);
+        if (item) {
+          item.name = document.getElementById('detail-input-title').value;
+          item.targetPrice = parseFloat(document.getElementById('detail-input-target').value) || item.targetPrice;
+          item.status = (item.currentPrice <= item.targetPrice) ? 'DISCOUNT' : 'ACTIVE';
+        }
+      }
+      closeItemDetailsModal();
+      renderAll();
+      showToast('Position updated and synced to Sheets!', 'success');
+    }
+
+    function executeBuyItem() {
+      const index = state.items.findIndex(i => i.id === state.activeModalItemId);
+      if (index === -1) return;
+
+      const item = state.items[index];
+      const buyPrice = parseFloat(document.getElementById('input-buy-price').value) || item.currentPrice;
+      const saved = Math.max(0, item.initialPrice - buyPrice);
+
+      const boughtRecord = {
+        id: item.id,
+        name: item.name,
+        tags: Array.from(new Set([...(item.tags || []), 'Purchased'])),
+        url: item.url,
+        image: item.image,
+        currency: item.currency,
+        initialPrice: item.initialPrice,
+        purchasedPrice: buyPrice,
+        savedCost: saved,
+        purchasedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+        history: [...item.history, { time: 'Bought', price: buyPrice }]
+      };
+
+      state.items.splice(index, 1);
+      state.boughtItems.unshift(boughtRecord);
+      state.selectedSeriesIds = state.selectedSeriesIds.filter(id => id !== item.id);
+
+      closeItemDetailsModal();
+      renderAll();
+      showToast(`🎉 Moved to Bought_Items sheet! Realized savings: $${saved.toFixed(2)} locked in.`, 'success');
+      switchGridView('bought');
+    }
+
+    function resumeTrackingItem() {
+      const index = state.boughtItems.findIndex(i => i.id === state.activeModalItemId);
+      if (index === -1) return;
+
+      const bItem = state.boughtItems[index];
+      const activeItem = {
+        id: bItem.id,
+        name: bItem.name,
+        tags: (bItem.tags || []).filter(t => t !== 'Purchased'),
+        url: bItem.url,
+        image: bItem.image,
+        currency: bItem.currency,
+        initialPrice: bItem.initialPrice,
+        currentPrice: bItem.purchasedPrice,
+        targetPrice: Math.round(bItem.purchasedPrice * 0.95),
+        lowestPrice: bItem.purchasedPrice,
+        status: 'ACTIVE',
+        dropPct: 0,
+        lastChecked: 'Just now',
+        history: bItem.history
+      };
+
+      state.boughtItems.splice(index, 1);
+      state.items.unshift(activeItem);
+      state.selectedSeriesIds.push(activeItem.id);
+
+      closeItemDetailsModal();
+      renderAll();
+      showToast('Position moved back to Active Tracking sheet!', 'info');
+      switchGridView('active');
+    }
+
+    function deleteCurrentItem() {
+      if (state.activeModalIsBought) {
+        state.boughtItems = state.boughtItems.filter(i => i.id !== state.activeModalItemId);
+      } else {
+        state.items = state.items.filter(i => i.id !== state.activeModalItemId);
+        state.selectedSeriesIds = state.selectedSeriesIds.filter(id => id !== state.activeModalItemId);
+      }
+      closeItemDetailsModal();
+      renderAll();
+      showToast('Position removed from Google Sheets database', 'info');
+    }
+
+    function generateTableSparkline(history, isDiscount) {
+      const prices = history.map(h => h.price);
+      if (prices.length < 2) return `<span class="text-[11px] text-slate-500 font-mono">$${prices[0]}</span>`;
+      const minVal = Math.min(...prices) * 0.97;
+      const maxVal = Math.max(...prices) * 1.03;
+      const w = 110;
+      const h = 24;
+      const pad = 3;
+
+      const scaleY = p => h - pad - ((p - minVal) / (maxVal - minVal || 1)) * (h - 2 * pad);
+      const scaleX = i => pad + (i / (prices.length - 1)) * (w - 2 * pad);
+
+      let d = '';
+      prices.forEach((p, i) => {
+        const x = scaleX(i);
+        const y = scaleY(p);
+        d += (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+      });
+
+      const color = isDiscount ? '#34d399' : '#60a5fa';
+
+      return `
+        <svg class="w-24 h-5" viewBox="0 0 ${w} ${h}">
+          <path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="${scaleX(prices.length - 1)}" cy="${scaleY(prices[prices.length - 1])}" r="2.5" fill="${color}"/>
+        </svg>
+      `;
+    }
+
+    function changeSort(field) {
+      if (state.sortField === field) {
+        state.sortOrder = (state.sortOrder === 'asc') ? 'desc' : 'asc';
+      } else {
+        state.sortField = field;
+        state.sortOrder = 'desc';
+      }
+      applyFiltersAndSort();
+    }
+
+    // =========================================================================
+    // DATA GRID FILTERS & GROUPING ENGINE
+    // =========================================================================
+    function applyFiltersAndSort() {
+      const search = document.getElementById('grid-search-input').value.toLowerCase();
+      state.filterSearch = search;
+
+      if (state.currentGridView === 'active') {
+        let list = [...state.items];
+
+        // Tag Filter
+        if (state.activeLabelFilter !== 'ALL') {
+          list = list.filter(i => (i.tags || []).includes(state.activeLabelFilter));
+        }
+
+        // Search Filter (matches name or tags)
+        if (search) {
+          list = list.filter(i => 
+            i.name.toLowerCase().includes(search) || 
+            (i.tags && i.tags.some(t => t.toLowerCase().includes(search)))
+          );
+        }
+
+        // Sorting
+        list.sort((a, b) => {
+          let va = a[state.sortField];
+          let vb = b[state.sortField];
+          if (typeof va === 'string') {
+            va = va.toLowerCase();
+            vb = vb.toLowerCase();
+          }
+          if (va < vb) return state.sortOrder === 'asc' ? -1 : 1;
+          if (va > vb) return state.sortOrder === 'asc' ? 1 : -1;
+          return 0;
+        });
+
+        renderActiveGrid(list);
+      } else {
+        let list = [...state.boughtItems];
+        if (state.activeLabelFilter !== 'ALL') {
+          list = list.filter(i => (i.tags || []).includes(state.activeLabelFilter));
+        }
+        if (search) {
+          list = list.filter(i =>
+            i.name.toLowerCase().includes(search) ||
+            (i.tags && i.tags.some(t => t.toLowerCase().includes(search)))
+          );
+        }
+        renderBoughtGrid(list);
+      }
+    }
+
+    // RENDER DATA GRID (SUPPORTS FLAT LIST OR GROUPED BY TAG)
+    function renderActiveGrid(filteredList) {
+      const tbody = document.getElementById('active-grid-tbody');
+      tbody.innerHTML = '';
+
+      const totalItems = filteredList.length;
+
+      // Check if Grouping is enabled
+      if (state.groupByMode !== 'none') {
+        document.getElementById('pagination-wrapper').classList.add('hidden');
+        renderGroupedGrid(filteredList, state.groupByMode);
+        return;
+      }
+
+      // Flat list with pagination
+      document.getElementById('pagination-wrapper').classList.remove('hidden');
+      const totalPages = Math.ceil(totalItems / state.itemsPerPage) || 1;
+      if (state.currentPage > totalPages) state.currentPage = totalPages;
+
+      const startIdx = (state.currentPage - 1) * state.itemsPerPage;
+      const endIdx = Math.min(startIdx + state.itemsPerPage, totalItems);
+      const pageItems = filteredList.slice(startIdx, endIdx);
+
+      document.getElementById('pagination-info').innerText = totalItems > 0 
+        ? `Showing ${startIdx + 1}–${endIdx} of ${totalItems} active positions` 
+        : `0 positions matching filters`;
+
+      renderPaginationButtons(totalPages);
+
+      if (pageItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-12 text-center text-slate-500">No active positions matching criteria.</td></tr>`;
+        return;
+      }
+
+      pageItems.forEach(item => {
+        tbody.appendChild(createRowForItem(item));
+      });
+    }
+
+    // RENDER GROUPED ROWS (GROUP BY TAG)
+    function renderGroupedGrid(list, groupBy) {
+      const tbody = document.getElementById('active-grid-tbody');
+      tbody.innerHTML = '';
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-12 text-center text-slate-500">No items in this view.</td></tr>`;
+        return;
+      }
+
+      // Partition into groups by tag (an item can appear under each of its tags)
+      const groups = {};
+      list.forEach(item => {
+        const itemTags = (item.tags && item.tags.length > 0) ? item.tags : ['Untagged'];
+        itemTags.forEach(tag => {
+          if (!groups[tag]) groups[tag] = [];
+          groups[tag].push(item);
+        });
+      });
+
+      Object.keys(groups).sort().forEach(groupKey => {
+        const itemsInGroup = groups[groupKey];
+        const isCollapsed = !!state.collapsedGroups[groupKey];
+        
+        let avgDrop = 0;
+        let sumDrop = 0;
+        itemsInGroup.forEach(i => sumDrop += i.dropPct);
+        avgDrop = Math.round(sumDrop / itemsInGroup.length);
+
+        // Group Header Row
+        const headerTr = document.createElement('tr');
+        headerTr.className = "bg-slate-900/90 border-y border-slate-700/80 cursor-pointer select-none hover:bg-slate-800 transition";
+        headerTr.onclick = () => toggleGroupCollapse(groupKey);
+
+        headerTr.innerHTML = `
+          <td colspan="8" class="py-2.5 px-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-emerald-400 font-bold transition-transform text-xs ${isCollapsed ? '' : 'rotate-90 inline-block'}">▶</span>
+                <span class="font-bold text-white text-xs tracking-wide">🏷️ ${groupKey}</span>
+                <span class="px-2 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300 font-mono">${itemsInGroup.length} items</span>
+              </div>
+              <div class="flex items-center gap-4 text-xs font-mono">
+                ${avgDrop > 0 ? `<span class="text-emerald-400 font-bold">Avg Drop: -${avgDrop}%</span>` : '<span class="text-slate-500">Normal Baseline</span>'}
+                <span class="text-[11px] text-slate-400">${isCollapsed ? 'Click to Expand' : 'Click to Collapse'}</span>
+              </div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(headerTr);
+
+        // Child rows
+        if (!isCollapsed) {
+          itemsInGroup.forEach(item => {
+            tbody.appendChild(createRowForItem(item));
+          });
+        }
+      });
+    }
+
+    function toggleGridTagFilter(tagName) {
+      const next = (state.activeLabelFilter === tagName) ? 'ALL' : tagName;
+      selectLabelFilter(next);
+    }
+
+    function renderGridTagButtons(tags) {
+      return (tags || []).map(t => {
+        const cls = getTagBadgeClasses(getTagTheme(t));
+        const isActive = state.activeLabelFilter === t;
+        const activeCls = isActive ? 'ring-1 ring-emerald-400 brightness-125' : 'hover:brightness-125';
+        const safeTag = t.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `<button type="button" onclick="toggleGridTagFilter('${safeTag}')" title="${isActive ? 'Clear tag filter' : 'Filter grid by ' + t}" aria-pressed="${isActive}" class="text-[10px] font-semibold px-1.5 py-0.2 rounded border cursor-pointer transition ${cls} ${activeCls}">🏷️ ${t}</button>`;
+      }).join('');
+    }
+
+    function createRowForItem(item) {
+      const isDiscount = item.currentPrice < item.initialPrice;
+      const tr = document.createElement('tr');
+      tr.className = "hover:bg-slate-800/40 transition group";
+
+      const tagsHtml = renderGridTagButtons(item.tags);
+
+      tr.innerHTML = `
+        <td class="py-2.5 px-3">
+          <div class="flex items-center gap-2.5">
+            <img src="${item.image}" class="w-8 h-8 rounded-lg object-cover bg-slate-800 flex-shrink-0" alt="Item">
+            <button onclick="openItemDetailsModal('${item.id}', false)" class="font-bold text-slate-200 hover:text-emerald-400 text-left transition line-clamp-1 max-w-[240px]" title="${item.name}">
+              ${item.name}
+            </button>
+          </div>
+        </td>
+        <td class="py-2.5 px-3">
+          <div class="flex items-center gap-1 flex-wrap max-w-[220px]">
+            ${tagsHtml}
+          </div>
+        </td>
+        <td class="py-2.5 px-3 text-slate-400 font-mono">${item.currency}${item.initialPrice.toFixed(2)}</td>
+        <td class="py-2.5 px-3">
+          <span class="font-mono font-bold ${isDiscount ? 'text-emerald-400' : 'text-slate-100'}">${item.currency}${item.currentPrice.toFixed(2)}</span>
+        </td>
+        <td class="py-2.5 px-3 text-rose-400 font-mono font-semibold">${item.currency}${item.targetPrice.toFixed(2)}</td>
+        <td class="py-2.5 px-3">${generateTableSparkline(item.history, isDiscount)}</td>
+        <td class="py-2.5 px-3">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isDiscount ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'}">
+            ${isDiscount ? `-${item.dropPct}%` : 'NORMAL'}
+          </span>
+        </td>
+        <td class="py-2.5 px-3 text-right">
+          <button onclick="openItemDetailsModal('${item.id}', false)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-medium text-[11px] transition">
+            Item Card &rarr;
+          </button>
+        </td>
+      `;
+      return tr;
+    }
+
+    function renderBoughtGrid(list) {
+      const tbody = document.getElementById('bought-grid-tbody');
+      tbody.innerHTML = '';
+
+      list.forEach(b => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-800/40 transition group";
+        const boughtTagsHtml = renderGridTagButtons(b.tags);
+        tr.innerHTML = `
+          <td class="py-3 px-3">
+            <div class="flex items-center gap-2.5">
+              <img src="${b.image}" class="w-8 h-8 rounded-lg object-cover bg-slate-800 flex-shrink-0" alt="Item">
+              <button onclick="openItemDetailsModal('${b.id}', true)" class="font-bold text-slate-200 hover:text-purple-300 text-left transition line-clamp-1 max-w-[280px]" title="${b.name}">
+                ${b.name}
+              </button>
+            </div>
+          </td>
+          <td class="py-3 px-3">
+            <div class="flex items-center gap-1 flex-wrap max-w-[220px]">${boughtTagsHtml}</div>
+          </td>
+          <td class="py-3 px-3 text-slate-400 font-mono">${b.currency}${b.initialPrice.toFixed(2)}</td>
+          <td class="py-3 px-3 text-white font-mono font-bold">${b.currency}${b.purchasedPrice.toFixed(2)}</td>
+          <td class="py-3 px-3">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              +${b.currency}${b.savedCost.toFixed(2)} SAVED
+            </span>
+          </td>
+          <td class="py-3 px-3 text-slate-400 text-xs">${b.purchasedDate}</td>
+          <td class="py-3 px-3 text-right">
+            <button onclick="openItemDetailsModal('${b.id}', true)" class="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-medium text-[11px] transition">
+              View Card
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderPaginationButtons(totalPages) {
+      const container = document.getElementById('pagination-buttons');
+      container.innerHTML = '';
+      if (totalPages <= 1) return;
+
+      const prevBtn = document.createElement('button');
+      prevBtn.className = `px-2.5 py-1 rounded-lg border border-slate-700 text-xs ${state.currentPage === 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-800 text-slate-200'}`;
+      prevBtn.innerText = '← Prev';
+      prevBtn.onclick = () => { if (state.currentPage > 1) { state.currentPage--; applyFiltersAndSort(); } };
+      container.appendChild(prevBtn);
+
+      for (let p = 1; p <= totalPages; p++) {
+        if (p === 1 || p === totalPages || (p >= state.currentPage - 1 && p <= state.currentPage + 1)) {
+          const btn = document.createElement('button');
+          btn.className = `px-2.5 py-1 rounded-lg text-xs font-mono font-bold ${p === state.currentPage ? 'bg-emerald-500 text-white' : 'border border-slate-700 text-slate-300 hover:bg-slate-800'}`;
+          btn.innerText = p;
+          btn.onclick = () => { state.currentPage = p; applyFiltersAndSort(); };
+          container.appendChild(btn);
+        } else if (p === state.currentPage - 2 || p === state.currentPage + 2) {
+          const dots = document.createElement('span');
+          dots.className = "text-slate-600 px-1 font-mono";
+          dots.innerText = '...';
+          container.appendChild(dots);
+        }
+      }
+
+      const nextBtn = document.createElement('button');
+      nextBtn.className = `px-2.5 py-1 rounded-lg border border-slate-700 text-xs ${state.currentPage === totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-800 text-slate-200'}`;
+      nextBtn.innerText = 'Next →';
+      nextBtn.onclick = () => { if (state.currentPage < totalPages) { state.currentPage++; applyFiltersAndSort(); } };
+      container.appendChild(nextBtn);
+    }
+
+    // =========================================================================
+    // MULTI-SERIES PERCENTAGE DYNAMIC CHART
+    // =========================================================================
+    function renderNormalizedPercentageChart() {
+      const svg = document.getElementById('dashboard-svg-chart');
+      const activeItems = state.items;
+      
+      const visibleItems = activeItems.filter(item => state.selectedSeriesIds.includes(item.id));
+      document.getElementById('chart-visible-count-stat').innerText = `Visible: ${visibleItems.length} of ${activeItems.length} items`;
+
+      renderSeriesCheckboxes();
+
+      const width = 700;
+      const height = 230;
+      const padTop = 25;
+      const padBottom = 25;
+      const padLeft = 45;
+      const padRight = 30;
+
+      const maxPct = 5;
+      const minPct = -30;
+
+      const scaleY = pct => padTop + ((maxPct - pct) / (maxPct - minPct)) * (height - padTop - padBottom);
+
+      const pctLevels = [5, 0, -5, -10, -15, -20, -25, -30];
+      let gridlinesHtml = '';
+      pctLevels.forEach(level => {
+        const y = scaleY(level);
+        const isBaseline = level === 0;
+        gridlinesHtml += `
+          <line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" 
+                stroke="${isBaseline ? '#64748b' : '#1e293b'}" 
+                stroke-width="${isBaseline ? '1.5' : '1'}" 
+                stroke-dasharray="${isBaseline ? '5 4' : 'none'}" />
+          <text x="${padLeft - 6}" y="${y + 3.5}" fill="${isBaseline ? '#34d399' : '#64748b'}" font-size="10" font-family="monospace" text-anchor="end" font-weight="${isBaseline ? 'bold' : 'normal'}">
+            ${level > 0 ? '+' : ''}${level}%
+          </text>
+        `;
+      });
+
+      let seriesPaths = '';
+      let seriesDots = '';
+
+      visibleItems.forEach((item, itemIdx) => {
+        const color = SERIES_COLORS[item.index ? (item.index % SERIES_COLORS.length) : (itemIdx % SERIES_COLORS.length)];
+        const initial = item.initialPrice;
+        const prices = item.history.map(h => h.price);
+
+        const scaleX = idx => padLeft + (idx / Math.max(1, prices.length - 1)) * (width - padLeft - padRight);
+
+        let d = '';
+        prices.forEach((price, i) => {
+          const pct = ((price - initial) / initial) * 100;
+          const clampedPct = Math.max(minPct, Math.min(maxPct, pct));
+          const x = scaleX(i);
+          const y = scaleY(clampedPct);
+
+          d += (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+          seriesDots += `
+            <circle cx="${x}" cy="${y}" r="3.5" fill="${color}" stroke="#090d16" stroke-width="1.5" class="cursor-pointer hover:r-6 transition-all">
+              <title>${item.name}&#10;Tags: ${(item.tags || []).join(', ')}&#10;Snapshot: ${item.history[i].time}&#10;Price: ${item.currency}${price.toFixed(2)} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</title>
+            </circle>
+          `;
+        });
+
+        seriesPaths += `
+          <path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
+        `;
+      });
+
+      svg.innerHTML = `
+        ${gridlinesHtml}
+        ${seriesPaths}
+        ${seriesDots}
+      `;
+    }
+
+    function renderSeriesCheckboxes() {
+      const container = document.getElementById('chart-series-checkboxes');
+      container.innerHTML = '';
+
+      const query = (state.seriesSearchQuery || '').toLowerCase();
+      const filtered = state.items.filter(i => 
+        i.name.toLowerCase().includes(query) || 
+        (i.tags && i.tags.some(t => t.toLowerCase().includes(query)))
+      );
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<p class="text-[11px] text-slate-500 py-4 text-center">No matching series.</p>';
+        return;
+      }
+
+      filtered.forEach((item) => {
+        const color = SERIES_COLORS[item.index ? (item.index % SERIES_COLORS.length) : 0];
+        const isChecked = state.selectedSeriesIds.includes(item.id);
+
+        const row = document.createElement('div');
+        row.className = `flex items-center justify-between p-1.5 px-2 rounded-xl transition cursor-pointer select-none border text-xs ${isChecked ? 'bg-slate-800/60 border-slate-700/80' : 'bg-transparent border-slate-900/60 opacity-60'}`;
+        row.onclick = () => toggleSeriesItem(item.id);
+
+        row.innerHTML = `
+          <div class="flex items-center gap-2 min-w-0">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-3 h-3 rounded accent-emerald-500 cursor-pointer pointer-events-none">
+            <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: ${color}"></span>
+            <span class="text-[11px] font-semibold text-slate-200 truncate max-w-[105px]" title="${item.name}">${item.name}</span>
+          </div>
+          <span class="text-[10px] font-mono font-bold px-1 rounded ${item.dropPct > 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}">
+            ${item.dropPct > 0 ? '-' + item.dropPct + '%' : '0%'}
+          </span>
+        `;
+        container.appendChild(row);
+      });
+
+      const btn = document.getElementById('btn-toggle-all-series');
+      btn.innerText = (state.selectedSeriesIds.length === state.items.length) ? "Unselect All" : "Select All";
+    }
+
+    function filterSeriesList() {
+      state.seriesSearchQuery = document.getElementById('series-search-input').value;
+      renderSeriesCheckboxes();
+    }
+
+    function toggleSeriesItem(itemId) {
+      if (state.selectedSeriesIds.includes(itemId)) {
+        state.selectedSeriesIds = state.selectedSeriesIds.filter(id => id !== itemId);
+      } else {
+        state.selectedSeriesIds.push(itemId);
+      }
+      renderNormalizedPercentageChart();
+    }
+
+    function toggleSelectAllSeries() {
+      if (state.selectedSeriesIds.length === state.items.length) {
+        state.selectedSeriesIds = [];
+      } else {
+        state.selectedSeriesIds = state.items.map(i => i.id);
+      }
+      renderNormalizedPercentageChart();
+    }
+
+    function setChartPreset(preset) {
+      if (preset === 'top5') {
+        state.selectedSeriesIds = [...state.items].sort((a,b) => b.dropPct - a.dropPct).slice(0, 5).map(i => i.id);
+      } else if (preset === 'all') {
+        state.selectedSeriesIds = state.items.map(i => i.id);
+      }
+      renderNormalizedPercentageChart();
+      showToast(`Chart updated: ${state.selectedSeriesIds.length} series plotted.`, 'info');
+    }
+
+    function filterChartByCategory(catVal, skipGridSync = false) {
+      if (catVal === 'ALL') {
+        state.selectedSeriesIds = [...state.items].sort((a,b) => b.dropPct - a.dropPct).slice(0, 8).map(i => i.id);
+      } else {
+        state.selectedSeriesIds = state.items.filter(i => 
+          i.tags && i.tags.includes(catVal)
+        ).map(i => i.id);
+      }
+      renderNormalizedPercentageChart();
+
+      // Bi-directional sync with table data grid
+      if (!skipGridSync) {
+        state.activeLabelFilter = catVal;
+        state.currentPage = 1;
+        renderTableLabelFilterBar();
+        applyFiltersAndSort();
+        showToast(`Chart & Data Grid synchronized to "${catVal}" (${state.selectedSeriesIds.length} items)`, 'info');
+      }
+    }
+
+    // =========================================================================
+    // TAG MANAGER CONTROLLER (1-LEVEL DATA GRID)
+    // =========================================================================
+    function toggleNewTagForm() {
+      const form = document.getElementById('tagmgr-create-form');
+      if (form) form.classList.toggle('hidden');
+    }
+
+    function createNewTagFromManager() {
+      const nameInput = document.getElementById('tagmgr-input-name');
+      const colorSelect = document.getElementById('tagmgr-select-color');
+      
+      const name = nameInput.value.trim();
+      if (!name) {
+        showToast('Please enter a tag name', 'error');
+        return;
+      }
+
+      const color = colorSelect.value;
+
+      // Check if already exists in registry
+      const exists = state.tagRegistry.some(t => t.name.toLowerCase() === name.toLowerCase());
+      if (exists) {
+        showToast(`Tag "${name}" already exists!`, 'error');
+        return;
+      }
+
+      state.tagRegistry.unshift({
+        name: name,
+        color: color,
+        icon: '🏷️'
+      });
+
+      nameInput.value = '';
+      toggleNewTagForm();
+      renderTagManagerPage();
+      renderTableLabelFilterBar();
+      updateChartCategoryFilterOptions();
+      showToast(`Created tag "${name}" successfully!`, 'success');
+    }
+
+    function updateChartCategoryFilterOptions() {
+      const select = document.getElementById('chart-category-filter');
+      if (!select) return;
+      const cur = select.value;
+      select.innerHTML = `<option value="ALL">All Tags (${state.items.length})</option>`;
+      
+      state.tagRegistry.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.name;
+        opt.innerText = t.name;
+        select.appendChild(opt);
+      });
+
+      select.value = cur;
+    }
+
+    function renderTagManagerPage() {
+      const elTotal = document.getElementById('tagmgr-total-count');
+      if (elTotal) elTotal.innerText = state.tagRegistry.length;
+      renderTagTable();
+    }
+
+    function getMatchingItemsForTag(tagName) {
+      const active = state.items.filter(i => i.tags && i.tags.includes(tagName));
+      const bought = state.boughtItems.filter(b => b.tags && b.tags.includes(tagName));
+      return { active, bought };
+    }
+
+    function renderTagTable() {
+      const tbody = document.getElementById('tagmgr-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      const query = (document.getElementById('tagmgr-search-input')?.value || '').toLowerCase();
+      let list = [...state.tagRegistry];
+
+      if (query) {
+        list = list.filter(t => t.name.toLowerCase().includes(query));
+      }
+
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" class="py-10 text-center text-slate-500 text-xs">No tags found matching your search.</td></tr>';
+        return;
+      }
+
+      const colorMap = {
+        emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400' },
+        blue: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400' },
+        purple: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400' },
+        amber: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-400' },
+        rose: { bg: 'bg-rose-500/10', border: 'border-rose-500/30', text: 'text-rose-400' },
+        cyan: { bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', text: 'text-cyan-400' }
+      };
+
+      const colorOptions = [
+        { value: 'purple', label: 'Purple' },
+        { value: 'amber', label: 'Amber' },
+        { value: 'emerald', label: 'Emerald' },
+        { value: 'blue', label: 'Blue' },
+        { value: 'rose', label: 'Rose' },
+        { value: 'cyan', label: 'Cyan' }
+      ];
+
+      list.forEach(tag => {
+        const { active, bought } = getMatchingItemsForTag(tag.name);
+        const sumDrop = active.reduce((acc, cur) => acc + cur.dropPct, 0);
+        const avgDrop = active.length > 0 ? Math.round(sumDrop / active.length) : 0;
+        const boughtSavings = bought.reduce((acc, cur) => acc + cur.savedCost, 0);
+        const theme = colorMap[tag.color] || colorMap.purple;
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-800/40 transition";
+
+        const colorSelectOptions = colorOptions.map(c =>
+          `<option value="${c.value}" ${tag.color === c.value ? 'selected' : ''}>${c.label}</option>`
+        ).join('');
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 align-middle">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border ${theme.bg} ${theme.border} ${theme.text}">
+              <span>🏷️</span>
+              <span>${tag.name}</span>
+            </span>
+          </td>
+          <td class="py-3.5 px-4 align-middle">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <!-- Additional Info -->
+              <div class="flex flex-wrap items-center gap-3 text-xs font-mono">
+                <span class="text-slate-200 font-semibold">${active.length} items</span>
+                <span class="text-slate-600">&bull;</span>
+                <span class="${avgDrop > 0 ? 'text-emerald-400 font-bold' : 'text-slate-400'}">
+                  ${avgDrop > 0 ? '-' + avgDrop + '% avg drop' : '0% avg'}
+                </span>
+                <span class="text-slate-600">&bull;</span>
+                <span class="text-emerald-400">$${boughtSavings.toFixed(2)} saved</span>
+              </div>
+
+              <!-- Edit Options -->
+              <div class="flex items-center gap-2">
+                <select onchange="changeTagColor('${tag.name}', this.value)" aria-label="Color theme for ${tag.name}" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer">
+                  ${colorSelectOptions}
+                </select>
+                <button onclick="jumpToTagInGrid('${tag.name}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold transition whitespace-nowrap">
+                  View in Grid &rarr;
+                </button>
+                <button onclick="promptRenameTag('${tag.name}')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium transition whitespace-nowrap" title="Rename Tag">
+                  Rename
+                </button>
+                <button onclick="deleteTagFromManager('${tag.name}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-medium transition whitespace-nowrap" title="Delete Tag">
+                  Delete
+                </button>
+              </div>
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function changeTagColor(tagName, newColor) {
+      const tagObj = state.tagRegistry.find(t => t.name === tagName);
+      if (tagObj) {
+        tagObj.color = newColor;
+        renderTagTable();
+        showToast(`Updated color for "${tagName}"`, 'success');
+      }
+    }
+
+    function jumpToTagInGrid(tagName) {
+      switchTab('dashboard');
+      selectLabelFilter(tagName);
+      showToast(`Filtered Grid & Trajectory Chart to "${tagName}"`, 'info');
+    }
+
+    function promptRenameTag(oldName) {
+      const newName = prompt(`Rename tag "${oldName}" to:`, oldName);
+      if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+
+      const trimmed = newName.trim();
+
+      // Update in registry
+      const tagObj = state.tagRegistry.find(t => t.name === oldName);
+      if (tagObj) tagObj.name = trimmed;
+
+      // Update in active items
+      state.items.forEach(i => {
+        if (i.tags) {
+          i.tags = Array.from(new Set(i.tags.map(t => t === oldName ? trimmed : t)));
+        }
+      });
+
+      // Update in bought items
+      state.boughtItems.forEach(b => {
+        if (b.tags) {
+          b.tags = Array.from(new Set(b.tags.map(t => t === oldName ? trimmed : t)));
+        }
+      });
+
+      renderAll();
+      renderTagManagerPage();
+      updateChartCategoryFilterOptions();
+      showToast(`Tag renamed to "${trimmed}" across all items!`, 'success');
+    }
+
+    function deleteTagFromManager(tagName) {
+      if (!confirm(`Are you sure you want to remove tag "${tagName}" from all monitored items?`)) return;
+
+      // Remove from registry
+      state.tagRegistry = state.tagRegistry.filter(t => t.name !== tagName);
+
+      // Untag in active items
+      state.items.forEach(i => {
+        if (i.tags) {
+          i.tags = i.tags.filter(t => t !== tagName);
+        }
+      });
+
+      // Untag in bought items
+      state.boughtItems.forEach(b => {
+        if (b.tags) {
+          b.tags = b.tags.filter(t => t !== tagName);
+        }
+      });
+
+      if (state.activeLabelFilter === tagName) {
+        state.activeLabelFilter = 'ALL';
+      }
+
+      renderAll();
+      renderTagManagerPage();
+      updateChartCategoryFilterOptions();
+      showToast(`Removed tag "${tagName}" from all items`, 'info');
+    }
+
+    function renderDetailChart(item) {
+      const svg = document.getElementById('detail-svg-chart');
+      const prices = item.history.map(h => h.price);
+      const target = item.targetPrice || item.purchasedPrice;
+
+      const allVals = [...prices, target];
+      const minVal = Math.min(...allVals) * 0.95;
+      const maxVal = Math.max(...allVals) * 1.05;
+
+      const width = 600;
+      const height = 170;
+      const padY = 25;
+      const padX = 35;
+
+      const scaleY = val => height - padY - ((val - minVal) / (maxVal - minVal || 1)) * (height - 2 * padY);
+      const scaleX = idx => padX + (idx / Math.max(1, prices.length - 1)) * (width - 2 * padX);
+
+      let pathData = '';
+      let pointsData = '';
+      prices.forEach((price, i) => {
+        const x = scaleX(i);
+        const y = scaleY(price);
+        pathData += (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+        pointsData += `<circle cx="${x}" cy="${y}" r="4" fill="#34d399" stroke="#064e3b" stroke-width="2"></circle>`;
+      });
+
+      const targetY = scaleY(target);
+      const targetLine = `
+        <line x1="${padX}" y1="${targetY}" x2="${width - padX}" y2="${targetY}" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="4 4" />
+        <text x="${width - padX - 90}" y="${targetY - 5}" fill="#f43f5e" font-size="10" font-family="monospace">Target: $${target.toFixed(2)}</text>
+      `;
+
+      svg.innerHTML = `
+        <line x1="${padX}" y1="${padY}" x2="${width - padX}" y2="${padY}" stroke="#1e293b" stroke-width="1" />
+        <line x1="${padX}" y1="${height / 2}" x2="${width - padX}" y2="${height / 2}" stroke="#1e293b" stroke-width="1" />
+        <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#1e293b" stroke-width="1" />
+        ${targetLine}
+        <path d="${pathData}" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+        ${pointsData}
+      `;
+
+      const priceVal = item.currentPrice || item.purchasedPrice;
+      document.getElementById('detail-chart-stat').innerText = `Value: $${priceVal.toFixed(2)}`;
+    }
+
+    function renderTelemetry() {
+      const tbody = document.getElementById('telemetry-table-body');
+      tbody.innerHTML = '';
+      state.telemetry.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-800/40 transition";
+        tr.innerHTML = `
+          <td class="py-3 px-3 text-slate-300 font-medium">${t.time}</td>
+          <td class="py-3 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${t.status === 'SUCCESS' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}">
+              ${t.status}
+            </span>
+          </td>
+          <td class="py-3 px-3 text-slate-200">${t.count} items</td>
+          <td class="py-3 px-3 text-slate-400">${t.breakdown}</td>
+          <td class="py-3 px-3 text-slate-300">${t.duration}</td>
+          <td class="py-3 px-3">
+            <button onclick="showToast('Raw JSON Log for ${t.runId} downloaded', 'info')" class="text-emerald-400 hover:underline text-[11px]">Inspect JSON</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateMetrics() {
+      document.getElementById('stat-active-count').innerText = state.items.length;
+      const subEl = document.getElementById('stat-active-sub');
+      if (subEl) subEl.innerText = `● ${state.tagRegistry.length} Tags • ${state.items.length} Tracked`;
+      document.getElementById('count-tab-active').innerText = state.items.length;
+      document.getElementById('count-tab-bought').innerText = state.boughtItems.length;
+
+      let totalRealized = 0;
+      state.boughtItems.forEach(b => {
+        totalRealized += b.savedCost;
+      });
+
+      document.getElementById('stat-realized-savings').innerText = '$' + totalRealized.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    }
+
+    function triggerImmediateRun() {
+      const btn = document.getElementById('btn-trigger-run');
+      const icon = document.getElementById('icon-refresh');
+      icon.classList.add('animate-spin');
+      btn.disabled = true;
+
+      showToast('Triggering Cloud Run high-volume pooled batch (99 URLs)...', 'info');
+
+      setTimeout(() => {
+        icon.classList.remove('animate-spin');
+        btn.disabled = false;
+        
+        state.telemetry.unshift({
+          runId: 'run-' + Math.floor(1000 + Math.random() * 9000),
+          time: 'Just now',
+          status: 'SUCCESS',
+          count: state.items.length,
+          breakdown: `${state.items.length}/${state.items.length} URLs Categorized & Saved`,
+          duration: '18,210 ms'
+        });
+
+        renderAll();
+        showToast(`Batch completed! 99 positions refreshed in Sheets.`, 'success');
+      }, 1500);
+    }
+
+    function saveSettingsNotification() {
+      showToast('Google Workspace bindings saved successfully!', 'success');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'bg-emerald-950 border-emerald-500 text-emerald-200',
+        error: 'bg-rose-950 border-rose-500 text-rose-200',
+        info: 'bg-slate-900 border-slate-700 text-slate-200'
+      };
+
+      toast.className = `p-3 px-4 rounded-xl border text-xs font-medium shadow-xl flex items-center gap-2 pointer-events-auto transition-all duration-200 ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <span class="w-2 h-2 rounded-full ${type === 'success' ? 'bg-emerald-400' : type === 'error' ? 'bg-rose-400' : 'bg-blue-400'}"></span>
+        <span>${message}</span>
+      `;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 250);
+      }, 3200);
+    }
+
+    function renderAll() {
+      updateMetrics();
+      renderTableLabelFilterBar();
+      applyFiltersAndSort();
+      renderNormalizedPercentageChart();
+      renderTelemetry();
+      updateChartCategoryFilterOptions();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderAll();
+    });
+  </script>
+</body>
+</html>
