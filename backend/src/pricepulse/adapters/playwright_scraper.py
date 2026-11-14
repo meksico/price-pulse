@@ -35,6 +35,17 @@ _SUFFIX_PRICE_REGEX = re.compile(
     r"([0-9][0-9,\s\u00a0]*\.?[0-9]{0,2})\s*(грн|UAH|USD|EUR|GBP|[$€₴£])",
     re.IGNORECASE,
 )
+_NON_VISIBLE_HTML_RE = re.compile(
+    r"<(script|style|noscript|svg)\b[^>]*>.*?</\1>",
+    re.IGNORECASE | re.DOTALL,
+)
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _extract_visible_text(html: str) -> str:
+    """Strip scripts, styles, SVGs, and HTML tags before Tier 3 RegEx fallback."""
+    without_blocks = _NON_VISIBLE_HTML_RE.sub(" ", html)
+    return html_lib.unescape(_HTML_TAG_RE.sub(" ", without_blocks))
 
 
 class _MetaAndJsonLdParser(HTMLParser):
@@ -197,8 +208,9 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
             extraction_tier="TIER_2_OPENGRAPH",
         )
 
-    # Tier 3: DOM / Currency RegEx Fallback
-    match = _PRICE_REGEX.search(html)
+    # Tier 3: DOM / Currency RegEx Fallback (visible text only, never <script>/<style>)
+    visible_text = _extract_visible_text(html)
+    match = _PRICE_REGEX.search(visible_text)
     if match is not None:
         symbol = _normalize_currency(match.group(1))
         val = _parse_float(match.group(2))
@@ -212,7 +224,7 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
                 extraction_tier="TIER_3_DOM_REGEX",
             )
 
-    suffix_match = _SUFFIX_PRICE_REGEX.search(html)
+    suffix_match = _SUFFIX_PRICE_REGEX.search(visible_text)
     if suffix_match is not None:
         val = _parse_float(suffix_match.group(1))
         symbol = _normalize_currency(suffix_match.group(2))
@@ -255,7 +267,9 @@ class PlaywrightScraperAdapter:
         )
         try:
             page = await context.new_page()
-            await page.goto(url, wait_until="domcontentloaded", timeout=self._timeout_ms)
+            resp = await page.goto(url, wait_until="domcontentloaded", timeout=self._timeout_ms)
+            if resp is not None and resp.status >= 400:
+                raise ValueError(f"HTTP {resp.status} for URL: {url}")
             return await page.content()
         finally:
             await context.close()

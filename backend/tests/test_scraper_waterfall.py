@@ -142,3 +142,21 @@ def test_tier1_image_object_extraction() -> None:
     assert preview.price == 930.0
     assert preview.currency == "₴"
 
+
+def test_tier3_ignores_script_and_style_dollar_tokens() -> None:
+    """Verify Tier 3 strips <script>/<style> so JS tokens like $4 never match."""
+    html = """
+    <html><head>
+      <title>Blocked or JS page</title>
+      <script>window.__cf = "$4"; var x = $1;</script>
+      <style>.a { content: "$2"; }</style>
+    </head><body><p>36 990 грн</p></body></html>
+    """
+    preview = extract_preview_from_html("https://example.com/js", html)
+    assert preview.price == 36990.0
+    assert preview.currency == "₴"
+
+    only_script = "<html><body><script>var $4 = 1;</script><p>Access denied</p></body></html>"
+    with pytest.raises(ValueError, match="Unable to extract price"):
+        extract_preview_from_html("https://example.com/denied", only_script)
+
