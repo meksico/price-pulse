@@ -468,6 +468,9 @@ def create_app(
             f"Batch run {telemetry.run_id}: {telemetry.breakdown} "
             f"({duration_ms}ms, alerts={len(alert_items)}, digest_sent={digest_sent})"
         )
+        if errors:
+            logger.warn(f"Batch run {telemetry.run_id} errors: {errors}")
+            print(f"[WARN] Batch run {telemetry.run_id} errors: {errors}", flush=True)
         return {
             "telemetry": {**asdict(telemetry), "status": telemetry.status.value},
             "alerts_triggered": len(alert_items),

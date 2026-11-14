@@ -233,7 +233,10 @@ class PlaywrightScraperAdapter:
             user_agent=(
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            )
+            ),
+            extra_http_headers={
+                "Accept-Language": "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7",
+            },
         )
         try:
             page = await context.new_page()
@@ -245,7 +248,13 @@ class PlaywrightScraperAdapter:
     async def preview_url(self, url: str) -> ScrapePreview:
         """Fetch and extract preview metadata for a single URL."""
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(
+                headless=True,
+                args=[
+                    "--disable-dev-shm-usage",
+                    "--disable-blink-features=AutomationControlled",
+                ],
+            )
             try:
                 html = await self._fetch_html(browser, url)
                 return extract_preview_from_html(url, html)
@@ -257,7 +266,13 @@ class PlaywrightScraperAdapter:
         if not items:
             return []
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(
+                headless=True,
+                args=[
+                    "--disable-dev-shm-usage",
+                    "--disable-blink-features=AutomationControlled",
+                ],
+            )
             try:
                 return await check_items_pooled(
                     items=items,
