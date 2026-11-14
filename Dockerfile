@@ -17,8 +17,10 @@ WORKDIR /app/backend
 COPY backend/pyproject.toml ./
 COPY backend/src/ ./src/
 
-RUN pip install --no-cache-dir . \
-    && playwright install --with-deps chromium
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && pip install --no-cache-dir . \
+    && playwright install --with-deps chromium \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
