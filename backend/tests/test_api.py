@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from pricepulse.adapters.local_json import (
@@ -83,4 +84,25 @@ def test_spa_fallback_serves_index_and_preserves_api_404(tmp_path: Path) -> None
 
     api_404 = client.get("/api/nonexistent")
     assert api_404.status_code == 404
+
+
+def test_cron_run_check_enforces_secret(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify /api/cron/run-check requires X-Cron-Secret when CRON_SECRET is set."""
+    monkeypatch.setenv("CRON_SECRET", "top-secret-cron-token")
+    client = _make_client(tmp_path)
+    forbidden = client.post("/api/cron/run-check")
+    assert forbidden.status_code == 403
+
+    wrong = client.post("/api/cron/run-check", headers={"X-Cron-Secret": "wrong"})
+    assert wrong.status_code == 403
+
+    allowed = client.post(
+        "/api/cron/run-check",
+        headers={"X-Cron-Secret": "top-secret-cron-token"},
+    )
+    assert allowed.status_code == 200
+    assert allowed.json()["telemetry"]["status"] == "SUCCESS"
 

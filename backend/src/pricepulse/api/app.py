@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import os
 import time
 import traceback
@@ -479,8 +480,13 @@ def create_app(
         return await _execute_batch_check()
 
     @app.post("/api/cron/run-check")
-    async def cron_run_check() -> dict[str, Any]:
+    async def cron_run_check(
+        x_cron_secret: str | None = Header(default=None),
+    ) -> dict[str, Any]:
         """Trigger scheduled batch price check from Cloud Scheduler."""
+        expected = os.getenv("CRON_SECRET", "").strip()
+        if expected and not hmac.compare_digest(x_cron_secret or "", expected):
+            raise HTTPException(status_code=403, detail="Invalid cron secret")
         return await _execute_batch_check()
 
     @app.exception_handler(Exception)
