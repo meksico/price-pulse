@@ -8,6 +8,7 @@ import json
 import os
 import traceback
 from dataclasses import asdict
+from pathlib import Path
 
 from pricepulse.adapters.google_sheets import (
     GoogleSheetsRepository,
@@ -81,8 +82,25 @@ async def _preview_live_url(url: str, logger: StructuredLogger) -> dict[str, obj
     return asdict(preview)
 
 
+def _load_dotenv_if_present() -> None:
+    """Populate unset environment variables from backend/.env if it exists."""
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if not env_path.is_file():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 def main(argv: list[str] | None = None) -> int:
     """Execute live setup checks and return process exit code."""
+    _load_dotenv_if_present()
     parser = build_parser()
     args = parser.parse_args(argv)
     logger = StructuredLogger()
