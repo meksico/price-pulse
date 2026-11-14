@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"],
+  select:disabled {
+    cursor: not-allowed;
+  }
+}
+
+:root {
+  color-scheme: dark;
+  --space-xs: clamp(0.375rem, 0.3rem + 0.35vw, 0.5rem);
+  --space-sm: clamp(0.625rem, 0.5rem + 0.6vw, 1rem);
+  --space-md: clamp(0.75rem, 0.6rem + 0.9vw, 1.25rem);
+  --text-kpi: clamp(1.125rem, 0.95rem + 0.9vw, 1.5rem);
+}
+
+.pp-page-shell {
+  min-height: 100dvh;
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pp-kpi-value {
+  font-size: var(--text-kpi);
+  line-height: 1.2;
+}
