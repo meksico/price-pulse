@@ -85,10 +85,6 @@ def build_sheets_service(
         token_uri="https://oauth2.googleapis.com/token",
         client_id=client_id,
         client_secret=client_secret,
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/gmail.send",
-        ],
     )
     return build("sheets", "v4", credentials=creds, cache_discovery=False)
 
