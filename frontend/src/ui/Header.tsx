@@ -13,6 +13,7 @@ interface HeaderProps {
   onRunCheck: () => void;
   onOpenAddModal: () => void;
   spreadsheetId: string;
+  onSignOut?: () => void;
 }
 
 export function Header({
@@ -24,6 +25,7 @@ export function Header({
   onRunCheck,
   onOpenAddModal,
   spreadsheetId,
+  onSignOut,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -170,6 +172,19 @@ export function Header({
                   >
                     Open Google Sheet
                   </a>
+                )}
+                {onSignOut && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onSignOut();
+                    }}
+                    className="mt-1 block min-h-11 w-full border-t border-slate-800 px-3 py-2 text-left text-rose-300 hover:bg-slate-800 sm:min-h-9"
+                  >
+                    Sign out
+                  </button>
                 )}
               </div>
             )}

@@ -24,6 +24,12 @@ export const ROUTES = {
   itemDetailsPrefix: "/items/",
 } as const;
 
+export function getBasePath(): string {
+  const raw = import.meta.env.BASE_URL || "/";
+  if (raw === "/" || raw === "./") return "";
+  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+}
+
 export function parseRoute(pathname: string, search: string): AppRoute {
   const params = new URLSearchParams(search);
   const gridTab: GridTab = params.get("tab") === "bought" ? "bought" : "active";
@@ -31,10 +37,14 @@ export function parseRoute(pathname: string, search: string): AppRoute {
   const tagFilter = tagParam.length > 0 ? tagParam : "ALL";
   const modalParam = params.get("modal");
 
+  const base = getBasePath();
+  const withoutBase =
+    base && pathname.startsWith(base) ? pathname.slice(base.length) || "/" : pathname;
+
   const cleanPath =
-    pathname.length > 1 && pathname.endsWith("/")
-      ? pathname.slice(0, -1)
-      : pathname;
+    withoutBase.length > 1 && withoutBase.endsWith("/")
+      ? withoutBase.slice(0, -1)
+      : withoutBase;
 
   if (cleanPath === ROUTES.tags) {
     return {
@@ -123,6 +133,8 @@ export function buildRouteUrl(route: AppRoute): string {
   }
 
   const qs = params.toString();
-  return qs ? `${path}?${qs}` : path;
+  const base = getBasePath();
+  const fullPath = `${base}${path}`;
+  return qs ? `${fullPath}?${qs}` : fullPath;
 }
 

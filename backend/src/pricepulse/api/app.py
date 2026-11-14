@@ -150,10 +150,18 @@ def _verify_auth(authorization: str | None = Header(default=None)) -> str:
     if resp.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid Google OAuth token")
     info = resp.json()
+    expected_client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    token_aud = str(info.get("aud", "")).strip()
+    token_azp = str(info.get("azp", "")).strip()
+    if expected_client_id and expected_client_id not in (token_aud, token_azp):
+        raise HTTPException(status_code=403, detail="OAuth token client mismatch")
+
     email = str(info.get("email", "")).lower()
-    allowed_email = os.getenv("ALLOWED_OWNER_EMAIL", "").strip().lower()
-    if allowed_email and email != allowed_email:
-        raise HTTPException(status_code=403, detail="Unauthorized Google account")
+    allowed_raw = os.getenv("ALLOWED_OWNER_EMAIL", "").strip().lower()
+    if allowed_raw:
+        allowed_emails = {e.strip() for e in allowed_raw.split(",") if e.strip()}
+        if email not in allowed_emails:
+            raise HTTPException(status_code=403, detail="Unauthorized Google account")
     return email or "authenticated-user"
 
 

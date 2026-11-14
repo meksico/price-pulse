@@ -106,3 +106,49 @@ def test_cron_run_check_enforces_secret(
     assert allowed.status_code == 200
     assert allowed.json()["telemetry"]["status"] == "SUCCESS"
 
+
+def test_google_oauth_verifies_client_id_and_allows_test_users(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify google_oauth mode checks client_id and allows Console test users."""
+    import httpx
+
+    monkeypatch.setenv("AUTH_MODE", "google_oauth")
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "pricepulse-client.apps.googleusercontent.com")
+    monkeypatch.delenv("ALLOWED_OWNER_EMAIL", raising=False)
+    client = _make_client(tmp_path)
+
+    assert client.get("/api/state").status_code == 401
+
+    class _FakeResp:
+        def __init__(self, status_code: int, payload: dict[str, str]) -> None:
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self) -> dict[str, str]:
+            return self._payload
+
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *_a, **_kw: _FakeResp(
+            200,
+            {"email": "tester@gmail.com", "aud": "wrong-client.apps.googleusercontent.com"},
+        ),
+    )
+    assert client.get("/api/state", headers={"Authorization": "Bearer tok"}).status_code == 403
+
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *_a, **_kw: _FakeResp(
+            200,
+            {
+                "email": "tester@gmail.com",
+                "aud": "pricepulse-client.apps.googleusercontent.com",
+            },
+        ),
+    )
+    assert client.get("/api/state", headers={"Authorization": "Bearer tok"}).status_code == 200
+

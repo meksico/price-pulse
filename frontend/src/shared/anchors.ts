@@ -3,6 +3,7 @@
  * Single source of truth for structural landmark, panel, form, and modal IDs.
  */
 export const ANCHORS = {
+  authGate: "auth-gate",
   viewDashboard: "view-dashboard",
   viewTags: "view-tags",
   viewHealth: "view-health",

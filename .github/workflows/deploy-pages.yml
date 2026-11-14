@@ -28,11 +28,16 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install, lint, typecheck & build
         working-directory: frontend
+        env:
+          VITE_BASE_PATH: /price-pulse/
+          VITE_API_BASE_URL: https://pricepulse-183814541159.europe-central2.run.app
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: |
           npm ci
           npm run lint
           npm run typecheck
           npm run build
+          cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist

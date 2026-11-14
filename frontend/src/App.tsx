@@ -11,6 +11,12 @@ import type {
 import { formatSavingsByCurrency } from "./domain/models";
 import { ANCHORS } from "./shared/anchors";
 import {
+  clearStoredAuthToken,
+  getStoredAuthToken,
+  isGoogleAuthEnabled,
+  requestGoogleAccessToken,
+} from "./shared/auth";
+import {
   buildRouteUrl,
   parseRoute,
   type AppRoute,
@@ -25,7 +31,15 @@ import { TagManagerView } from "./ui/TagManagerView";
 import { TrajectoryChart } from "./ui/TrajectoryChart";
 
 export function App() {
-  const store = useMemo(() => new LocalApiDataAdapter(), []);
+  const authEnabled = isGoogleAuthEnabled();
+  const [authToken, setAuthToken] = useState<string | null>(() =>
+    getStoredAuthToken(),
+  );
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const store = useMemo(
+    () => new LocalApiDataAdapter(undefined, () => getStoredAuthToken()),
+    [],
+  );
   const [state, setState] = useState<WorkspaceState | null>(null);
   const [diagnostics, setDiagnostics] = useState<RuntimeDiagnostics | null>(null);
   const [route, setRoute] = useState<AppRoute>(() =>
@@ -69,6 +83,9 @@ export function App() {
   const selectedItemId = route.itemId;
 
   const refreshAll = useCallback(async () => {
+    if (authEnabled && !getStoredAuthToken()) {
+      return;
+    }
     setErrorBanner(null);
     try {
       const [nextState, nextHealth] = await Promise.all([
@@ -78,9 +95,36 @@ export function App() {
       setState(nextState);
       setDiagnostics(nextHealth);
     } catch (err) {
-      setErrorBanner(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      if (authEnabled && msg.startsWith("API 401")) {
+        clearStoredAuthToken();
+        setAuthToken(null);
+        setState(null);
+      }
+      setErrorBanner(msg);
     }
-  }, [store]);
+  }, [authEnabled, store]);
+
+  const handleSignIn = async () => {
+    setIsSigningIn(true);
+    setErrorBanner(null);
+    try {
+      const token = await requestGoogleAccessToken();
+      setAuthToken(token);
+      await refreshAll();
+    } catch (err) {
+      setErrorBanner(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleSignOut = () => {
+    clearStoredAuthToken();
+    setAuthToken(null);
+    setState(null);
+    setErrorBanner(null);
+  };
 
   useEffect(() => {
     void refreshAll();
@@ -193,6 +237,7 @@ export function App() {
         onRunCheck={() => void handleRunCheck()}
         onOpenAddModal={() => navigate({ addModalOpen: true, itemId: null })}
         spreadsheetId={spreadsheetId}
+        onSignOut={authEnabled && authToken ? handleSignOut : undefined}
       />
 
       <main className="mx-auto w-full max-w-7xl min-w-0 space-y-3 px-3 py-3 sm:space-y-5 sm:px-4 sm:py-5">
@@ -206,7 +251,30 @@ export function App() {
           </div>
         )}
 
-        {!state ? (
+        {authEnabled && !authToken ? (
+          <section
+            id={ANCHORS.authGate}
+            aria-label="Google Sign-In"
+            className="mx-auto mt-8 max-w-md rounded-2xl border border-slate-800 bg-slate-900/80 p-6 text-center shadow-xl"
+          >
+            <h1 className="text-lg font-semibold text-slate-100">
+              Sign in to PricePulse
+            </h1>
+            <p className="mt-2 text-xs text-slate-400">
+              Sign in with an authorized Google account to access your tracked
+              products and live price history.
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleSignIn()}
+              disabled={isSigningIn}
+              aria-busy={isSigningIn}
+              className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+            >
+              {isSigningIn ? "Signing in..." : "Sign in with Google"}
+            </button>
+          </section>
+        ) : !state ? (
           <div role="status" className="text-sm text-slate-400">
             Loading PricePulse workspace...
           </div>
