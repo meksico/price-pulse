@@ -12,6 +12,7 @@
 *.json.key
 credentials.json
 token.json
+**/local_state.json
 
 # Python
 __pycache__/
@@ -32,3 +33,4 @@ frontend/dist/
 frontend/.vite/
 playwright-report/
 test-results/
+

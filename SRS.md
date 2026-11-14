@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.2.0`
+- **Document Version / App Target Baseline:** `0.2.1`
 - **Status:** Draft for Architectural Review (Foundation for Implementation Phase)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -89,6 +89,7 @@ Full column-level schemas, formulas, and ER diagrams are defined in [docs/GSHEET
   - **Switch / Disconnect Account** (sign-out action)
 - **`REQ-NAV-03` (Single-View Switching):** Only one primary view (`view-dashboard`, `view-tags`, `view-health`, or `view-settings`) is visible at a time; switching tabs closes any open dropdowns and resets focus appropriately.
 - **`REQ-NAV-04` (Modal Overlays):** `modal-add-item` and `modal-item-details` open over the active view with backdrop dismissal and explicit Close (`×`) controls.
+- **`REQ-NAV-05` (Canonical URL Deep-Linking & History Parity):** Every view (`/dashboard`, `/tags`, `/health`, `/settings`), modal (`/items/:itemId`, `/items/new`, or `?modal=add`), and grid/chart filter (`?tab=active|bought&tag=<tag_id>`) MUST be synchronized with `window.location` via a centralized `src/shared/routes.ts` registry and History API (`pushState`/`replaceState`/`popstate`). Dashboard-scoped query params (`?tab=`, `?tag=`) MUST be scoped strictly to `/dashboard` and cleared when switching between top-level sections. Direct cold loads, browser refresh, and Back/Forward navigation MUST restore the exact state; FastAPI MUST fall back non-`/api/*` routes to `frontend/dist/index.html` when built; missing/unknown item IDs MUST fall back cleanly to `/dashboard` with a `role="status"` notice.
 
 ```mermaid
 flowchart TD
@@ -113,12 +114,12 @@ flowchart TD
 - **`REQ-DASH-03` (Engine Health Card):** Displays current operational status and latest batch duration summary.
 
 ### 5.2 Total Price Dynamic & Market Trajectory Chart (`REQ-CHART-01`..`REQ-CHART-06`)
-- **`REQ-CHART-01` (Normalized % Y-Axis):** Plots `%` delta relative to each item's `initial_price` (`0%` baseline), allowing items at vastly different price points (e.g., `$25` vs `$2,000`) to be compared on a single chart to spot macro discount events.
-- **`REQ-CHART-02` (Series Visible Control Panel):** Positioned to the right of the SVG chart and contains, in strict top-to-bottom order:
+- **`REQ-CHART-01` (Normalized % Y-Axis, Gridlines & Timestamp Timeline):** Plots `%` delta relative to each item's `initial_price` (`0.0%` dashed baseline highlighted in emerald) with 5%-step horizontal gridlines (`+5%` down to `-30%`+), a top status bar (`0.0% Baseline`, `↓ Negative % = Price Drop`, `Visible: X of Y items`), timestamp-aligned X coordinates across `[minTs, maxTs]` (with a dashed lead-in indicator for single-snapshot items), and a bottom X-axis timeline footer (`N Days Ago` &rarr; `Latest Check (Pooled)`), allowing items at vastly different price points (e.g., `$25` vs `$2,000`) to be compared on a single chart.
+- **`REQ-CHART-02` (Series Visible Control Panel):** Positioned to the right of the SVG chart on desktop (`>= 1024px`) and collapsed by default behind an adjacent `Series Filters (X/Y)` toggle bar directly above the panel on smaller/mobile viewports (`< 1024px`), containing in strict top-to-bottom order:
   1. Header + **Select All / Unselect All** toggle button.
   2. **Filter by Tag** (`chart-category-filter`) dropdown (`All Tags (N)` + all registered tags), placed **below Select All and above Search**.
   3. **Filter series...** text search input (matches item `name` or any assigned `tag`).
-  4. Scrollable checkbox list of items with color dot, truncated title, and current drop `%` badge.
+  4. Scrollable checkbox list of items with color dot, truncated title, current drop `%` badge, and keyboard focus isolation (`onFocus`/`onBlur` highlights the focused series and dims others).
 - **`REQ-CHART-03` (Presets):** Quick preset buttons **Top 5 Drops** and **All in View**.
 - **`REQ-CHART-04` (Interactive Tooltips):** Hovering any plotted data point displays item name, assigned `Tags`, snapshot time, exact price, and `%` delta.
 - **`REQ-CHART-05` (Bi-Directional Chart &harr; Grid Sync):** Selecting a tag in the Chart dropdown updates the Data Grid's active tag filter (`state.activeLabelFilter`), resets grid pagination to page 1, and re-renders the grid. Conversely, selecting a tag in the Data Grid's `Filter by Tag:` bar or clicking a tag chip updates the Chart dropdown and plotted series.
@@ -147,10 +148,10 @@ flowchart TD
 ### 5.4 Modals: Track New URL & Item Card (`REQ-MODAL-01`..`REQ-MODAL-06`)
 - **`REQ-MODAL-01` (No Technical Selector Fields):** `modal-add-item` MUST NOT expose CSS/XPath selector inputs to end users.
 - **`REQ-MODAL-02` (Add Item Flow):** User pastes URL, clicks **Fetch Preview** (auto-populates title, price, image, suggested tags), optionally edits **Tags (comma-separated)**, and clicks **Save & Start Tracking**. Any unknown tags entered are auto-registered in `Tags`.
-- **`REQ-MODAL-03` (Item Card Details & Price Chart):** `modal-item-details` displays product image, clickable store link, editable title, editable `target_price` (active items), baseline vs current/bought price, last-checked/purchased timestamp, and an SVG price-history chart with target-threshold reference line.
-- **`REQ-MODAL-04` (Inline Tag Management on Item Card):** Displays assigned tags as removable chips (`×`) and an **Add Tag** input + button (`Enter` or click) that attaches the tag (auto-registering if new) and syncs all views.
-- **`REQ-MODAL-05` (Buy & Archive Workflow):** Active Item Cards provide a **Buy** action with an editable purchase price (defaulting to `current_price`). Confirming moves the item to `Bought_Items`, freezes polling, records `saved_cost`, attaches `Purchased`, and switches to the `Bought Items Sheet` view. Bought Item Cards offer **Resume Tracking** to move the item back to `Items`.
-- **`REQ-MODAL-06` (Delete Position Location):** **Delete** is located exclusively inside the `modal-item-details` footer (never on dashboard rows/titles) and removes the position after confirmation.
+- **`REQ-MODAL-03` (Item Card Details & Price Chart):** `modal-item-details` displays product image, status/discount badge (`-X% DISCOUNT`, `ACTIVE`, or `BOUGHT`), clickable `Open Original Retailer Web Page` link, editable title, `Baseline Price`, `Current Tracked Price`, editable `Alert Target Price` (saved via **Save Changes**, dismissed via **Close**), `Last checked` relative timestamp, and an SVG `Price Dynamics` chart with `Value` readout and dashed rose `Target Threshold` reference line.
+- **`REQ-MODAL-04` (Inline Tag Management on Item Card):** Displays assigned tags as removable chips (`×`) and an **+ Add Tag** input + button (`Enter` or click) that attaches the tag (auto-registering if new) and syncs all views.
+- **`REQ-MODAL-05` (Buy & Archive Workflow):** Active Item Cards provide a `Bought this item? Move to Bought Items Sheet` callout with an editable purchase price (defaulting to `current_price`) and **Confirm Buy** button. Confirming moves the item to `Bought_Items`, freezes polling, records `saved_cost`, attaches `Purchased`, and switches to the `Bought Items Sheet` view. Bought Item Cards offer **Resume Tracking** to move the item back to `Items`.
+- **`REQ-MODAL-06` (Delete Position Location):** **Delete Position** (two-step **Confirm Delete**) is located exclusively inside the `modal-item-details` footer (never on dashboard rows/titles) and removes the position after confirmation.
 
 ### 5.5 Tag Manager (`view-tags`) (`REQ-TAG-01`..`REQ-TAG-04`)
 - **`REQ-TAG-01` (Single-Level Creation Form):** `+ Create New Tag` reveals a minimal form containing only **Tag Name** and **Color Theme** (`purple`, `amber`, `emerald`, `blue`, `rose`, `cyan`), plus a Save button.
@@ -179,7 +180,7 @@ flowchart TD
 - **`REQ-A11Y-02` (BEM Anchor Registry):** All structural landmark, panel, form, and modal IDs MUST follow `block__element` kebab-case without `--modifier` suffixes in `id`, registered in a single `src/shared/anchors.ts` source of truth.
 - **`REQ-QA-01` (Automated Verification):** Frontend MUST enforce `eslint-plugin-jsx-a11y` in `strict` mode and Playwright E2E tests using A11y-tree queries (`getByRole`, `getByLabel`, `getByText`). Backend/Python modules MUST maintain 100% type annotations, PEP-8 (`<=100` chars), and 100% passing unit tests.
 - **`REQ-DIAG-01` (Diagnostic Observability):** Backend/CLI and System Health views MUST expose runtime context (`sys.executable`, `sys.version`, `sys.platform`, dependency versions, workspace path), timestamped `INFO`/`WARN`/`ERROR` logs, and full stack traces on failure.
-- **`REQ-NFR-01` (Responsive Layout):** Zero horizontal page overflow; long product names truncate gracefully with `title` tooltips, and streaming/long lists scroll within bounded containers.
+- **`REQ-NFR-01` (Mobile-First Responsive Layout):** Zero horizontal page overflow across mobile (`320px+`) and desktop viewports. Data grids (`PositionsGrid`, `TagManagerView`, `SystemHealthView`) MUST render stacked touch-friendly cards on `< 768px` (`md:hidden`) and full tables on `>= 768px`; on `< 768px`, the full header navigation bar MUST collapse into an accessible hamburger toggle button (`header__mobile-nav`) to conserve vertical viewport space; modal forms MUST stack cleanly on narrow screens; long product names truncate gracefully with `title` tooltips. On mobile (`< 768px`), the Dashboard KPI summary tiles (`Active Monitoring`, `Total Saved Costs`, `Engine Health`) MUST appear below `PositionsGrid` (`order-3 md:order-1`) so primary content appears near the fold. All enabled clickable controls (`button`, `a[href]`, `select`, `role="tab"`, `role="menuitem"`, checkboxes) MUST expose `cursor: pointer`.
 
 ---
 
@@ -189,3 +190,4 @@ flowchart TD
 | :--- | :--- | :--- | :--- |
 | `0.1.0` | 2026-11-13 | Antigravity | Initial SRS baseline synthesized from validated `ui_prototype.html` (v1.12), `PROJECT_DISCUSSION_AND_DECISIONS.md`, and `GSHEETS_DATA_MODEL.md`. |
 | `0.2.0` | 2026-11-13 | Antigravity | Added `REQ-ARCH-02..03` (monorepo `frontend/` + `backend/`, offline dev/E2E adapters), `REQ-DATA-05..06` (auto-bootstrapping, multi-currency grouping), `REQ-SCRAPE-02` (pooled Semaphore(4) & retries), consolidated digest `REQ-ALERT-01`, and `REQ-AUTH-01..02`. |
+| `0.2.1` | 2026-11-14 | Antigravity | Refined `REQ-NAV-05` (`src/shared/routes.ts` URL deep-linking, FastAPI SPA fallback to `frontend/dist/index.html`), `REQ-CHART-01..02` (5%-step gridlines, timestamp-aligned X-axis, single-snapshot lead-in, focus isolation, mobile `Series Filters` toggle), `REQ-MODAL-03..06` (Price Dynamics + Target Threshold chart, `Confirm Buy`, `Save Changes`, `Delete Position`), `REQ-NFR-01` (mobile cards `< 768px`, collapsible hamburger nav `header__mobile-nav`, `320px+` bounding-box audit, mobile KPI tiles below `PositionsGrid`, global `cursor: pointer`), plus `verify_live_setup.py` and Cloud Run `Dockerfile`. |
