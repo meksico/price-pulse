@@ -99,3 +99,29 @@ async def test_pooled_scraper_retries_and_isolates_failures() -> None:
     assert outcomes[1].success is False
     assert "Timed out" in (outcomes[1].error or "")
 
+
+def test_tier2_itemprop_and_html_unescape() -> None:
+    """Verify Tier 2 extracts microdata itemprop price and unescapes HTML entities."""
+    html = """
+    <html><head>
+      <meta property="og:title" content="Джемпер &laquo;Човен&raquo;" />
+      <meta itemprop="price" content="36990" />
+      <meta itemprop="priceCurrency" content="UAH" />
+      <meta property="og:image" content="https://img.test/bosch.jpg" />
+    </head><body></body></html>
+    """
+    preview = extract_preview_from_html("https://example.com/bosch", html)
+    assert preview.extraction_tier == "TIER_2_OPENGRAPH"
+    assert preview.title == "Джемпер «Човен»"
+    assert preview.price == 36990.0
+    assert preview.currency == "₴"
+
+
+def test_tier3_suffix_currency_fallback() -> None:
+    """Verify Tier 3 extracts suffix UAH/грн price formats."""
+    html = "<html><head><title>Dryer</title></head><body><span>36 990 грн</span></body></html>"
+    preview = extract_preview_from_html("https://example.com/dryer", html)
+    assert preview.extraction_tier == "TIER_3_DOM_REGEX"
+    assert preview.price == 36990.0
+    assert preview.currency == "₴"
+

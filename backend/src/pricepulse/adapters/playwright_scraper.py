@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html as html_lib
 import json
 import re
 from collections.abc import Awaitable, Callable
@@ -21,6 +22,7 @@ _CURRENCY_MAP: dict[str, str] = {
     "USD": "$",
     "EUR": "€",
     "UAH": "₴",
+    "ГРН": "₴",
     "GBP": "£",
     "$": "$",
     "€": "€",
@@ -28,7 +30,11 @@ _CURRENCY_MAP: dict[str, str] = {
     "£": "£",
 }
 
-_PRICE_REGEX = re.compile(r"([$€₴£])\s*([0-9][0-9,\s]*\.?[0-9]{0,2})")
+_PRICE_REGEX = re.compile(r"([$€₴£])\s*([0-9][0-9,\s\u00a0]*\.?[0-9]{0,2})")
+_SUFFIX_PRICE_REGEX = re.compile(
+    r"([0-9][0-9,\s\u00a0]*\.?[0-9]{0,2})\s*(грн|UAH|USD|EUR|GBP|[$€₴£])",
+    re.IGNORECASE,
+)
 
 
 class _MetaAndJsonLdParser(HTMLParser):
@@ -52,10 +58,15 @@ class _MetaAndJsonLdParser(HTMLParser):
             self._in_title = True
             self._buf = []
         elif tag.lower() == "meta":
-            key = (attr_map.get("property") or attr_map.get("name") or "").lower()
+            key = (
+                attr_map.get("property")
+                or attr_map.get("name")
+                or attr_map.get("itemprop")
+                or ""
+            ).lower()
             content = attr_map.get("content", "").strip()
             if key and content:
-                self.meta_tags[key] = content
+                self.meta_tags.setdefault(key, content)
 
     def handle_data(self, data: str) -> None:
         if self._in_json_ld or self._in_title:
@@ -85,7 +96,7 @@ def _parse_float(raw: Any) -> float | None:
     if isinstance(raw, (int, float)):
         return float(raw) if raw > 0 else None
     if isinstance(raw, str):
-        cleaned = raw.replace(",", "").replace(" ", "").strip()
+        cleaned = raw.replace(",", "").replace(" ", "").replace("\u00a0", "").strip()
         try:
             val = float(cleaned)
             return val if val > 0 else None
@@ -117,7 +128,9 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
     parser = _MetaAndJsonLdParser()
     parser.feed(html)
 
-    og_title = parser.meta_tags.get("og:title") or parser.title_text or url
+    og_title = html_lib.unescape(
+        parser.meta_tags.get("og:title") or parser.title_text or url
+    ).strip()
     og_image = parser.meta_tags.get("og:image", "")
 
     # Tier 1: Semantic JSON-LD
@@ -136,7 +149,7 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
             price = _parse_float(offers.get("price") or offers.get("lowPrice"))
             if price is not None:
                 currency = _normalize_currency(offers.get("priceCurrency"))
-                title = str(product.get("name") or og_title).strip()
+                title = html_lib.unescape(str(product.get("name") or og_title)).strip()
                 image_raw = product.get("image", og_image)
                 image = image_raw[0] if isinstance(image_raw, list) and image_raw else image_raw
                 return ScrapePreview(
@@ -148,15 +161,17 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
                     extraction_tier="TIER_1_JSON_LD",
                 )
 
-    # Tier 2: OpenGraph / Meta Tags
+    # Tier 2: OpenGraph / Meta / Schema.org itemprop Tags
     meta_price = _parse_float(
         parser.meta_tags.get("og:price:amount")
         or parser.meta_tags.get("product:price:amount")
+        or parser.meta_tags.get("price")
     )
     if meta_price is not None:
         meta_curr = _normalize_currency(
             parser.meta_tags.get("og:price:currency")
             or parser.meta_tags.get("product:price:currency")
+            or parser.meta_tags.get("pricecurrency")
         )
         return ScrapePreview(
             url=url,
@@ -172,6 +187,20 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
     if match is not None:
         symbol = _normalize_currency(match.group(1))
         val = _parse_float(match.group(2))
+        if val is not None:
+            return ScrapePreview(
+                url=url,
+                title=og_title,
+                price=round(val, 2),
+                currency=symbol,
+                image_url=og_image,
+                extraction_tier="TIER_3_DOM_REGEX",
+            )
+
+    suffix_match = _SUFFIX_PRICE_REGEX.search(html)
+    if suffix_match is not None:
+        val = _parse_float(suffix_match.group(1))
+        symbol = _normalize_currency(suffix_match.group(2))
         if val is not None:
             return ScrapePreview(
                 url=url,
