@@ -5,10 +5,12 @@ from __future__ import annotations
 import asyncio
 import html as html_lib
 import json
+import os
 import re
 from collections.abc import Awaitable, Callable
 from html.parser import HTMLParser
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 from playwright.async_api import Browser, async_playwright
 
@@ -241,6 +243,23 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
     raise ValueError(f"Unable to extract price from URL: {url}")
 
 
+def parse_proxy_config(proxy_url: str | None) -> dict[str, str] | None:
+    """Parse an optional HTTP/SOCKS proxy URL into Playwright proxy settings."""
+    raw = (proxy_url or "").strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    port = f":{parsed.port}" if parsed.port else ""
+    cfg: dict[str, str] = {"server": f"{parsed.scheme}://{parsed.hostname}{port}"}
+    if parsed.username:
+        cfg["username"] = unquote(parsed.username)
+    if parsed.password:
+        cfg["password"] = unquote(parsed.password)
+    return cfg
+
+
 class PlaywrightScraperAdapter:
     """Headless Chromium scraper with bounded Semaphore(4) concurrency and retries."""
 
@@ -249,10 +268,12 @@ class PlaywrightScraperAdapter:
         concurrency: int = DEFAULT_CONCURRENCY,
         timeout_ms: int = DEFAULT_TIMEOUT_MS,
         retries: int = MAX_RETRIES,
+        proxy_url: str | None = None,
     ) -> None:
         self._concurrency = concurrency
         self._timeout_ms = timeout_ms
         self._retries = retries
+        self._proxy = parse_proxy_config(proxy_url or os.getenv("SCRAPER_PROXY_URL"))
 
     async def _fetch_html(self, browser: Browser, url: str) -> str:
         """Render URL in an isolated browser page and return full HTML."""
@@ -274,16 +295,23 @@ class PlaywrightScraperAdapter:
         finally:
             await context.close()
 
+    def _launch_kwargs(self) -> dict[str, Any]:
+        """Build Playwright Chromium launch arguments including optional proxy."""
+        kwargs: dict[str, Any] = {
+            "headless": True,
+            "args": [
+                "--disable-dev-shm-usage",
+                "--disable-blink-features=AutomationControlled",
+            ],
+        }
+        if self._proxy is not None:
+            kwargs["proxy"] = self._proxy
+        return kwargs
+
     async def preview_url(self, url: str) -> ScrapePreview:
         """Fetch and extract preview metadata for a single URL."""
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(
-                headless=True,
-                args=[
-                    "--disable-dev-shm-usage",
-                    "--disable-blink-features=AutomationControlled",
-                ],
-            )
+            browser = await pw.chromium.launch(**self._launch_kwargs())
             try:
                 html = await self._fetch_html(browser, url)
                 return extract_preview_from_html(url, html)
@@ -295,13 +323,7 @@ class PlaywrightScraperAdapter:
         if not items:
             return []
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(
-                headless=True,
-                args=[
-                    "--disable-dev-shm-usage",
-                    "--disable-blink-features=AutomationControlled",
-                ],
-            )
+            browser = await pw.chromium.launch(**self._launch_kwargs())
             try:
                 return await check_items_pooled(
                     items=items,

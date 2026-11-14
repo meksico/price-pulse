@@ -7,6 +7,7 @@ import pytest
 from pricepulse.adapters.playwright_scraper import (
     check_items_pooled,
     extract_preview_from_html,
+    parse_proxy_config,
 )
 from pricepulse.domain.models import TrackedItem
 
@@ -159,4 +160,16 @@ def test_tier3_ignores_script_and_style_dollar_tokens() -> None:
     only_script = "<html><body><script>var $4 = 1;</script><p>Access denied</p></body></html>"
     with pytest.raises(ValueError, match="Unable to extract price"):
         extract_preview_from_html("https://example.com/denied", only_script)
+
+
+def test_parse_proxy_config() -> None:
+    """Verify optional SCRAPER_PROXY_URL parsing for Playwright."""
+    assert parse_proxy_config(None) is None
+    assert parse_proxy_config("   ") is None
+    cfg = parse_proxy_config("http://user%401:p%40ss@proxy.example.com:8080")
+    assert cfg == {
+        "server": "http://proxy.example.com:8080",
+        "username": "user@1",
+        "password": "p@ss",
+    }
 
