@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import os
 import time
+import traceback
 import uuid
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -481,6 +482,19 @@ def create_app(
     async def cron_run_check() -> dict[str, Any]:
         """Trigger scheduled batch price check from Cloud Scheduler."""
         return await _execute_batch_check()
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(
+        _request: Request,
+        exc: Exception,
+    ) -> JSONResponse:
+        """Capture full traceback for unhandled errors (RULE-DIAG)."""
+        tb = traceback.format_exc()
+        logger.error(f"Unhandled server error: {exc}\n{tb}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(exc), "traceback": tb},
+        )
 
     dist_dir = _resolve_frontend_dist(frontend_dist_dir)
     if dist_dir is not None:
