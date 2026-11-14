@@ -105,6 +105,22 @@ def _parse_float(raw: Any) -> float | None:
     return None
 
 
+def _extract_image_url(raw: Any, fallback: str = "") -> str:
+    """Extract a clean image URL from a string, list, or schema.org ImageObject."""
+    if isinstance(raw, list) and raw:
+        return _extract_image_url(raw[0], fallback)
+    if isinstance(raw, dict):
+        candidate = raw.get("url") or raw.get("contentUrl") or ""
+        return _extract_image_url(candidate, fallback)
+    if isinstance(raw, str):
+        cleaned = raw.strip()
+        if cleaned.startswith("//"):
+            return f"https:{cleaned}"
+        if cleaned.startswith(("http://", "https://")):
+            return cleaned
+    return fallback
+
+
 def _find_product_in_json_ld(node: Any) -> dict[str, Any] | None:
     """Recursively locate a schema.org Product or Offer dict."""
     if isinstance(node, list):
@@ -150,14 +166,13 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
             if price is not None:
                 currency = _normalize_currency(offers.get("priceCurrency"))
                 title = html_lib.unescape(str(product.get("name") or og_title)).strip()
-                image_raw = product.get("image", og_image)
-                image = image_raw[0] if isinstance(image_raw, list) and image_raw else image_raw
+                image_url = _extract_image_url(product.get("image"), og_image)
                 return ScrapePreview(
                     url=url,
                     title=title,
                     price=round(price, 2),
                     currency=currency,
-                    image_url=str(image or ""),
+                    image_url=image_url,
                     extraction_tier="TIER_1_JSON_LD",
                 )
 

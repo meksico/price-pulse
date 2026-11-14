@@ -125,3 +125,20 @@ def test_tier3_suffix_currency_fallback() -> None:
     assert preview.price == 36990.0
     assert preview.currency == "₴"
 
+
+def test_tier1_image_object_extraction() -> None:
+    """Verify Tier 1 extracts URL from schema.org ImageObject dict or list."""
+    html = """
+    <html><head>
+      <script type="application/ld+json">
+        {"@type": "Product", "name": "BEXID Olive",
+         "image": {"@type": "ImageObject", "url": "https://img.test/knife.jpg", "width": "1600"},
+         "offers": {"@type": "Offer", "price": "930", "priceCurrency": "UAH"}}
+      </script>
+    </head><body></body></html>
+    """
+    preview = extract_preview_from_html("https://example.com/bexid", html)
+    assert preview.image_url == "https://img.test/knife.jpg"
+    assert preview.price == 930.0
+    assert preview.currency == "₴"
+
