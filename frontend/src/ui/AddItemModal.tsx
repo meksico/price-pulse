@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AddItemPayload, ScrapePreview, Tag } from "../domain/models";
-import {
-  TAG_ACTIVE_BADGE_CLASSES,
-  TAG_BADGE_CLASSES,
-  TAG_DOT_CLASSES,
-} from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { TagAdderControl } from "./TagAdderControl";
 import type { PushToastFn } from "./ToastViewport";
 
 interface AddItemModalProps {
@@ -33,7 +29,7 @@ export function AddItemModal({
   const [currency, setCurrency] = useState(defaultCurrency);
   const [initialPrice, setInitialPrice] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
-  const [tagsText, setTagsText] = useState("");
+  const [selectedTagNames, setSelectedTagNames] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -57,23 +53,20 @@ export function AddItemModal({
 
   if (!open) return null;
 
-  const selectedTagNames = tagsText
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const selectableTags = availableTags.filter(
-    (tag) => tag.name.trim().toLowerCase() !== "purchased",
-  );
-
-  const toggleSuggestedTag = (tagName: string) => {
-    const exists = selectedTagNames.some(
-      (n) => n.toLowerCase() === tagName.toLowerCase(),
+  const handleAddTag = (tagName: string) => {
+    const clean = tagName.trim();
+    if (!clean || clean.toLowerCase() === "purchased") return;
+    setSelectedTagNames((prev) =>
+      prev.some((n) => n.toLowerCase() === clean.toLowerCase())
+        ? prev
+        : [...prev, clean],
     );
-    const next = exists
-      ? selectedTagNames.filter((n) => n.toLowerCase() !== tagName.toLowerCase())
-      : [...selectedTagNames, tagName];
-    setTagsText(next.join(", "));
+  };
+
+  const handleRemoveTag = (tagName: string) => {
+    setSelectedTagNames((prev) =>
+      prev.filter((n) => n.toLowerCase() !== tagName.trim().toLowerCase()),
+    );
   };
 
   const handleFetch = async () => {
@@ -93,8 +86,12 @@ export function AddItemModal({
       setCurrency(preview.currency);
       setInitialPrice(String(preview.price));
       setTargetPrice(String(Math.round(preview.price * 0.85 * 100) / 100));
-      if (preview.suggested_tags.length > 0 && !tagsText) {
-        setTagsText(preview.suggested_tags.join(", "));
+      if (preview.suggested_tags.length > 0 && selectedTagNames.length === 0) {
+        setSelectedTagNames(
+          preview.suggested_tags.filter(
+            (t) => t.trim() && t.trim().toLowerCase() !== "purchased",
+          ),
+        );
       }
       onNotify?.(
         "success",
@@ -126,10 +123,6 @@ export function AddItemModal({
       );
       return;
     }
-    const tagNames = tagsText
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
     try {
       await onSaveItem({
         name: title.trim(),
@@ -138,13 +131,13 @@ export function AddItemModal({
         currency: currency.trim() || defaultCurrency,
         initial_price: init,
         target_price: target,
-        tag_names: tagNames,
+        tag_names: selectedTagNames,
       });
       setUrl("");
       setTitle("");
       setInitialPrice("");
       setTargetPrice("");
-      setTagsText("");
+      setSelectedTagNames([]);
       onClose();
     } catch (err) {
       onNotify?.(
@@ -295,51 +288,15 @@ export function AddItemModal({
                             </div>
 
                                 <div className="space-y-2">
-                                  <label
-                                    htmlFor="add-item-tags"
-                                    className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
-                                  >
-                                    Tags (comma-separated)
-                                  </label>
-                                  {selectableTags.length > 0 && (
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                      {selectableTags.map((tag) => {
-                                        const isSelected = selectedTagNames.some(
-                                          (n) => n.toLowerCase() === tag.name.toLowerCase(),
-                                        );
-                                        return (
-                                          <button
-                                            key={tag.tag_id}
-                                            type="button"
-                                            aria-pressed={isSelected}
-                                            onClick={() => toggleSuggestedTag(tag.name)}
-                                            className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                                              isSelected
-                                                ? TAG_ACTIVE_BADGE_CLASSES[tag.color]
-                                                : `${TAG_BADGE_CLASSES[tag.color]} hover:opacity-85`
-                                            }`}
-                                          >
-                                            <span
-                                              aria-hidden="true"
-                                              className={`h-1.5 w-1.5 rounded-full ${
-                                                isSelected
-                                                  ? "bg-white"
-                                                  : TAG_DOT_CLASSES[tag.color]
-                                              }`}
-                                            />
-                                            {tag.name}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                  <input
-                                    id="add-item-tags"
-                                    type="text"
-                                    value={tagsText}
-                                    onChange={(e) => setTagsText(e.target.value)}
-                                    placeholder="Audio, Black Friday"
-                                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
+                                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                                    Tags
+                                  </span>
+                                  <TagAdderControl
+                                    idPrefix="add-item-tag"
+                                    availableTags={availableTags}
+                                    selectedTagNames={selectedTagNames}
+                                    onAddTag={handleAddTag}
+                                    onRemoveTag={handleRemoveTag}
                                   />
                                 </div>
 

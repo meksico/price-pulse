@@ -46,6 +46,12 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     ).toBeVisible();
     await expect(detailsDialog.getByText("Price Dynamics")).toBeVisible();
     await expect(detailsDialog.getByText("Target Threshold")).toBeVisible();
+    const detailTagSelect = detailsDialog.getByLabel("Add Tag");
+    await expect(detailTagSelect).toBeVisible();
+    await detailTagSelect.selectOption("__NEW__");
+    await expect(detailsDialog.getByLabel("New tag name")).toBeVisible();
+    await detailsDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(detailsDialog.getByLabel("Add Tag")).toBeVisible();
     await expect(
       detailsDialog.getByRole("button", { name: "Confirm Buy" }),
     ).toBeVisible();
@@ -208,7 +214,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.17");
+    expect(menuVersion).toBe("v0.3.18");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -243,31 +249,33 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(dialog).toBeHidden();
     await page.getByRole("button", { name: "+ Track New URL" }).click();
     await expect(dialog).toBeVisible();
-    await expect(
-      dialog.getByRole("button", { name: "Purchased" }),
-    ).toHaveCount(0);
+    const addTagSelect = dialog.getByLabel("Add Tag");
+    await expect(addTagSelect).toBeVisible();
+    const optionTexts = await addTagSelect
+      .locator("option")
+      .allTextContents();
+    expect(optionTexts).not.toContain("Purchased");
+    expect(optionTexts).toContain("Audio");
+    expect(optionTexts).toContain("+ Add new one");
 
-    const audioPill = dialog.getByRole("button", { name: "Audio" });
-    await expect(audioPill).toBeVisible();
-    const unselectedAudioBg = await audioPill.evaluate(
-      (el) => getComputedStyle(el).backgroundColor,
-    );
-    expect([
-      "rgb(243, 244, 246)",
-      "oklch(0.967 0.003 264.542)",
-    ]).not.toContain(unselectedAudioBg);
-    await audioPill.click();
-    await expect(audioPill).toHaveAttribute("aria-pressed", "true");
-    await expect(audioPill).toHaveCSS(
-      "color",
-      /rgb\(255,\s*255,\s*255\)|oklch\(1\s+0\s+0\)/i,
-    );
-    await expect
-      .poll(() =>
-        audioPill.evaluate((el) => getComputedStyle(el).backgroundColor),
-      )
-      .not.toBe(unselectedAudioBg);
-    await audioPill.click();
+    await addTagSelect.selectOption("Audio");
+    const removeAudioBtn = dialog.getByRole("button", {
+      name: "Remove tag Audio",
+    });
+    await expect(removeAudioBtn).toBeVisible();
+    await removeAudioBtn.click();
+    await expect(removeAudioBtn).toHaveCount(0);
+
+    await addTagSelect.selectOption("__NEW__");
+    await expect(dialog.getByLabel("Add Tag")).toHaveCount(0);
+    const customTagInput = dialog.getByLabel("New tag name");
+    await expect(customTagInput).toBeVisible();
+    await customTagInput.fill("CustomGear");
+    await dialog.getByRole("button", { name: "+ Add Tag" }).click();
+    await expect(
+      dialog.getByRole("button", { name: "Remove tag CustomGear" }),
+    ).toBeVisible();
+    await expect(dialog.getByLabel("Add Tag")).toBeVisible();
 
     await dialog
       .getByLabel("Product URL")
@@ -530,7 +538,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.17");
+    expect(healthVersion).toBe("v0.3.18");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -548,7 +556,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.17"',
+      '"app_version": "0.3.18"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',

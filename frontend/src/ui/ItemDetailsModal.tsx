@@ -6,12 +6,9 @@ import type {
   TrackedItem,
   UpdateItemPayload,
 } from "../domain/models";
-import {
-  TAG_BADGE_CLASSES,
-  TAG_DOT_CLASSES,
-  formatMoney,
-} from "../domain/models";
+import { formatMoney } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { TagAdderControl } from "./TagAdderControl";
 import type { PushToastFn } from "./ToastViewport";
 
 interface ItemDetailsModalProps {
@@ -47,7 +44,6 @@ export function ItemDetailsModal({
   const [buyPrice, setBuyPrice] = useState(
     activeItem ? String(activeItem.current_price) : "",
   );
-  const [newTag, setNewTag] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [hoveredSnap, setHoveredSnap] = useState<{
     historyId: string;
@@ -97,12 +93,16 @@ export function ItemDetailsModal({
     .map((id) => tagById.get(id)?.name)
     .filter((n): n is string => Boolean(n));
 
-  const handleAddTag = async () => {
-    const clean = newTag.trim();
+  const handleAddTag = async (tagName: string) => {
+    const clean = tagName.trim();
     if (!clean || !activeItem) return;
-    const nextNames = Array.from(new Set([...currentTagNames, clean]));
+    if (
+      currentTagNames.some((n) => n.toLowerCase() === clean.toLowerCase())
+    ) {
+      return;
+    }
+    const nextNames = [...currentTagNames, clean];
     await onUpdateItem(activeItem.item_id, { tag_names: nextNames });
-    setNewTag("");
   };
 
   const handleRemoveTag = async (tagName: string) => {
@@ -454,66 +454,16 @@ export function ItemDetailsModal({
               <span className="w-24 shrink-0 pt-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                 Tags
               </span>
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {item.tag_ids.length === 0 && (
-                    <span className="text-zinc-400">No tags assigned</span>
-                  )}
-                  {item.tag_ids.map((tid) => {
-                    const tag = tagById.get(tid);
-                    if (!tag) return null;
-                    return (
-                      <span
-                        key={tid}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${TAG_BADGE_CLASSES[tag.color]}`}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={`h-1.5 w-1.5 rounded-full ${TAG_DOT_CLASSES[tag.color]}`}
-                        />
-                        {tag.name}
-                        {activeItem && (
-                          <button
-                            type="button"
-                            aria-label={`Remove tag ${tag.name}`}
-                            onClick={() => void handleRemoveTag(tag.name)}
-                            className="ml-0.5 opacity-60 hover:opacity-100"
-                          >
-                            &times;
-                          </button>
-                        )}
-                      </span>
-                    );
-                  })}
-                </div>
-                {activeItem && (
-                  <div className="flex gap-2">
-                    <label htmlFor="detail-add-tag" className="sr-only">
-                      Add Tag
-                    </label>
-                    <input
-                      id="detail-add-tag"
-                      type="text"
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          void handleAddTag();
-                        }
-                      }}
-                      placeholder="Add tag..."
-                      className="min-h-11 min-w-0 flex-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void handleAddTag()}
-                      className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:min-h-9"
-                    >
-                      + Add Tag
-                    </button>
-                  </div>
-                )}
+              <div className="min-w-0 flex-1">
+                <TagAdderControl
+                  key={item.item_id}
+                  idPrefix="detail-add-tag"
+                  availableTags={tags}
+                  selectedTagNames={currentTagNames}
+                  onAddTag={handleAddTag}
+                  onRemoveTag={handleRemoveTag}
+                  readOnly={!activeItem}
+                />
               </div>
             </div>
 
