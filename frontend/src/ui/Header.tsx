@@ -87,25 +87,6 @@ export function Header({
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button
             type="button"
-            onClick={onRunCheck}
-            disabled={isChecking}
-            aria-busy={isChecking}
-            aria-label={`Run Check (${activeItemCount} Items)`}
-            className="tabular-nums min-h-11 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-1.5 py-1.5 text-[11px] font-medium text-zinc-950 transition-colors hover:bg-gray-50 disabled:opacity-40 sm:min-h-9 sm:px-2.5 sm:text-xs lg:px-3"
-          >
-            {isChecking ? (
-              "Checking..."
-            ) : (
-              <>
-                <span className="lg:hidden">Check ({activeItemCount})</span>
-                <span className="hidden lg:inline">
-                  Run Check ({activeItemCount} Items)
-                </span>
-              </>
-            )}
-          </button>
-          <button
-            type="button"
             onClick={onOpenAddModal}
             aria-label="+ Track New URL"
             className="min-h-11 whitespace-nowrap rounded-lg bg-zinc-950 px-1.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 sm:min-h-9 sm:px-3 sm:text-xs lg:px-3.5"
@@ -170,6 +151,19 @@ export function Header({
                             className="block min-h-11 w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-gray-50 sm:min-h-9"
                           >
                             G-Sync &amp; Configuration
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={isChecking}
+                            aria-busy={isChecking}
+                            onClick={() => {
+                              setMenuOpen(false);
+                              onRunCheck();
+                            }}
+                            className="tabular-nums block min-h-11 w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-gray-50 disabled:opacity-40 sm:min-h-9"
+                          >
+                            {isChecking ? "Checking..." : `Run Check (${activeItemCount} Items)`}
                           </button>
                           {spreadsheetId && (
                             <a

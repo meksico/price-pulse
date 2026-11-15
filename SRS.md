@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.5`
+- **Document Version / App Target Baseline:** `0.3.6`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -78,15 +78,16 @@ Full column-level schemas, formulas, and ER diagrams are defined in [docs/GSHEET
 - **`REQ-NAV-01` (Compact Top Header):** Displays on `#FFFFFF` canvas with `1px solid #E5E7EB` bottom border:
   1. Brand lockup: `PricePulse` in `#09090B` (no redundant subtitle or tag-status badge).
   2. Primary navigation tabs (`whitespace-nowrap`, underlined `2px solid #09090B` active indicator on desktop): **Dashboard** (`view-dashboard`) and **Tag Manager** (`view-tags`), with **System Health** (`view-health`) and **G-Sync & Configuration** (`view-settings`) accessed via the User Avatar Dropdown.
-  3. Global action buttons: outlined **Run Check (`N` Items)** (`tabular-nums`) and single solid `#09090B` **+ Track New URL** primary CTA.
+  3. Global action buttons: single solid `#09090B` **+ Track New URL** primary CTA (the **Run Check** action lives inside the User Avatar Dropdown rather than the top bar).
   4. **User Avatar Menu** (`user-menu-btn` / `user-dropdown-menu`) showing `#F3F4F6` `PP` initials, name, and active sync status.
 - **`REQ-NAV-02` (User Avatar Dropdown & Mobile Bottom Nav):** Clicking the avatar opens a light `#FFFFFF` menu containing:
-  - Sync summary (`N Positions & Tags Synced`)
-  - **System Health** (`Logs review` &rarr; `view-health`)
-  - **Tag Manager** (&rarr; `view-tags`)
-  - **G-Sync & Configuration** (`Sheet ID, Gmail alerts, schedule` &rarr; `view-settings`)
-  - **Open Google Sheet** (external link to spreadsheet)
-  - **Switch / Disconnect Account** (sign-out action)
+  1. Sync summary (`N Positions & Tags Synced`)
+  2. **System Health** (`Logs review` &rarr; `view-health`)
+  3. **Tag Manager** (&rarr; `view-tags`)
+  4. **G-Sync & Configuration** (`Sheet ID, Gmail alerts, schedule` &rarr; `view-settings`)
+  5. **Run Check (`N` Items)** — Triggers an immediate batch price check across all active tracked items (`tabular-nums`).
+  6. **Open Google Sheet** (external link to spreadsheet)
+  7. **Sign out** (disconnect / switch account action)
   On mobile viewports (`< 768px`), a sticky 5-icon **Bottom Navigation Bar** (`#mobile-bottom-nav`) provides one-tap switching between `Dashboard`, `Tag Manager`, `Track New URL`, `System Health` (with `#EF4444` anomaly count badge), and `G-Sync Settings`, alongside the collapsible `#header__mobile-nav` drawer.
 - **`REQ-NAV-03` (Single-View Switching):** Only one primary view (`view-dashboard`, `view-tags`, `view-health`, or `view-settings`) is visible at a time; switching tabs closes any open dropdowns and resets focus appropriately. Unauthenticated Sign In (`#auth-gate`) hides all app navigation chrome (`DS-LOGIC-03`) on a pure `#FFFFFF` canvas displaying `PricePulse`, `Sign in to your workspace`, a clean hairline divider, and a single `Continue with Google` OAuth button (`#F3F4F6` pill).
 - **`REQ-NAV-04` (Modal / Bottom-Sheet Overlays):** `modal-add-item` and `modal-item-details` open over the active view as centered `#FFFFFF` dialogs on desktop and bottom sheets with a `36×4px` grab handle on mobile, with backdrop dismissal and explicit Close (`×`) controls.
@@ -198,3 +199,4 @@ flowchart TD
 | `0.3.3` | 2026-11-15 | Antigravity | Restored semantic `Tag.color` pill and color-select styling (`TAG_BADGE_CLASSES`, `TAG_DOT_CLASSES`) across `PositionsGrid` (`Filter by Tag:` and `Tags` column), `TagManagerView` (`Tag Name` pill + `Color Theme` `<select>`), and modals (`REQ-GRID-03..04`, `REQ-TAG-01..02`), and removed duplicate `+ Add URL` button from `PositionsGrid` toolbar (`REQ-GRID-02`). |
 | `0.3.4` | 2026-11-15 | Antigravity | Applied permanent resting soft-red destructive accent (`bg-red-50 text-red-600`) to **Delete Position** in the `ItemDetailsModal` footer (`REQ-MODAL-06`). |
 | `0.3.5` | 2026-11-15 | Antigravity | Recomputed canonical `delta_pct` from `initial_price` in `GoogleSheetsRepository.load_state()`, de-overlapped coincident pooled-check bullets in a dedicated top SVG layer with dynamic per-bullet tooltips in `TrajectoryChart` (`REQ-CHART-01`, `REQ-CHART-04`), added per-bullet hover tooltips to `ItemDetailsModal` (`REQ-MODAL-03`), and fixed `Series Visible` focus-dimming reset. |
+| `0.3.6` | 2026-11-15 | Antigravity | Moved `Run Check (N Items)` button from top header bar into `#user-dropdown-menu` below `G-Sync & Configuration` (`REQ-NAV-01..02`). |

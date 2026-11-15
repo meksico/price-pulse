@@ -13,6 +13,12 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     expect(bodyBg).toBe("rgb(255, 255, 255)");
     const trackBtn = page.getByRole("button", { name: "+ Track New URL" });
     await expect(trackBtn).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Run Check/i }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("menuitem", { name: /Run Check/i }),
+    ).toHaveCount(0);
     const trackBtnBg = await trackBtn.evaluate(
       (el) => getComputedStyle(el).backgroundColor,
     );
@@ -160,13 +166,16 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       page.getByRole("heading", { name: "Tag Manager" }),
     ).toBeVisible();
 
-    // Open User Menu -> System Health
+    // Open User Menu -> verify Run Check menuitem -> System Health
     await page.getByRole("button", { name: "User account menu" }).click();
+    await expect(
+      page.getByRole("menuitem", { name: /Run Check \(\d+ Items\)/i }),
+    ).toBeVisible();
     await page.getByRole("menuitem", { name: /System Health/i }).click();
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.5/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.6/)).toBeVisible();
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {
