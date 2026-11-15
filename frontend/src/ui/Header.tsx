@@ -40,37 +40,23 @@ export function Header({
   onSignOut,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const userMenuContainerRef = useRef<HTMLDivElement>(null);
-  const mobileNavButtonRef = useRef<HTMLButtonElement>(null);
-  const mobileNavDrawerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (!menuOpen && !mobileNavOpen) return;
+    if (!menuOpen) return;
     const handlePointerDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
-        menuOpen &&
         userMenuContainerRef.current &&
         !userMenuContainerRef.current.contains(target)
       ) {
         setMenuOpen(false);
       }
-      if (
-        mobileNavOpen &&
-        mobileNavDrawerRef.current &&
-        !mobileNavDrawerRef.current.contains(target) &&
-        mobileNavButtonRef.current &&
-        !mobileNavButtonRef.current.contains(target)
-      ) {
-        setMobileNavOpen(false);
-      }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setMenuOpen(false);
-        setMobileNavOpen(false);
       }
     };
     document.addEventListener("mousedown", handlePointerDown);
@@ -79,7 +65,7 @@ export function Header({
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [menuOpen, mobileNavOpen]);
+  }, [menuOpen]);
 
   const showAvatarImage = Boolean(
     userAvatarUrl && failedAvatarUrl !== userAvatarUrl,
@@ -89,7 +75,6 @@ export function Header({
 
   const navigate = (view: AppView) => {
     setMenuOpen(false);
-    setMobileNavOpen(false);
     onSelectView(view);
   };
 
@@ -141,7 +126,7 @@ export function Header({
             type="button"
             onClick={onOpenAddModal}
             aria-label="+ Track New URL"
-            className="min-h-11 whitespace-nowrap rounded-lg bg-zinc-950 px-1.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 sm:min-h-9 sm:px-3 sm:text-xs lg:px-3.5"
+            className="hidden min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-zinc-950 px-1.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 sm:min-h-9 sm:px-3 sm:text-xs md:inline-flex lg:px-3.5"
           >
             <span className="lg:hidden">+ Track</span>
             <span className="hidden lg:inline">+ Track New URL</span>
@@ -154,7 +139,6 @@ export function Header({
               aria-expanded={menuOpen}
               aria-controls={ANCHORS.userDropdownMenu}
               onClick={() => {
-                setMobileNavOpen(false);
                 setMenuOpen((prev) => !prev);
               }}
               className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-gray-200 bg-gray-100 px-1.5 py-1 text-xs text-zinc-950 transition-colors hover:bg-gray-200 sm:min-h-9 lg:min-w-0 lg:px-2.5"
@@ -239,217 +223,108 @@ export function Header({
                           )}
                         </div>
             )}
-                      </div>
-
-                      <button
-                        ref={mobileNavButtonRef}
-                        type="button"
-                        aria-label="Toggle navigation menu"
-                        aria-expanded={mobileNavOpen}
-                        aria-controls={ANCHORS.mobileNavDrawer}
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setMobileNavOpen((prev) => !prev);
-                        }}
-                        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 bg-white text-zinc-900 hover:bg-gray-50 md:hidden"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="h-5 w-5"
-                        >
-                          {mobileNavOpen ? (
-                            <>
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
-                            </>
-                          ) : (
-                            <>
-                              <line x1="4" y1="7" x2="20" y2="7" />
-                              <line x1="4" y1="12" x2="20" y2="12" />
-                              <line x1="4" y1="17" x2="20" y2="17" />
-                            </>
-                          )}
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-      {mobileNavOpen && (
-        <nav
-          id={ANCHORS.mobileNavDrawer}
-          ref={mobileNavDrawerRef}
-          aria-label="Mobile navigation"
-          className="border-t border-gray-200 bg-white px-3 py-2 md:hidden"
-        >
-          <div className="flex flex-col gap-1">
-            <button
-              type="button"
-              onClick={() => navigate("dashboard")}
-              aria-pressed={activeView === "dashboard"}
-              className={`min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
-                activeView === "dashboard"
-                  ? "bg-zinc-950 text-white"
-                  : "text-zinc-900 hover:bg-gray-100"
-              }`}
-            >
-              Dashboard
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("tags")}
-              aria-pressed={activeView === "tags"}
-              className={`min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
-                activeView === "tags"
-                  ? "bg-zinc-950 text-white"
-                  : "text-zinc-900 hover:bg-gray-100"
-              }`}
-            >
-              Tag Manager
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("health")}
-              aria-pressed={activeView === "health"}
-              className={`min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
-                activeView === "health"
-                  ? "bg-zinc-950 text-white"
-                  : "text-zinc-900 hover:bg-gray-100"
-              }`}
-            >
-              System Health
-            </button>
           </div>
-        </nav>
-      )}
+        </div>
+      </div>
     </header>
   );
 }
 
-              interface MobileBottomNavProps {
-                activeView: AppView;
-              anomalyCount: number;
+interface MobileBottomNavProps {
+  activeView: AppView;
   onSelectView: (view: AppView) => void;
   onOpenAddModal: () => void;
 }
 
-              export function MobileBottomNav({
-                activeView,
-                anomalyCount,
-                onSelectView,
-                onOpenAddModal,
+export function MobileBottomNav({
+  activeView,
+  onSelectView,
+  onOpenAddModal,
 }: MobileBottomNavProps) {
   return (
-              <nav
-                id={ANCHORS.mobileBottomNav}
-                aria-label="Bottom Navigation"
-                className="sticky bottom-0 z-30 flex h-14 items-center justify-around border-t border-gray-200 bg-white px-2 md:hidden"
-              >
-                <button
-                  type="button"
-                  aria-label="Dashboard"
-                  aria-current={activeView === "dashboard" ? "page" : undefined}
-                  onClick={() => onSelectView("dashboard")}
-                  className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg hover:bg-gray-50"
-                >
-                  {activeView === "dashboard" ? (
-                    <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="#09090B">
-                      <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6.5h-5V21H4a1 1 0 01-1-1v-9.5z" />
-                    </svg>
-                  ) : (
-                    <svg
-                      aria-hidden="true"
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#52525B"
-                      strokeWidth="1.75"
-                    >
-                      <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6.5h-5V21H4a1 1 0 01-1-1v-9.5z" />
-                    </svg>
-                  )}
-                </button>
+    <nav
+      id={ANCHORS.mobileBottomNav}
+      aria-label="Bottom Navigation"
+      className="sticky bottom-0 z-30 flex h-14 items-center justify-around border-t border-gray-200 bg-white px-2 md:hidden"
+    >
+      <button
+        type="button"
+        aria-label="Dashboard"
+        aria-current={activeView === "dashboard" ? "page" : undefined}
+        onClick={() => onSelectView("dashboard")}
+        className={`relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors ${
+          activeView === "dashboard"
+            ? "border-gray-300 bg-gray-100 hover:bg-gray-200/70"
+            : "border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100"
+        }`}
+      >
+        {activeView === "dashboard" ? (
+          <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="#09090B">
+            <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6.5h-5V21H4a1 1 0 01-1-1v-9.5z" />
+          </svg>
+        ) : (
+          <svg
+            aria-hidden="true"
+            className="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#52525B"
+            strokeWidth="1.75"
+          >
+            <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6.5h-5V21H4a1 1 0 01-1-1v-9.5z" />
+          </svg>
+        )}
+      </button>
 
-                <button
-                  type="button"
-                  aria-label="Tag Manager"
-                  aria-current={activeView === "tags" ? "page" : undefined}
-                  onClick={() => onSelectView("tags")}
-                  className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg hover:bg-gray-50"
-                >
-                  {activeView === "tags" ? (
-                    <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="#09090B">
-                      <path d="M3 7a2 2 0 012-2h5.586a2 2 0 011.414.586l8.414 8.414a2 2 0 010 2.828l-4.586 4.586a2 2 0 01-2.828 0L4.586 13A2 2 0 014 11.586V7z" />
-                      <circle cx="8" cy="9" r="1.25" fill="#FFFFFF" />
-                    </svg>
-                  ) : (
-                    <svg
-                      aria-hidden="true"
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#52525B"
-                      strokeWidth="1.75"
-                    >
-                      <path d="M3 7a2 2 0 012-2h5.586a2 2 0 011.414.586l8.414 8.414a2 2 0 010 2.828l-4.586 4.586a2 2 0 01-2.828 0L4.586 13A2 2 0 014 11.586V7z" />
-                      <circle cx="8" cy="9" r="1" fill="#52525B" />
-                    </svg>
-                  )}
-                </button>
+      <button
+        type="button"
+        aria-label="Tag Manager"
+        aria-current={activeView === "tags" ? "page" : undefined}
+        onClick={() => onSelectView("tags")}
+        className={`relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors ${
+          activeView === "tags"
+            ? "border-gray-300 bg-gray-100 hover:bg-gray-200/70"
+            : "border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100"
+        }`}
+      >
+        {activeView === "tags" ? (
+          <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="#09090B">
+            <path d="M3 7a2 2 0 012-2h5.586a2 2 0 011.414.586l8.414 8.414a2 2 0 010 2.828l-4.586 4.586a2 2 0 01-2.828 0L4.586 13A2 2 0 014 11.586V7z" />
+            <circle cx="8" cy="9" r="1.25" fill="#FFFFFF" />
+          </svg>
+        ) : (
+          <svg
+            aria-hidden="true"
+            className="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#52525B"
+            strokeWidth="1.75"
+          >
+            <path d="M3 7a2 2 0 012-2h5.586a2 2 0 011.414.586l8.414 8.414a2 2 0 010 2.828l-4.586 4.586a2 2 0 01-2.828 0L4.586 13A2 2 0 014 11.586V7z" />
+            <circle cx="8" cy="9" r="1" fill="#52525B" />
+          </svg>
+        )}
+      </button>
 
-                <button
-                  type="button"
-                  aria-label="Track New URL"
-                  onClick={onOpenAddModal}
-                  className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg hover:bg-gray-50"
-                >
-                  <svg
-                    aria-hidden="true"
-                    className="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#09090B"
-                    strokeWidth="2"
-                  >
-                    <rect x="3" y="3" width="18" height="18" rx="5" />
-                    <path d="M12 8v8M8 12h8" />
-                  </svg>
-                </button>
-
-                <button
-                  type="button"
-                  aria-label="System Health"
-                  aria-current={activeView === "health" ? "page" : undefined}
-                  onClick={() => onSelectView("health")}
-                  className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg hover:bg-gray-50"
-                >
-                  {activeView === "health" ? (
-                    <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="#09090B">
-                      <path d="M12 2a7 7 0 00-7 7v4l-2 3v1h18v-1l-2-3V9a7 7 0 00-7-7zm0 20a2.5 2.5 0 002.45-2h-4.9A2.5 2.5 0 0012 22z" />
-                    </svg>
-                  ) : (
-                    <svg
-                      aria-hidden="true"
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#52525B"
-                      strokeWidth="1.75"
-                    >
-                      <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9zm-4.27 13a2 2 0 01-3.46 0" />
-                    </svg>
-                  )}
-                  {anomalyCount > 0 && (
-                    <span className="tabular-nums absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                      {anomalyCount}
-                    </span>
-                  )}
-                </button>
-              </nav>
-              );
+      <button
+        type="button"
+        aria-label="Track New URL"
+        onClick={onOpenAddModal}
+        className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 transition-colors hover:border-gray-300 hover:bg-gray-100"
+      >
+        <svg
+          aria-hidden="true"
+          className="h-5 w-5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#09090B"
+          strokeWidth="2"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="5" />
+          <path d="M12 8v8M8 12h8" />
+        </svg>
+      </button>
+    </nav>
+  );
 }

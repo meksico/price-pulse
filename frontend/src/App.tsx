@@ -395,9 +395,6 @@ export function App() {
     state?.bought_items ?? [],
     workspaceCurrency,
   );
-  const anomalyRunCount = (state?.telemetry_logs ?? []).filter(
-    (run) => run.status !== "SUCCESS",
-  ).length;
 
   const selectedActiveItem =
     state?.items.find((i) => i.item_id === selectedItemId) ?? null;
@@ -676,7 +673,6 @@ export function App() {
       {!isUnauthenticated && !addModalOpen && !selectedItemId && (
         <MobileBottomNav
           activeView={activeView}
-          anomalyCount={anomalyRunCount}
           onSelectView={handleSelectTopView}
           onOpenAddModal={() => navigate({ addModalOpen: true, itemId: null })}
         />

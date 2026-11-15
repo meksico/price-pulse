@@ -208,7 +208,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.16");
+    expect(menuVersion).toBe("v0.3.17");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -372,30 +372,39 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
           page.getByRole("navigation", { name: "Primary navigation" }),
         ).toBeHidden();
         await expect(
-          page.getByRole("navigation", { name: "Bottom Navigation" }),
-        ).toBeVisible();
-        const hamburger = page.getByRole("button", {
-          name: "Toggle navigation menu",
+          page.locator("header").getByRole("button", { name: "+ Track New URL" }),
+        ).toBeHidden();
+        await expect(
+          page.getByRole("button", { name: "Toggle navigation menu" }),
+        ).toHaveCount(0);
+        const bottomNav = page.getByRole("navigation", {
+          name: "Bottom Navigation",
         });
-        await expect(hamburger).toBeVisible();
-        await hamburger.click();
-        const mobileNav = page.getByRole("navigation", {
-          name: "Mobile navigation",
-        });
-        await expect(mobileNav).toBeVisible();
-        const navBox = await mobileNav.boundingBox();
-        expect(navBox).not.toBeNull();
-        if (navBox) {
-          await page.mouse.click(4, navBox.y + navBox.height + 16);
-          await expect(mobileNav).toBeHidden();
-          await hamburger.click();
-          await expect(mobileNav).toBeVisible();
+        await expect(bottomNav).toBeVisible();
+        await expect(bottomNav.getByRole("button")).toHaveCount(3);
+        await expect(
+          bottomNav.getByRole("button", { name: "System Health" }),
+        ).toHaveCount(0);
+        const bottomBtnStyles = await bottomNav
+          .locator("button")
+          .evaluateAll((buttons) =>
+            buttons.map((el) => {
+              const s = getComputedStyle(el);
+              return {
+                borderStyle: s.borderTopStyle,
+                borderWidth: s.borderTopWidth,
+                bg: s.backgroundColor,
+              };
+            }),
+          );
+        for (const st of bottomBtnStyles) {
+          expect(st.borderStyle).toBe("solid");
+          expect(st.borderWidth).toBe("1px");
+          expect(["rgba(0, 0, 0, 0)", "rgb(255, 255, 255)"]).not.toContain(
+            st.bg,
+          );
         }
-        await page.keyboard.press("Escape");
-        await expect(mobileNav).toBeHidden();
-        await hamburger.click();
-        await expect(mobileNav).toBeVisible();
-        await mobileNav.getByRole("button", { name: "Tag Manager" }).click();
+        await bottomNav.getByRole("button", { name: "Tag Manager" }).click();
       } else {
         await page.getByRole("button", { name: "Tag Manager" }).click();
       }
@@ -521,7 +530,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.16");
+    expect(healthVersion).toBe("v0.3.17");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -539,7 +548,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.16"',
+      '"app_version": "0.3.17"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
