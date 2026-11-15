@@ -22,7 +22,7 @@ import {
   type AppRoute,
 } from "./shared/routes";
 import { AddItemModal } from "./ui/AddItemModal";
-import { Header } from "./ui/Header";
+import { Header, MobileBottomNav } from "./ui/Header";
 import { ItemDetailsModal } from "./ui/ItemDetailsModal";
 import { PositionsGrid } from "./ui/PositionsGrid";
 import { SettingsView } from "./ui/SettingsView";
@@ -35,6 +35,7 @@ export function App() {
   const [authToken, setAuthToken] = useState<string | null>(() =>
     getStoredAuthToken(),
   );
+  const [authEmail, setAuthEmail] = useState("");
   const [isSigningIn, setIsSigningIn] = useState(false);
   const store = useMemo(
     () => new LocalApiDataAdapter(undefined, () => getStoredAuthToken()),
@@ -197,7 +198,15 @@ export function App() {
   const spreadsheetId =
     state?.config.find((c) => c.key === "spreadsheet_id")?.value ?? "";
   const latestRun = state?.telemetry_logs[0];
-  const totalSavedText = formatSavingsByCurrency(state?.bought_items ?? []);
+  const workspaceCurrency =
+    state?.items[0]?.currency ?? state?.bought_items[0]?.currency ?? "₴";
+  const totalSavedText = formatSavingsByCurrency(
+    state?.bought_items ?? [],
+    workspaceCurrency,
+  );
+  const anomalyRunCount = (state?.telemetry_logs ?? []).filter(
+    (run) => run.status !== "SUCCESS",
+  ).length;
 
   const selectedActiveItem =
     state?.items.find((i) => i.item_id === selectedItemId) ?? null;
@@ -218,64 +227,140 @@ export function App() {
     }
   }, [state, selectedItemId, selectedActiveItem, selectedBoughtItem, navigate]);
 
-  return (
-    <div className="pp-page-shell w-full bg-slate-950 text-slate-100">
-      <Header
-        activeView={activeView}
-        onSelectView={(view) =>
-          navigate({
-            view,
-            gridTab: "active",
-            tagFilter: "ALL",
-            itemId: null,
-            addModalOpen: false,
-          })
-        }
-        activeItemCount={state?.items.length ?? 0}
-        tagCount={state?.tags.length ?? 0}
-        isChecking={isChecking}
-        onRunCheck={() => void handleRunCheck()}
-        onOpenAddModal={() => navigate({ addModalOpen: true, itemId: null })}
-        spreadsheetId={spreadsheetId}
-        onSignOut={authEnabled && authToken ? handleSignOut : undefined}
-      />
+  const isUnauthenticated = authEnabled && !authToken;
 
-      <main className="mx-auto w-full max-w-7xl min-w-0 space-y-3 px-3 py-3 sm:space-y-5 sm:px-4 sm:py-5">
+  const handleSelectTopView = (view: AppRoute["view"]) => {
+    navigate({
+      view,
+      gridTab: "active",
+      tagFilter: "ALL",
+      itemId: null,
+      addModalOpen: false,
+    });
+  };
+
+  return (
+    <div className="pp-page-shell flex w-full flex-col bg-white text-zinc-950">
+      {!isUnauthenticated && (
+        <Header
+          activeView={activeView}
+          onSelectView={handleSelectTopView}
+          activeItemCount={state?.items.length ?? 0}
+          tagCount={state?.tags.length ?? 0}
+          isChecking={isChecking}
+          onRunCheck={() => void handleRunCheck()}
+          onOpenAddModal={() => navigate({ addModalOpen: true, itemId: null })}
+          spreadsheetId={spreadsheetId}
+          onSignOut={authEnabled && authToken ? handleSignOut : undefined}
+        />
+      )}
+
+      <main className="mx-auto w-full max-w-7xl min-w-0 flex-1 space-y-3 px-3 py-3 sm:space-y-5 sm:px-4 sm:py-5">
         {errorBanner && (
           <div
             role="status"
             aria-live="polite"
-            className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2.5 text-xs text-rose-200"
+            className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-medium text-red-700"
           >
             {errorBanner}
           </div>
         )}
 
-        {authEnabled && !authToken ? (
+        {isUnauthenticated ? (
           <section
             id={ANCHORS.authGate}
             aria-label="Google Sign-In"
-            className="mx-auto mt-8 max-w-md rounded-2xl border border-slate-800 bg-slate-900/80 p-6 text-center shadow-xl"
+            className="mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-[340px] flex-col items-center justify-between py-8 text-center"
           >
-            <h1 className="text-lg font-semibold text-slate-100">
-              Sign in to PricePulse
-            </h1>
-            <p className="mt-2 text-xs text-slate-400">
-              Sign in with an authorized Google account to access your tracked
-              products and live price history.
+            <div className="my-auto w-full">
+              <div className="mb-8 text-[26px] font-bold tracking-tight text-zinc-950">
+                PricePulse
+              </div>
+              <h1 className="text-[17px] font-semibold text-zinc-950">
+                Sign in to your workspace
+              </h1>
+              <p className="mt-1.5 mb-6 text-[13px] leading-relaxed text-zinc-500">
+                Enter your authorized email to access tracked products and live
+                price history.
+              </p>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleSignIn();
+                }}
+                className="w-full space-y-3"
+              >
+                <div className="text-left">
+                  <label htmlFor="auth-email" className="sr-only">
+                    Email address
+                  </label>
+                  <input
+                    id="auth-email"
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="name@domain.com"
+                    className="h-12 w-full rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSigningIn}
+                  aria-busy={isSigningIn}
+                  className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-zinc-950 px-4 text-[15px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-40"
+                >
+                  {isSigningIn ? "Signing in..." : "Continue"}
+                </button>
+              </form>
+
+              <div className="my-5 flex w-full items-center gap-3">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-xs text-zinc-400">or</span>
+                <div className="h-px flex-1 bg-gray-200" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleSignIn()}
+                disabled={isSigningIn}
+                aria-busy={isSigningIn}
+                className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-lg bg-gray-100 px-4 text-[15px] font-medium text-zinc-950 transition-colors hover:bg-gray-200 disabled:opacity-40"
+              >
+                <svg
+                  aria-hidden="true"
+                  className="h-[18px] w-[18px]"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    fill="#4285F4"
+                    d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.46a5.52 5.52 0 01-2.4 3.62v3.01h3.88c2.27-2.09 3.56-5.17 3.56-8.82z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.07 7.94-2.91l-3.88-3.01c-1.07.72-2.44 1.15-4.06 1.15-3.12 0-5.77-2.11-6.72-4.96H1.28v3.1A12 12 0 0012 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.27a7.2 7.2 0 010-4.54V6.63H1.28a12 12 0 000 10.74l4-3.1z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.77c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.69 1.28 6.63l4 3.1c.95-2.85 3.6-4.96 6.72-4.96z"
+                  />
+                </svg>
+                {isSigningIn ? "Signing in..." : "Continue with Google"}
+              </button>
+            </div>
+
+            <p className="max-w-[280px] text-[11px] leading-relaxed text-zinc-400">
+              Authorized Google account required for{" "}
+              <span className="font-medium text-zinc-950">Sheets Sync</span> and{" "}
+              <span className="font-medium text-zinc-950">Gmail Alerts</span>.
             </p>
-            <button
-              type="button"
-              onClick={() => void handleSignIn()}
-              disabled={isSigningIn}
-              aria-busy={isSigningIn}
-              className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
-            >
-              {isSigningIn ? "Signing in..." : "Sign in with Google"}
-            </button>
           </section>
         ) : !state ? (
-          <div role="status" className="text-sm text-slate-400">
+          <div role="status" className="text-sm text-zinc-500">
             Loading PricePulse workspace...
           </div>
         ) : (
@@ -287,39 +372,39 @@ export function App() {
                 className="flex min-w-0 flex-col gap-3 sm:gap-5"
               >
                 <div className="order-3 @container grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 md:order-1">
-                  <div className="min-w-0 rounded-xl border border-slate-800 bg-slate-900/70 p-3 sm:rounded-2xl sm:p-4">
-                    <div className="truncate text-[11px] text-slate-400 sm:text-xs">
+                  <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4">
+                    <div className="truncate text-xs font-medium text-zinc-950">
                       Active Monitoring
                     </div>
-                    <div className="pp-kpi-value mt-0.5 font-bold text-slate-100">
+                    <div className="pp-kpi-value tabular-nums mt-1 font-bold tracking-tight text-zinc-950">
                       {state.items.length}
                     </div>
-                    <div className="mt-0.5 truncate text-[11px] text-emerald-400 sm:text-xs">
-                      &bull; {state.tags.length} Tags &bull; {state.items.length}{" "}
+                    <div className="tabular-nums mt-0.5 truncate text-[11px] text-zinc-500">
+                      {state.tags.length} Tags &bull; {state.items.length}{" "}
                       Tracked
                     </div>
                   </div>
-                  <div className="min-w-0 rounded-xl border border-slate-800 bg-slate-900/70 p-3 sm:rounded-2xl sm:p-4">
-                    <div className="truncate text-[11px] text-slate-400 sm:text-xs">
+                  <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4">
+                    <div className="truncate text-xs font-medium text-zinc-950">
                       Total Saved Costs
                     </div>
-                    <div className="pp-kpi-value mt-0.5 truncate font-bold text-emerald-400">
+                    <div className="pp-kpi-value tabular-nums mt-1 truncate font-bold tracking-tight text-zinc-950">
                       {totalSavedText}
                     </div>
-                    <div className="mt-0.5 truncate text-[11px] text-slate-400 sm:text-xs">
+                    <div className="tabular-nums mt-0.5 truncate text-[11px] text-zinc-500">
                       {state.bought_items.length} bought items
                     </div>
                   </div>
-                  <div className="col-span-2 min-w-0 rounded-xl border border-slate-800 bg-slate-900/70 p-3 sm:col-span-1 sm:rounded-2xl sm:p-4">
+                  <div className="col-span-2 min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:col-span-1 sm:p-4">
                     <div className="flex items-center justify-between gap-2 sm:block">
-                      <div className="truncate text-[11px] text-slate-400 sm:text-xs">
+                      <div className="truncate text-xs font-medium text-zinc-950">
                         Engine Health
                       </div>
-                      <div className="pp-kpi-value font-bold text-slate-100 sm:mt-0.5">
+                      <div className="pp-kpi-value tabular-nums font-bold tracking-tight text-zinc-950 sm:mt-1">
                         {latestRun?.status ?? "READY"}
                       </div>
                     </div>
-                    <div className="mt-0.5 truncate text-[11px] text-slate-400 sm:text-xs">
+                    <div className="tabular-nums mt-0.5 truncate text-[11px] text-zinc-500">
                       {latestRun
                         ? `${latestRun.breakdown} (${latestRun.duration_ms}ms)`
                         : "Awaiting first batch check"}
@@ -363,6 +448,7 @@ export function App() {
                 tags={state.tags}
                 items={state.items}
                 boughtItems={state.bought_items}
+                workspaceCurrency={workspaceCurrency}
                 onCreateTag={handleCreateTag}
                 onUpdateTag={handleUpdateTag}
                 onDeleteTag={handleDeleteTag}
@@ -398,8 +484,19 @@ export function App() {
         )}
       </main>
 
+      {!isUnauthenticated && !addModalOpen && !selectedItemId && (
+        <MobileBottomNav
+          activeView={activeView}
+          anomalyCount={anomalyRunCount}
+          onSelectView={handleSelectTopView}
+          onOpenAddModal={() => navigate({ addModalOpen: true, itemId: null })}
+        />
+      )}
+
       <AddItemModal
         open={addModalOpen}
+        availableTags={state?.tags ?? []}
+        defaultCurrency={workspaceCurrency}
         onClose={() => navigate({ addModalOpen: false })}
         onPreviewUrl={(url) => store.previewUrl(url)}
         onSaveItem={handleAddItem}

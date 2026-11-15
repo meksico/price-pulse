@@ -29,7 +29,7 @@ interface PositionsGridProps {
 
 function Sparkline({ snapshots }: { snapshots: PriceSnapshot[] }) {
   if (snapshots.length < 2) {
-    return <span className="text-xs text-slate-500">—</span>;
+    return <span className="text-xs text-zinc-400">&mdash;</span>;
   }
   const prices = snapshots.map((s) => s.price);
   const min = Math.min(...prices);
@@ -37,14 +37,21 @@ function Sparkline({ snapshots }: { snapshots: PriceSnapshot[] }) {
   const span = Math.max(0.01, max - min);
   const pts = prices
     .map((p, idx) => {
-      const x = (idx / (prices.length - 1)) * 60;
+      const x = 2 + (idx / (prices.length - 1)) * 60;
       const y = 18 - ((p - min) / span) * 14;
       return `${x},${y}`;
     })
     .join(" ");
   return (
     <svg width="64" height="22" aria-hidden="true" className="inline-block">
-      <polyline fill="none" stroke="#10b981" strokeWidth="1.5" points={pts} />
+      <polyline
+        fill="none"
+        stroke="#2563EB"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={pts}
+      />
     </svg>
   );
 }
@@ -169,9 +176,11 @@ export function PositionsGrid({
             type="button"
             onClick={() => handleTagChipClick(tid)}
             aria-pressed={active}
-            className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
-              TAG_BADGE_CLASSES[tag.color]
-            } ${active ? "ring-1 ring-emerald-400" : ""}`}
+            className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              active
+                ? "border-zinc-950 bg-zinc-950 text-white"
+                : TAG_BADGE_CLASSES[tag.color]
+            }`}
           >
             {tag.name}
           </button>
@@ -183,7 +192,7 @@ export function PositionsGrid({
   const renderMobileActiveCard = (item: TrackedItem) => (
     <article
       key={item.item_id}
-      className="min-w-0 space-y-2.5 rounded-xl border border-slate-800 bg-slate-950/70 p-3"
+      className="min-w-0 space-y-2.5 rounded-xl border border-gray-200 bg-white p-3.5"
     >
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -191,51 +200,47 @@ export function PositionsGrid({
             <img
               src={item.image_url}
               alt=""
-              className="h-10 w-10 shrink-0 rounded-lg object-cover"
+              className="h-11 w-11 shrink-0 rounded-lg border border-gray-200 bg-gray-100 object-cover"
             />
           ) : (
-            <div className="h-10 w-10 shrink-0 rounded-lg bg-slate-800" />
+            <div className="h-11 w-11 shrink-0 rounded-lg border border-gray-200 bg-gray-100" />
           )}
           <button
             type="button"
             onClick={() => onOpenItem(item.item_id)}
             title={item.name}
-            className="line-clamp-2 text-left text-sm font-medium text-slate-100 hover:text-emerald-300"
+            className="line-clamp-2 text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
           >
             {item.name}
           </button>
         </div>
         {item.status === "DISCOUNT" ? (
-          <span className="shrink-0 rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+          <span className="tabular-nums shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
             -{item.drop_pct}%
           </span>
         ) : (
-          <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] text-slate-400">
+          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
             NORMAL
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 rounded-lg border border-slate-800/80 bg-slate-900/60 p-2 text-xs">
-        <div>
-          <div className="text-[10px] text-slate-400">Baseline</div>
-          <div className="font-mono text-slate-300">
+      <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-2.5 text-xs">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium text-zinc-500">Baseline</div>
+          <div className="tabular-nums truncate text-zinc-600">
             {formatMoney(item.currency, item.initial_price)}
           </div>
         </div>
-        <div>
-          <div className="text-[10px] text-slate-400">Current</div>
-          <div
-            className={`font-mono font-semibold ${
-              item.status === "DISCOUNT" ? "text-emerald-400" : "text-slate-100"
-            }`}
-          >
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium text-zinc-500">Current</div>
+          <div className="tabular-nums truncate font-semibold text-zinc-950">
             {formatMoney(item.currency, item.current_price)}
           </div>
         </div>
-        <div>
-          <div className="text-[10px] text-slate-400">Target</div>
-          <div className="font-mono text-slate-300">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium text-zinc-500">Target</div>
+          <div className="tabular-nums truncate text-zinc-600">
             {formatMoney(item.currency, item.target_price)}
           </div>
         </div>
@@ -246,7 +251,7 @@ export function PositionsGrid({
         <button
           type="button"
           onClick={() => onOpenItem(item.item_id)}
-          className="min-h-11 shrink-0 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800 sm:min-h-9"
+          className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:min-h-9"
         >
           Item Card &rarr;
         </button>
@@ -257,36 +262,38 @@ export function PositionsGrid({
   const renderMobileBoughtCard = (item: BoughtItem) => (
     <article
       key={item.item_id}
-      className="min-w-0 space-y-2.5 rounded-xl border border-slate-800 bg-slate-950/70 p-3"
+      className="min-w-0 space-y-2.5 rounded-xl border border-gray-200 bg-white p-3.5"
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <button
           type="button"
           onClick={() => onOpenItem(item.item_id)}
-          className="min-w-0 text-left text-sm font-medium text-slate-100 hover:text-emerald-300"
+          className="min-w-0 text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
         >
           {item.name}
         </button>
-        <span className="shrink-0 rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+        <span className="tabular-nums shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-950">
           +{formatMoney(item.currency, item.saved_cost)}
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-2 rounded-lg border border-slate-800/80 bg-slate-900/60 p-2 text-xs">
-        <div>
-          <div className="text-[10px] text-slate-400">Baseline</div>
-          <div className="font-mono text-slate-300">
+      <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-2.5 text-xs">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium text-zinc-500">Baseline</div>
+          <div className="tabular-nums truncate text-zinc-600">
             {formatMoney(item.currency, item.initial_price)}
           </div>
         </div>
-        <div>
-          <div className="text-[10px] text-slate-400">Bought</div>
-          <div className="font-mono text-slate-100">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium text-zinc-500">Bought</div>
+          <div className="tabular-nums truncate font-semibold text-zinc-950">
             {formatMoney(item.currency, item.purchased_price)}
           </div>
         </div>
-        <div>
-          <div className="text-[10px] text-slate-400">Date</div>
-          <div className="text-slate-300">{item.purchased_date}</div>
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium text-zinc-500">Date</div>
+          <div className="tabular-nums truncate text-zinc-600">
+            {item.purchased_date}
+          </div>
         </div>
       </div>
       <div className="flex min-w-0 items-center justify-between gap-2">
@@ -294,7 +301,7 @@ export function PositionsGrid({
         <button
           type="button"
           onClick={() => onOpenItem(item.item_id)}
-          className="min-h-11 shrink-0 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800 sm:min-h-9"
+          className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:min-h-9"
         >
           View Card
         </button>
@@ -305,61 +312,60 @@ export function PositionsGrid({
   const renderActiveRow = (item: TrackedItem) => {
     const snaps = priceHistory.filter((s) => s.item_id === item.item_id);
     return (
-      <tr key={item.item_id} className="border-t border-slate-800/80 hover:bg-slate-800/30">
-        <td className="px-3 py-2.5">
-          <div className="flex items-center gap-2.5">
+      <tr
+        key={item.item_id}
+        className="border-b border-gray-100 transition-colors last:border-b-0 hover:bg-gray-50/70"
+      >
+        <td className="py-3 pr-3">
+          <div className="flex items-center gap-3">
             {item.image_url ? (
               <img
                 src={item.image_url}
                 alt=""
-                className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                className="h-11 w-11 shrink-0 rounded-lg border border-gray-200/70 bg-gray-100 object-cover"
               />
             ) : (
-              <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-800" />
+              <div className="h-11 w-11 shrink-0 rounded-lg border border-gray-200/70 bg-gray-100" />
             )}
             <button
               type="button"
               onClick={() => onOpenItem(item.item_id)}
               title={item.name}
-              className="max-w-xs truncate text-left font-medium text-slate-100 hover:text-emerald-300"
+              className="max-w-xs truncate text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
             >
               {item.name}
             </button>
           </div>
         </td>
-        <td className="px-3 py-2.5">{renderTagChips(item.tag_ids)}</td>
-        <td className="px-3 py-2.5 font-mono text-xs text-slate-400">
+        <td className="px-2 py-3">{renderTagChips(item.tag_ids)}</td>
+        <td className="tabular-nums px-2 py-3 text-right text-xs text-zinc-500">
           {formatMoney(item.currency, item.initial_price)}
         </td>
-        <td
-          className={`px-3 py-2.5 font-mono text-xs font-semibold ${
-            item.status === "DISCOUNT" ? "text-emerald-400" : "text-slate-100"
-          }`}
-        >
+        <td className="tabular-nums px-2 py-3 text-right text-[13px] font-semibold text-zinc-950">
           {formatMoney(item.currency, item.current_price)}
         </td>
-        <td className="px-3 py-2.5 font-mono text-xs text-slate-300">
+        <td className="tabular-nums px-2 py-3 text-right text-xs text-zinc-500">
           {formatMoney(item.currency, item.target_price)}
         </td>
-        <td className="px-3 py-2.5">
+        <td className="px-3 py-3 text-right">
           <Sparkline snapshots={snaps} />
         </td>
-        <td className="px-3 py-2.5">
+        <td className="px-2 py-3 text-right">
           {item.status === "DISCOUNT" ? (
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+            <span className="tabular-nums rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
               -{item.drop_pct}%
             </span>
           ) : (
-            <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[11px] text-slate-400">
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
               NORMAL
             </span>
           )}
         </td>
-        <td className="px-3 py-2.5 text-right">
+        <td className="py-3 pl-3 text-right">
           <button
             type="button"
             onClick={() => onOpenItem(item.item_id)}
-            className="whitespace-nowrap rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-800"
+            className="h-8 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-950 transition-colors hover:bg-gray-100"
           >
             Item Card &rarr;
           </button>
@@ -372,7 +378,7 @@ export function PositionsGrid({
     <section
       id={ANCHORS.gridPanel}
       aria-label="Tracked positions and bought items"
-      className="@container min-w-0 rounded-2xl border border-slate-800 bg-slate-900/70 p-3 sm:p-4"
+      className="@container min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4"
     >
       <div
         id={ANCHORS.gridPanelToolbar}
@@ -388,10 +394,10 @@ export function PositionsGrid({
             role="tab"
             aria-selected={activeTab === "active"}
             onClick={() => onTabChange("active")}
-            className={`min-h-11 min-w-0 truncate rounded-lg px-2.5 py-1.5 text-xs font-semibold sm:min-h-9 sm:px-3 ${
+            className={`tabular-nums min-h-11 min-w-0 truncate rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:min-h-8 ${
               activeTab === "active"
-                ? "bg-emerald-500/20 text-emerald-300"
-                : "text-slate-400 hover:bg-slate-800"
+                ? "bg-zinc-950 text-white"
+                : "bg-gray-100 text-zinc-900 hover:bg-gray-200"
             }`}
           >
             Active Positions ({items.length})
@@ -401,10 +407,10 @@ export function PositionsGrid({
             role="tab"
             aria-selected={activeTab === "bought"}
             onClick={() => onTabChange("bought")}
-            className={`min-h-11 min-w-0 truncate rounded-lg px-2.5 py-1.5 text-xs font-semibold sm:min-h-9 sm:px-3 ${
+            className={`tabular-nums min-h-11 min-w-0 truncate rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:min-h-8 ${
               activeTab === "bought"
-                ? "bg-emerald-500/20 text-emerald-300"
-                : "text-slate-400 hover:bg-slate-800"
+                ? "bg-zinc-950 text-white"
+                : "bg-gray-100 text-zinc-900 hover:bg-gray-200"
             }`}
           >
             Bought Items Sheet ({boughtItems.length})
@@ -415,14 +421,14 @@ export function PositionsGrid({
           <div className="flex min-w-0 items-center gap-2">
             {activeTab === "active" && (
               <>
-                <label htmlFor="grid-group-by" className="shrink-0 text-xs text-slate-400">
+                <label htmlFor="grid-group-by" className="shrink-0 text-xs text-zinc-500">
                   Group By
                 </label>
                 <select
                   id="grid-group-by"
                   value={groupBy}
                   onChange={(e) => setGroupBy(e.target.value as GroupMode)}
-                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 sm:min-h-9 sm:flex-none"
+                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9 sm:flex-none"
                 >
                   <option value="none">Flat List (None)</option>
                   <option value="tag">Tag</option>
@@ -432,7 +438,7 @@ export function PositionsGrid({
             <button
               type="button"
               onClick={onOpenAddModal}
-              className="min-h-11 shrink-0 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 sm:hidden"
+              className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:hidden"
             >
               + Add URL
             </button>
@@ -449,12 +455,12 @@ export function PositionsGrid({
               setPage(1);
             }}
             placeholder="Search products or tags..."
-            className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 sm:min-h-9 sm:w-52"
+            className="min-h-11 w-full rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9 sm:w-56"
           />
           <button
             type="button"
             onClick={onOpenAddModal}
-            className="hidden min-h-9 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 sm:inline-block"
+            className="hidden min-h-9 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:inline-block"
           >
             + Add URL
           </button>
@@ -464,9 +470,9 @@ export function PositionsGrid({
       <div
         id={ANCHORS.gridPanelTagBar}
         data-scroll-container="true"
-        className="mb-3 flex items-center gap-2 overflow-x-auto pb-1"
+        className="no-scrollbar mb-3 flex items-center gap-2 overflow-x-auto border-b border-gray-100 pb-2.5"
       >
-        <span className="shrink-0 text-xs text-slate-400">Filter by Tag:</span>
+        <span className="shrink-0 text-xs text-zinc-500">Filter by Tag:</span>
         <button
           type="button"
           aria-pressed={activeTagFilter === "ALL"}
@@ -474,10 +480,10 @@ export function PositionsGrid({
             setPage(1);
             onTagFilterChange("ALL");
           }}
-          className={`min-h-11 shrink-0 rounded-full border px-3 py-1 text-xs sm:min-h-8 sm:px-2.5 sm:py-0.5 ${
+          className={`min-h-11 shrink-0 rounded-lg border px-3 py-1 text-xs font-medium transition-colors sm:min-h-8 ${
             activeTagFilter === "ALL"
-              ? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
-              : "border-slate-700 text-slate-300 hover:bg-slate-800"
+              ? "border-zinc-950 bg-zinc-950 text-white"
+              : "border-gray-200 bg-white text-zinc-950 hover:bg-gray-50"
           }`}
         >
           Show All
@@ -488,9 +494,11 @@ export function PositionsGrid({
             type="button"
             aria-pressed={activeTagFilter === tag.tag_id}
             onClick={() => handleTagChipClick(tag.tag_id)}
-            className={`min-h-11 shrink-0 rounded-full border px-3 py-1 text-xs sm:min-h-8 sm:px-2.5 sm:py-0.5 ${
-              TAG_BADGE_CLASSES[tag.color]
-            } ${activeTagFilter === tag.tag_id ? "ring-1 ring-emerald-400" : ""}`}
+            className={`min-h-11 shrink-0 rounded-lg border px-3 py-1 text-xs font-medium transition-colors sm:min-h-8 ${
+              activeTagFilter === tag.tag_id
+                ? "border-zinc-950 bg-zinc-950 text-white"
+                : "border-gray-200 bg-white text-zinc-950 hover:bg-gray-50"
+            }`}
           >
             {tag.name}
           </button>
@@ -517,12 +525,12 @@ export function PositionsGrid({
                           return next;
                         })
                       }
-                      className="flex w-full items-center justify-between rounded-lg bg-slate-800/70 px-3 py-2 text-xs font-semibold text-slate-200"
+                      className="flex min-h-11 w-full items-center justify-between rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-zinc-950"
                     >
-                      <span>
+                      <span className="tabular-nums">
                         {group.label} ({group.rows.length})
                       </span>
-                      <span>{collapsed ? "+" : "−"}</span>
+                      <span>{collapsed ? "+" : "\u2212"}</span>
                     </button>
                     {!collapsed && group.rows.map(renderMobileActiveCard)}
                   </div>
@@ -537,37 +545,57 @@ export function PositionsGrid({
         className="hidden overflow-x-auto md:block"
       >
         {activeTab === "active" ? (
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-800 text-slate-400">
-              <tr>
-                <th className="px-3 py-2">
-                  <button type="button" onClick={() => toggleSort("name")}>
+          <table className="w-full border-collapse text-left text-xs">
+            <thead>
+              <tr className="border-b border-gray-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <th className="py-2 pr-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("name")}
+                    className="hover:text-zinc-950"
+                  >
                     Product Name
                   </button>
                 </th>
-                <th className="px-3 py-2">Tags</th>
-                <th className="px-3 py-2">
-                  <button type="button" onClick={() => toggleSort("initial_price")}>
+                <th className="px-2 py-2">Tags</th>
+                <th className="px-2 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("initial_price")}
+                    className="hover:text-zinc-950"
+                  >
                     Baseline
                   </button>
                 </th>
-                <th className="px-3 py-2">
-                  <button type="button" onClick={() => toggleSort("current_price")}>
+                <th className="px-2 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("current_price")}
+                    className="hover:text-zinc-950"
+                  >
                     Current Price
                   </button>
                 </th>
-                <th className="px-3 py-2">
-                  <button type="button" onClick={() => toggleSort("target_price")}>
+                <th className="px-2 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("target_price")}
+                    className="hover:text-zinc-950"
+                  >
                     Target Alert
                   </button>
                 </th>
-                <th className="px-3 py-2">Trend Dynamic</th>
-                <th className="px-3 py-2">
-                  <button type="button" onClick={() => toggleSort("drop_pct")}>
+                <th className="px-3 py-2 text-right">Trend Dynamic</th>
+                <th className="px-2 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("drop_pct")}
+                    className="hover:text-zinc-950"
+                  >
                     Drop %
                   </button>
                 </th>
-                <th className="px-3 py-2 text-right">Actions</th>
+                <th className="py-2 pl-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -602,46 +630,51 @@ export function PositionsGrid({
             </tbody>
           </table>
         ) : (
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-800 text-slate-400">
-              <tr>
-                <th className="px-3 py-2">Product Name</th>
-                <th className="px-3 py-2">Tags</th>
-                <th className="px-3 py-2">Baseline</th>
-                <th className="px-3 py-2">Bought Price</th>
-                <th className="px-3 py-2">Realized Savings</th>
-                <th className="px-3 py-2">Date Bought</th>
-                <th className="px-3 py-2 text-right">Actions</th>
+          <table className="w-full border-collapse text-left text-xs">
+            <thead>
+              <tr className="border-b border-gray-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <th className="py-2 pr-3">Product Name</th>
+                <th className="px-2 py-2">Tags</th>
+                <th className="px-2 py-2 text-right">Baseline</th>
+                <th className="px-2 py-2 text-right">Bought Price</th>
+                <th className="px-2 py-2 text-right">Realized Savings</th>
+                <th className="px-2 py-2 text-right">Date Bought</th>
+                <th className="py-2 pl-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredBought.map((item) => (
-                <tr key={item.item_id} className="border-t border-slate-800/80">
-                  <td className="px-3 py-2.5">
+                <tr
+                  key={item.item_id}
+                  className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/70"
+                >
+                  <td className="py-3 pr-3">
                     <button
                       type="button"
                       onClick={() => onOpenItem(item.item_id)}
-                      className="font-medium text-slate-100 hover:text-emerald-300"
+                      className="text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
                     >
                       {item.name}
                     </button>
                   </td>
-                  <td className="px-3 py-2.5">{renderTagChips(item.tag_ids)}</td>
-                  <td className="px-3 py-2.5 font-mono text-slate-400">
+                  <td className="px-2 py-3">{renderTagChips(item.tag_ids)}</td>
+                  <td className="tabular-nums px-2 py-3 text-right text-zinc-500">
                     {formatMoney(item.currency, item.initial_price)}
                   </td>
-                  <td className="px-3 py-2.5 font-mono text-slate-100">
+                  <td className="tabular-nums px-2 py-3 text-right font-semibold text-zinc-950">
                     {formatMoney(item.currency, item.purchased_price)}
                   </td>
-                  <td className="px-3 py-2.5 font-mono font-semibold text-emerald-400">
+                  <td className="tabular-nums px-2 py-3 text-right font-semibold text-zinc-950">
                     +{formatMoney(item.currency, item.saved_cost)} SAVED
                   </td>
-                  <td className="px-3 py-2.5 text-slate-400">{item.purchased_date}</td>
-                  <td className="px-3 py-2.5 text-right">
+                  <td className="tabular-nums px-2 py-3 text-right text-zinc-500">
+                    {item.purchased_date}
+                  </td>
+                  <td className="py-3 pl-3 text-right">
                     <button
                       type="button"
                       onClick={() => onOpenItem(item.item_id)}
-                      className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                      className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-950 hover:bg-gray-100"
                     >
                       View Card
                     </button>
@@ -654,10 +687,11 @@ export function PositionsGrid({
       </div>
 
       {activeTab === "active" && groupBy === "none" && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+        <div className="tabular-nums mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
           <span>
             Showing{" "}
-            {filteredActive.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}–
+            {filteredActive.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}
+            &ndash;
             {Math.min(safePage * PAGE_SIZE, filteredActive.length)} of{" "}
             {filteredActive.length} active positions
           </span>
@@ -666,7 +700,7 @@ export function PositionsGrid({
               type="button"
               disabled={safePage <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="min-h-11 rounded border border-slate-700 px-3 py-1 disabled:opacity-40 sm:min-h-9 sm:px-2.5"
+              className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 py-1 font-medium text-zinc-950 hover:bg-gray-50 disabled:opacity-40 sm:min-h-8 sm:px-2.5"
             >
               &larr; Prev
             </button>
@@ -674,7 +708,7 @@ export function PositionsGrid({
               type="button"
               disabled={safePage >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="min-h-11 rounded border border-slate-700 px-3 py-1 disabled:opacity-40 sm:min-h-9 sm:px-2.5"
+              className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 py-1 font-medium text-zinc-950 hover:bg-gray-50 disabled:opacity-40 sm:min-h-8 sm:px-2.5"
             >
               Next &rarr;
             </button>
@@ -704,18 +738,18 @@ function FragmentGroup({
 }) {
   return (
     <>
-      <tr key={`group-${groupId}`} className="bg-slate-800/50">
+      <tr key={`group-${groupId}`} className="bg-gray-100/80">
         <td colSpan={8} className="px-3 py-2">
           <button
             type="button"
             aria-expanded={!collapsed}
             onClick={onToggle}
-            className="flex w-full items-center justify-between text-left text-xs font-semibold text-slate-200"
+            className="flex w-full items-center justify-between text-left text-xs font-semibold text-zinc-950"
           >
-            <span>
+            <span className="tabular-nums">
               {label} ({count})
             </span>
-            <span className="font-mono text-emerald-400">
+            <span className="tabular-nums text-zinc-600">
               Avg Drop: -{avgDrop.toFixed(1)}%
             </span>
           </button>

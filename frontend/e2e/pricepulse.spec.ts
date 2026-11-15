@@ -7,6 +7,19 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.goto("/");
 
     await expect(page.getByText("PricePulse", { exact: true })).toBeVisible();
+    const bodyBg = await page.evaluate(
+      () => getComputedStyle(document.body).backgroundColor,
+    );
+    expect(bodyBg).toBe("rgb(255, 255, 255)");
+    const trackBtn = page.getByRole("button", { name: "+ Track New URL" });
+    await expect(trackBtn).toBeVisible();
+    const trackBtnBg = await trackBtn.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    expect(["rgb(9, 9, 11)", "oklch(0.141 0.005 285.823)"]).toContain(
+      trackBtnBg,
+    );
+
     await expect(page.getByText("0.0% Baseline")).toBeVisible();
     await expect(page.getByText(/Negative % = Price Drop/i)).toBeVisible();
     await expect(page.getByText(/Visible:\s*\d+\s*of\s*\d+\s*items/i)).toBeVisible();
@@ -20,6 +33,11 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await firstItemCardBtn.click();
     const detailsDialog = page.getByRole("dialog");
     await expect(detailsDialog).toBeVisible();
+    await expect(
+      detailsDialog.getByRole("link", {
+        name: /Open Original Retailer Web Page ↗/,
+      }),
+    ).toBeVisible();
     await expect(detailsDialog.getByText("Price Dynamics")).toBeVisible();
     await expect(detailsDialog.getByText("Target Threshold")).toBeVisible();
     await expect(
@@ -70,7 +88,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.2\.1/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.0/)).toBeVisible();
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {
@@ -180,6 +198,9 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
         await expect(
           page.getByRole("navigation", { name: "Primary navigation" }),
         ).toBeHidden();
+        await expect(
+          page.getByRole("navigation", { name: "Bottom Navigation" }),
+        ).toBeVisible();
         const hamburger = page.getByRole("button", {
           name: "Toggle navigation menu",
         });

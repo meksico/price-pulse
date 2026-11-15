@@ -9,6 +9,7 @@ export const ANCHORS = {
   viewHealth: "view-health",
   viewSettings: "view-settings",
   mobileNavDrawer: "header__mobile-nav",
+  mobileBottomNav: "mobile-bottom-nav",
   userDropdownMenu: "user-dropdown-menu",
   chartPanel: "chart-panel",
   chartPanelControls: "chart-panel__controls",

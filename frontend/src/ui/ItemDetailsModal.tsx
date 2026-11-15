@@ -6,7 +6,7 @@ import type {
   TrackedItem,
   UpdateItemPayload,
 } from "../domain/models";
-import { TAG_BADGE_CLASSES, formatMoney } from "../domain/models";
+import { formatMoney } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 
 interface ItemDetailsModalProps {
@@ -106,6 +106,7 @@ export function ItemDetailsModal({
   const chartH = 140;
   const padX = 24;
   const padY = 18;
+  const plotBottomY = chartH - padY;
   const toY = (val: number) =>
     padY + ((maxP - val) / span) * (chartH - padY * 2);
 
@@ -120,85 +121,105 @@ export function ItemDetailsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-4">
-      <div
-        id={ANCHORS.modalItemDetails}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="item-details-title"
-        className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-2xl sm:p-5"
-      >
-        <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            {item.image_url ? (
-              <img
-                src={item.image_url}
-                alt=""
-                className="h-12 w-12 shrink-0 rounded-xl bg-slate-800 object-cover"
-              />
-            ) : (
-              <div className="h-12 w-12 shrink-0 rounded-xl bg-slate-800" />
-            )}
-            <div className="min-w-0">
-              <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                {activeItem ? (
-                  activeItem.status === "DISCOUNT" ? (
-                    <span className="rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-950">
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
+        <div
+          id={ANCHORS.modalItemDetails}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="item-details-title"
+          className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
+        >
+          <div
+            aria-hidden="true"
+            className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
+          />
+
+          <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
+              <div className="flex min-w-0 items-start gap-3.5">
+                {item.image_url ? (
+                  <img
+                    src={item.image_url}
+                    alt=""
+                    className="h-14 w-14 shrink-0 rounded-xl border border-gray-200 bg-gray-100 object-cover"
+                  />
+                ) : (
+              <div className="h-14 w-14 shrink-0 rounded-xl border border-gray-200 bg-gray-100" />
+                )}
+                <div className="min-w-0">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      {activeItem ? (
+                        activeItem.status === "DISCOUNT" ? (
+                    <span className="tabular-nums rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700">
                       -{activeItem.drop_pct}% DISCOUNT
                     </span>
                   ) : (
-                    <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+                    <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-950">
                       ACTIVE
                     </span>
                   )
                 ) : (
                   boughtItem && (
-                    <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300">
+                    <span className="tabular-nums rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-950">
                       BOUGHT (+{formatMoney(boughtItem.currency, boughtItem.saved_cost)})
                     </span>
                   )
                 )}
+                <span className="tabular-nums text-[11px] text-zinc-500">
+                  {activeItem
+                    ? `Last checked: ${formatLastChecked(activeItem.last_checked)}`
+                    : boughtItem
+                      ? `Bought: ${boughtItem.purchased_date}`
+                      : ""}
+                </span>
               </div>
               <h2
                 id="item-details-title"
-                className="text-base font-semibold leading-snug text-slate-100"
+                className="text-[15px] font-semibold leading-snug text-zinc-950"
               >
                 {item.name}
               </h2>
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+              >
+                Open Original Retailer Web Page &#x2197;
+              </a>
             </div>
           </div>
           <button
             type="button"
             aria-label="Close Item Details modal"
             onClick={onClose}
-            className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100 sm:min-h-9 sm:min-w-9"
+            className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 sm:min-h-9 sm:min-w-9"
           >
             &times;
           </button>
         </div>
 
-        <div className="space-y-4 text-xs">
-          <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/75 p-3">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 font-mono text-[11px]">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="inline-flex items-center gap-1.5 text-slate-300">
-                  <span
-                    aria-hidden="true"
-                    className="inline-block w-3 border-t-2 border-emerald-400"
-                  />
-                  Price Dynamics
-                </span>
-                {numericTarget !== null && (
-                  <span className="inline-flex items-center gap-1.5 text-slate-300">
+                    <div className="space-y-4 text-xs">
+                          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white p-3.5">
+                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                  <span className="inline-flex items-center gap-1.5 font-medium text-zinc-700">
+                                    <span
+                                      aria-hidden="true"
+                                      className="inline-block w-3 border-t-2 border-blue-600"
+                                    />
+                                    Price Dynamics
+                                  </span>
+                                  {numericTarget !== null && (
+                  <span className="inline-flex items-center gap-1.5 text-zinc-500">
                     <span
                       aria-hidden="true"
-                      className="inline-block w-3 border-t-2 border-dashed border-rose-400"
+                      className="inline-block w-3 border-t-2 border-dashed border-zinc-400"
                     />
                     Target Threshold
                   </span>
                 )}
               </div>
-              <span className="font-semibold text-emerald-400">
+              <span className="tabular-nums font-semibold text-zinc-950">
                 Value: {formatMoney(item.currency, currentOrBoughtPrice)}
               </span>
             </div>
@@ -207,8 +228,15 @@ export function ItemDetailsModal({
               viewBox={`0 0 ${chartW} ${chartH}`}
               role="img"
               aria-label="Item price history"
-              className="h-32 w-full sm:h-36"
+              className="h-28 w-full sm:h-32"
             >
+              <defs>
+                <linearGradient id="modalCobaltArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#2563EB" stopOpacity="0.14" />
+                  <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+
               {[0.2, 0.5, 0.8].map((frac) => (
                 <line
                   key={frac}
@@ -216,7 +244,7 @@ export function ItemDetailsModal({
                   y1={padY + frac * (chartH - padY * 2)}
                   x2={chartW - padX}
                   y2={padY + frac * (chartH - padY * 2)}
-                  stroke="#1e293b"
+                  stroke="#F3F4F6"
                 />
               ))}
 
@@ -227,287 +255,302 @@ export function ItemDetailsModal({
                     y1={toY(numericTarget)}
                     x2={chartW - padX}
                     y2={toY(numericTarget)}
-                    stroke="#f43f5e"
-                    strokeWidth="1.5"
+                    stroke="#A1A1AA"
+                    strokeWidth="1.25"
                     strokeDasharray="4 4"
                   />
                   <text
                     x={chartW - padX}
                     y={Math.max(12, toY(numericTarget) - 5)}
                     textAnchor="end"
-                    fill="#fb7185"
+                    fill="#71717A"
                     fontSize="10"
-                    fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
                   >
                     Target: {formatMoney(item.currency, numericTarget)}
                   </text>
                 </g>
               )}
 
-              {sortedSnaps.length > 0 && (() => {
-                const pts = sortedSnaps.map((s, idx) => ({
-                  x:
-                    sortedSnaps.length > 1
-                      ? padX + (idx / (sortedSnaps.length - 1)) * (chartW - padX * 2)
-                      : chartW - padX,
-                  y: toY(s.price),
-                  id: s.history_id,
-                }));
-                return (
-                  <g>
-                    {pts.length === 1 ? (
-                      <line
-                        x1={padX}
-                        y1={pts[0].y}
-                        x2={pts[0].x}
-                        y2={pts[0].y}
-                        stroke="#10b981"
-                        strokeWidth="2.5"
-                        strokeDasharray="4 3"
-                      />
-                    ) : (
-                      <polyline
-                        fill="none"
-                        stroke="#10b981"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        points={pts.map((p) => `${p.x},${p.y}`).join(" ")}
-                      />
-                    )}
-                    {pts.map((p) => (
-                      <circle
-                        key={p.id}
-                        cx={p.x}
-                        cy={p.y}
-                        r={4}
-                        fill="#10b981"
-                        stroke="#020617"
-                        strokeWidth="1.5"
-                      />
-                    ))}
-                  </g>
-                );
-              })()}
+              {sortedSnaps.length > 0 &&
+                (() => {
+                  const pts = sortedSnaps.map((s, idx) => ({
+                    x:
+                      sortedSnaps.length > 1
+                        ? padX +
+                          (idx / (sortedSnaps.length - 1)) * (chartW - padX * 2)
+                        : chartW - padX,
+                    y: toY(s.price),
+                    id: s.history_id,
+                  }));
+                  const polyline = pts.map((p) => `${p.x},${p.y}`).join(" ");
+                  const firstPt = pts[0];
+                  const lastPt = pts[pts.length - 1];
+                  return (
+                    <g>
+                      {pts.length > 1 && (
+                        <polygon
+                          points={`${polyline} ${lastPt.x},${plotBottomY} ${firstPt.x},${plotBottomY}`}
+                          fill="url(#modalCobaltArea)"
+                        />
+                      )}
+                      {pts.length === 1 ? (
+                        <line
+                          x1={padX}
+                          y1={pts[0].y}
+                          x2={pts[0].x}
+                          y2={pts[0].y}
+                          stroke="#2563EB"
+                          strokeWidth="2"
+                          strokeDasharray="4 3"
+                        />
+                      ) : (
+                        <polyline
+                          fill="none"
+                          stroke="#2563EB"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          points={polyline}
+                        />
+                      )}
+                      {pts.map((p) => (
+                        <circle
+                          key={p.id}
+                          cx={p.x}
+                          cy={p.y}
+                          r={4}
+                          fill="#2563EB"
+                          stroke="#FFFFFF"
+                          strokeWidth="1.5"
+                        />
+                      ))}
+                    </g>
+                  );
+                })()}
             </svg>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Assigned Tags
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {item.tag_ids.length === 0 && (
-                <span className="text-slate-500">No tags assigned</span>
-              )}
-              {item.tag_ids.map((tid) => {
-                const tag = tagById.get(tid);
-                if (!tag) return null;
-                return (
-                  <span
-                    key={tid}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] ${
-                      TAG_BADGE_CLASSES[tag.color]
-                    }`}
-                  >
-                    {tag.name}
-                    {activeItem && (
-                      <button
-                        type="button"
-                        aria-label={`Remove tag ${tag.name}`}
-                        onClick={() => void handleRemoveTag(tag.name)}
-                        className="ml-0.5 hover:text-white"
+          <div className="divide-y divide-gray-200 border-t border-b border-gray-200">
+            <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:gap-4">
+              <span className="w-24 shrink-0 pt-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                Tags
+              </span>
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {item.tag_ids.length === 0 && (
+                    <span className="text-zinc-400">No tags assigned</span>
+                  )}
+                  {item.tag_ids.map((tid) => {
+                    const tag = tagById.get(tid);
+                    if (!tag) return null;
+                    return (
+                      <span
+                        key={tid}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-zinc-950"
                       >
-                        &times;
-                      </button>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-            {activeItem && (
-              <div className="mt-2.5 flex gap-2">
-                <label htmlFor="detail-add-tag" className="sr-only">
-                  Add Tag
-                </label>
-                <input
-                  id="detail-add-tag"
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void handleAddTag();
-                    }
-                  }}
-                  placeholder="Type tag name (e.g. Gift Idea, Amazon, Prime Day)..."
-                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 sm:min-h-9"
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleAddTag()}
-                  className="min-h-11 shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400 sm:min-h-9"
-                >
-                  + Add Tag
-                </button>
+                        {tag.name}
+                        {activeItem && (
+                          <button
+                            type="button"
+                            aria-label={`Remove tag ${tag.name}`}
+                            onClick={() => void handleRemoveTag(tag.name)}
+                            className="ml-0.5 text-zinc-400 hover:text-zinc-950"
+                          >
+                            &times;
+                          </button>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+                {activeItem && (
+                  <div className="flex gap-2">
+                    <label htmlFor="detail-add-tag" className="sr-only">
+                      Add Tag
+                    </label>
+                    <input
+                      id="detail-add-tag"
+                      type="text"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void handleAddTag();
+                        }
+                      }}
+                      placeholder="Add tag..."
+                      className="min-h-11 min-w-0 flex-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleAddTag()}
+                      className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:min-h-9"
+                    >
+                      + Add Tag
+                    </button>
+                  </div>
+                )}
               </div>
+            </div>
+
+            {activeItem ? (
+              <>
+                <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+                  <label
+                    htmlFor="detail-title"
+                    className="w-24 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
+                  >
+                    Title
+                  </label>
+                  <input
+                    id="detail-title"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="min-h-11 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-9"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:gap-4">
+                  <span className="w-24 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 sm:pt-2">
+                    Pricing
+                  </span>
+                  <div className="grid min-w-0 flex-1 grid-cols-1 gap-2.5 sm:grid-cols-3">
+                    <div className="min-w-0">
+                      <div className="mb-1 text-[10px] font-medium text-zinc-500">
+                        Baseline Price
+                      </div>
+                      <div className="tabular-nums flex min-h-11 items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 text-xs font-medium text-zinc-700 sm:min-h-9">
+                        {formatMoney(activeItem.currency, activeItem.initial_price)}
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="mb-1 text-[10px] font-medium text-zinc-500">
+                        Current Tracked Price
+                      </div>
+                      <div className="tabular-nums flex min-h-11 items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 text-xs font-semibold text-zinc-950 sm:min-h-9">
+                        {formatMoney(activeItem.currency, activeItem.current_price)}
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <label
+                        htmlFor="detail-target"
+                        className="mb-1 block text-[10px] font-medium text-zinc-500"
+                      >
+                        Alert Target Price
+                      </label>
+                      <div className="flex min-h-11 items-center rounded-lg border border-gray-200 bg-white px-2.5 focus-within:ring-2 focus-within:ring-zinc-950 sm:min-h-9">
+                        <span className="mr-1 text-zinc-400">
+                          {activeItem.currency}
+                        </span>
+                        <input
+                          id="detail-target"
+                          type="number"
+                          step="0.01"
+                          value={targetPrice}
+                          onChange={(e) => setTargetPrice(e.target.value)}
+                          className="tabular-nums min-w-0 w-full bg-transparent py-1.5 text-xs font-medium text-zinc-950 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              boughtItem && (
+                <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:gap-4">
+                  <span className="w-24 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 sm:pt-1">
+                    Settlement
+                  </span>
+                  <div className="grid min-w-0 flex-1 grid-cols-1 gap-2.5 sm:grid-cols-3">
+                    <div>
+                      <div className="text-[10px] font-medium text-zinc-500">
+                        Baseline
+                      </div>
+                      <div className="tabular-nums font-medium text-zinc-700">
+                        {formatMoney(boughtItem.currency, boughtItem.initial_price)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-medium text-zinc-500">
+                        Bought Price
+                      </div>
+                      <div className="tabular-nums font-semibold text-zinc-950">
+                        {formatMoney(
+                          boughtItem.currency,
+                          boughtItem.purchased_price,
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-medium text-zinc-500">
+                        Realized Savings
+                      </div>
+                      <div className="tabular-nums font-semibold text-zinc-950">
+                        +{formatMoney(boughtItem.currency, boughtItem.saved_cost)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
             )}
           </div>
 
-          {activeItem ? (
-            <>
-              <div>
-                <label htmlFor="detail-title" className="mb-1 block text-slate-400">
-                  Product Title
+          {activeItem && (
+            <div className="flex flex-col gap-3 rounded-xl bg-gray-100 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-zinc-950">
+                  Bought this item? Move to Bought Items Sheet
+                </div>
+                <div className="mt-0.5 text-[11px] text-zinc-500">
+                  Stops active scraper tracking and logs savings to{" "}
+                  <span className="font-medium text-zinc-950">Bought_Items</span>.
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <label htmlFor="detail-buy-price" className="sr-only">
+                  Purchase Price
                 </label>
-                <input
-                  id="detail-title"
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-slate-100 sm:min-h-9"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div>
-                  <div className="mb-1 text-slate-400">Baseline Price</div>
-                  <div className="flex min-h-11 items-center rounded-lg border border-slate-800 bg-slate-950/70 px-3 font-mono text-slate-200 sm:min-h-9">
-                    {formatMoney(activeItem.currency, activeItem.initial_price)}
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-1 text-slate-400">Current Tracked Price</div>
-                  <div className="flex min-h-11 items-center rounded-lg border border-slate-800 bg-slate-950/70 px-3 font-mono font-semibold text-emerald-400 sm:min-h-9">
-                    {formatMoney(activeItem.currency, activeItem.current_price)}
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="detail-target" className="mb-1 block text-slate-400">
-                    Alert Target Price
-                  </label>
-                  <div className="flex min-h-11 items-center rounded-lg border border-slate-700 bg-slate-950 px-2.5 sm:min-h-9">
-                    <span className="mr-1.5 font-mono text-slate-400">
-                      {activeItem.currency}
-                    </span>
-                    <input
-                      id="detail-target"
-                      type="number"
-                      step="0.01"
-                      value={targetPrice}
-                      onChange={(e) => setTargetPrice(e.target.value)}
-                      className="min-w-0 w-full bg-transparent py-1.5 font-mono text-rose-300 focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium text-emerald-400 hover:underline"
-                >
-                  Open Original Retailer Web Page &nearr;
-                </a>
-                <span className="text-slate-400">
-                  Last checked: {formatLastChecked(activeItem.last_checked)}
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="font-semibold text-emerald-300">
-                    Bought this item? Move to Bought Items Sheet
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-slate-400">
-                    Stops active scraper tracking and writes record to the dedicated{" "}
-                    <span className="text-emerald-300">Bought_Items</span> sheet.
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <label htmlFor="detail-buy-price" className="sr-only">
-                    Purchase Price
-                  </label>
-                  <div className="flex min-h-11 items-center rounded-lg border border-slate-700 bg-slate-950 px-2.5 sm:min-h-9">
-                    <span className="mr-1 font-mono text-slate-400">
-                      {activeItem.currency}
-                    </span>
-                    <input
-                      id="detail-buy-price"
-                      type="number"
-                      step="0.01"
-                      value={buyPrice}
-                      onChange={(e) => setBuyPrice(e.target.value)}
-                      className="w-20 bg-transparent py-1.5 font-mono text-slate-100 focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await onBuyItem(
-                        activeItem.item_id,
-                        Number(buyPrice) || activeItem.current_price,
-                      );
-                      onClose();
-                    }}
-                    className="min-h-11 rounded-lg bg-emerald-500 px-3.5 py-1.5 font-semibold text-slate-950 hover:bg-emerald-400 sm:min-h-9"
-                  >
-                    Confirm Buy
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            boughtItem && (
-              <>
-                <div className="grid grid-cols-3 gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                  <div>
-                    <div className="text-slate-400">Baseline</div>
-                    <div className="font-mono text-slate-200">
-                      {formatMoney(boughtItem.currency, boughtItem.initial_price)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-slate-400">Bought Price</div>
-                    <div className="font-mono text-slate-100">
-                      {formatMoney(boughtItem.currency, boughtItem.purchased_price)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-slate-400">Realized Savings</div>
-                    <div className="font-mono font-semibold text-emerald-400">
-                      +{formatMoney(boughtItem.currency, boughtItem.saved_cost)}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-emerald-400 hover:underline"
-                  >
-                    Open Original Retailer Web Page &nearr;
-                  </a>
-                  <span className="text-slate-400">
-                    Bought: {boughtItem.purchased_date}
+                <div className="flex min-h-11 items-center rounded-lg border border-gray-200 bg-white px-2.5 sm:min-h-9">
+                  <span className="mr-1 text-zinc-400">
+                    {activeItem.currency}
                   </span>
+                  <input
+                    id="detail-buy-price"
+                    type="number"
+                    step="0.01"
+                    value={buyPrice}
+                    onChange={(e) => setBuyPrice(e.target.value)}
+                    className="tabular-nums w-20 bg-transparent py-1.5 text-xs font-semibold text-zinc-950 focus:outline-none"
+                  />
                 </div>
-              </>
-            )
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onBuyItem(
+                      activeItem.item_id,
+                      Number(buyPrice) || activeItem.current_price,
+                    );
+                    onClose();
+                  }}
+                  className="min-h-11 rounded-lg border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-gray-50 sm:min-h-9"
+                >
+                  Confirm Buy
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4 text-xs">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4 text-xs">
           <div>
             {!confirmDelete ? (
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className="min-h-11 rounded-lg border border-rose-500/40 px-3 py-1.5 text-rose-300 hover:bg-rose-500/10 sm:min-h-9"
+                className="min-h-11 rounded-lg px-2.5 py-1.5 font-medium text-zinc-500 hover:bg-red-50 hover:text-red-600 sm:min-h-9"
               >
                 Delete Position
               </button>
@@ -518,7 +561,7 @@ export function ItemDetailsModal({
                   await onDeleteItem(item.item_id);
                   onClose();
                 }}
-                className="min-h-11 rounded-lg bg-rose-600 px-3 py-1.5 font-semibold text-white hover:bg-rose-500 sm:min-h-9"
+                className="min-h-11 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white hover:bg-red-500 sm:min-h-9"
               >
                 Confirm Delete
               </button>
@@ -529,7 +572,7 @@ export function ItemDetailsModal({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-11 rounded-lg border border-slate-700 px-3 py-1.5 text-slate-300 hover:bg-slate-800 sm:min-h-9"
+              className="min-h-11 rounded-lg bg-gray-100 px-4 py-1.5 font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-9"
             >
               Close
             </button>
@@ -537,7 +580,7 @@ export function ItemDetailsModal({
               <button
                 type="button"
                 onClick={() => void handleSaveDetails()}
-                className="min-h-11 rounded-lg bg-emerald-500 px-3.5 py-1.5 font-semibold text-slate-950 hover:bg-emerald-400 sm:min-h-9"
+                className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 sm:min-h-9"
               >
                 Save Changes
               </button>
@@ -548,7 +591,7 @@ export function ItemDetailsModal({
                   await onResumeItem(item.item_id);
                   onClose();
                 }}
-                className="min-h-11 rounded-lg bg-emerald-500 px-3.5 py-1.5 font-semibold text-slate-950 hover:bg-emerald-400 sm:min-h-9"
+                className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 sm:min-h-9"
               >
                 Resume Tracking
               </button>
@@ -559,4 +602,3 @@ export function ItemDetailsModal({
     </div>
   );
 }
-

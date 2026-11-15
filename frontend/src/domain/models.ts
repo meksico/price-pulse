@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.2.2";
+export const APP_VERSION = "0.3.0";
 
 export type TagColor =
   | "purple"
@@ -20,13 +20,13 @@ export const TAG_COLOR_OPTIONS: readonly TagColor[] = [
 ];
 
 export const TAG_BADGE_CLASSES: Record<TagColor, string> = {
-  purple: "bg-purple-500/15 text-purple-300 border-purple-500/30",
-  amber: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  blue: "bg-blue-500/15 text-blue-300 border-blue-500/30",
-  rose: "bg-rose-500/15 text-rose-300 border-rose-500/30",
-  cyan: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
-  slate: "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  purple: "bg-gray-100 text-zinc-900 border-gray-200",
+  amber: "bg-gray-100 text-zinc-900 border-gray-200",
+  emerald: "bg-gray-100 text-zinc-900 border-gray-200",
+  blue: "bg-gray-100 text-zinc-900 border-gray-200",
+  rose: "bg-gray-100 text-zinc-900 border-gray-200",
+  cyan: "bg-gray-100 text-zinc-900 border-gray-200",
+  slate: "bg-gray-100 text-zinc-900 border-gray-200",
 };
 
 export interface Tag {
@@ -157,8 +157,9 @@ export function formatMoney(currency: string, amount: number): string {
 
 export function formatSavingsByCurrency(
   entries: Array<{ currency: string; saved_cost: number }>,
+  fallbackCurrency = "$",
 ): string {
-  if (entries.length === 0) return "$0.00";
+  if (entries.length === 0) return formatMoney(fallbackCurrency, 0);
   const totals = new Map<string, number>();
   for (const entry of entries) {
     const prev = totals.get(entry.currency) ?? 0;
