@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.10`
+- **Document Version / App Target Baseline:** `0.3.11`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -163,7 +163,7 @@ flowchart TD
 - **`REQ-TAG-04` (Cascading Rename & Delete):** Renaming or deleting a tag updates `Tags`, `Item_Tags`, active `Items`, `Bought_Items`, Chart filter options, and the Dashboard quick-filter bar atomically.
 
 ### 5.6 System Health (`view-health`) & Settings (`view-settings`) (`REQ-HEALTH-01`, `REQ-CFG-01`)
-- **`REQ-HEALTH-01` (Telemetry Table & Manual Run):** Displays an inline monospace `v<APP_VERSION>` version badge beside the **System Health** heading (`#09090B` **Run Batch Check Now** button at top right) above the telemetry ledger (`Run ID`, `Timestamp`, `Status`, `Checked`, `Breakdown`, `Duration`, and **JSON Log** inspection drawer exposing the run payload and `RULE-DIAG` runtime diagnostic context), where `SUCCESS` runs use neutral `#F3F4F6` pills and `PARTIAL`/`ERROR` anomalies display a Crimson Red (`#EF4444`) `6px` dot. **Run Batch Check Now** (`#09090B`) triggers an immediate pooled batch check.
+- **`REQ-HEALTH-01` (Telemetry Table & Manual Run):** Displays an inline monospace `v<APP_VERSION>` version badge (sourced directly from the unified frontend `APP_VERSION` constant so it always matches the header user dropdown menu) beside the **System Health** heading (`#09090B` **Run Batch Check Now** button at top right) above the telemetry ledger (`Run ID`, `Timestamp`, `Status`, `Checked`, `Breakdown`, `Duration`, and **JSON Log** inspection drawer exposing the run payload and `RULE-DIAG` runtime diagnostic context with `app_version` normalized to `APP_VERSION`), where `SUCCESS` runs use neutral `#F3F4F6` pills and `PARTIAL`/`ERROR` anomalies display a Crimson Red (`#EF4444`) `6px` dot. **Run Batch Check Now** (`#09090B`) triggers an immediate pooled batch check.
 - **`REQ-CFG-01` (G-Sync & Configuration):** Checkout-style 2-column asymmetric key-value ledger (`WORKBOOK ID`, `ALERT EMAIL`, `POLLING CADENCE` with interactive Filled Pill Tabs + accessible `<select>`), outlined **Initialize 7-Tab Schema**, and single `#09090B` **Save Configuration** CTA.
 
 ### 5.7 Backend Extraction, Auth & Alerting (`REQ-SCRAPE-01`..`REQ-AUTH-02`)
@@ -204,3 +204,4 @@ flowchart TD
 | `0.3.8` | 2026-11-15 | Antigravity | Replaced black active tag pill background with saturated `TAG_ACTIVE_BADGE_CLASSES[tag.color]`, white text, and white bullet dot across `PositionsGrid` (`Filter by Tag:` & `Tags` chips) and `AddItemModal` (`REQ-GRID-03`). |
 | `0.3.9` | 2026-11-15 | Antigravity | Moved `v<APP_VERSION>` inline beside the `System Health` heading, removed the 6-cell diagnostics box above the telemetry table, and included `runtime_diagnostics` inside the expandable `JSON Log` inspector (`REQ-HEALTH-01`). |
 | `0.3.10` | 2026-11-15 | Antigravity | Excluded system `Purchased` tag from `AddItemModal` quick-select pills (`REQ-MODAL-02`) and restored semantic `TAG_BADGE_CLASSES` & `TAG_DOT_CLASSES` styling on `ItemDetailsModal` tag chips (`REQ-MODAL-04`). |
+| `0.3.11` | 2026-11-15 | Antigravity | Unified `APP_VERSION` rendering across `#user-dropdown-menu` and `#view-health`, normalized `runtime_diagnostics.app_version` in the `JSON Log` inspector (`REQ-HEALTH-01`), and synchronized `README.md` version references to `0.3.11`. |

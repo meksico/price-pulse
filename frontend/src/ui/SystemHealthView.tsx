@@ -34,7 +34,7 @@ export function SystemHealthView({
               System Health
             </h1>
             <span className="tabular-nums font-mono text-xs font-semibold text-zinc-950">
-              v{diagnostics?.app_version ?? APP_VERSION}
+              v{APP_VERSION}
             </span>
           </div>
           <p className="text-xs text-zinc-500">
@@ -183,7 +183,13 @@ export function SystemHealthView({
                         <pre className="overflow-x-auto font-mono text-[11px] text-zinc-800">
                           {JSON.stringify(
                             diagnostics
-                              ? { ...selectedRun, runtime_diagnostics: diagnostics }
+                              ? {
+                                  ...selectedRun,
+                                  runtime_diagnostics: {
+                                    ...diagnostics,
+                                    app_version: APP_VERSION,
+                                  },
+                                }
                               : selectedRun,
                             null,
                             2,

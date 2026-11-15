@@ -192,8 +192,13 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       page.getByRole("heading", { name: "Tag Manager" }),
     ).toBeVisible();
 
-    // Open User Menu -> verify Run Check menuitem -> System Health
+    // Open User Menu -> verify Run Check menuitem and identical version -> System Health
     await page.getByRole("button", { name: "User account menu" }).click();
+    const userMenu = page.locator("#user-dropdown-menu");
+    const menuVersion = (
+      await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
+    ).trim();
+    expect(menuVersion).toBe("v0.3.11");
     await expect(
       page.getByRole("menuitem", { name: /Run Check \(\d+ Items\)/i }),
     ).toBeVisible();
@@ -201,7 +206,11 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.10/)).toBeVisible();
+    const healthView = page.locator("#view-health");
+    const healthVersion = (
+      await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
+    ).trim();
+    expect(healthVersion).toBe(menuVersion);
     await expect(page.getByText("Python Executable")).toHaveCount(0);
   });
 
@@ -458,6 +467,49 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     );
     expect(hasAvatarImg).toBe(true);
     await expect(userMenuBtn).toContainText("meksico");
+  });
+
+  test("System Health and User Menu display identical APP_VERSION even when /api/health lags", async ({
+    page,
+  }) => {
+    await page.route("**/api/health", async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({
+        response,
+        json: { ...body, app_version: "0.2.1" },
+      });
+    });
+
+    await page.goto("/health");
+    const healthView = page.locator("#view-health");
+    await expect(
+      healthView.getByRole("heading", { name: "System Health" }),
+    ).toBeVisible();
+    const healthVersion = (
+      await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
+    ).trim();
+    expect(healthVersion).toBe("v0.3.11");
+    await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "User account menu" }).click();
+    const userMenu = page.locator("#user-dropdown-menu");
+    const menuVersion = (
+      await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
+    ).trim();
+    expect(menuVersion).toBe(healthVersion);
+    await page.getByRole("button", { name: "User account menu" }).click();
+
+    await healthView
+      .getByRole("button", { name: "JSON Log", exact: true })
+      .first()
+      .click();
+    await expect(healthView.locator("pre")).toContainText(
+      '"app_version": "0.3.11"',
+    );
+    await expect(healthView.locator("pre")).not.toContainText(
+      '"app_version": "0.2.1"',
+    );
   });
 });
 

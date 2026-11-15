@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pricepulse"
-version = "0.3.10"
+version = "0.3.11"
 description = "Personal e-commerce price intelligence and deal-tracking backend"
 requires-python = ">=3.12"
 dependencies = [
