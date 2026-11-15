@@ -20,6 +20,7 @@ export const ANCHORS = {
   gridPanelTagBar: "grid-panel__tag-bar",
   modalAddItem: "modal-add-item",
   modalItemDetails: "modal-item-details",
+  modalTelemetryJson: "modal-telemetry-json",
 } as const;
 
 export type AnchorId = (typeof ANCHORS)[keyof typeof ANCHORS];

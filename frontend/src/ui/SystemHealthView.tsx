@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   APP_VERSION,
   type RuntimeDiagnostics,
@@ -16,6 +16,65 @@ export function SystemHealthView({
   diagnostics,
 }: SystemHealthViewProps) {
   const [selectedRun, setSelectedRun] = useState<TelemetryRun | null>(null);
+  const [copied, setCopied] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setCopied(false);
+    if (!selectedRun) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
+        setSelectedRun(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedRun(null);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedRun]);
+
+  const formattedJson = selectedRun
+    ? JSON.stringify(
+        diagnostics
+          ? {
+              ...selectedRun,
+              runtime_diagnostics: {
+                ...diagnostics,
+                app_version: APP_VERSION,
+              },
+            }
+          : selectedRun,
+        null,
+        2,
+      )
+    : "";
+
+  const handleCopyJson = async () => {
+    if (!formattedJson) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(formattedJson);
+      } else {
+        throw new Error("Clipboard API unavailable");
+      }
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = formattedJson;
+      textarea.setAttribute("readonly", "true");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+    setCopied(true);
+  };
 
   return (
     <section
@@ -151,36 +210,49 @@ export function SystemHealthView({
                   </table>
                 </div>
 
-                {selectedRun && (
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3.5 text-xs">
-                      <div className="mb-2 flex items-center justify-between">
-                          <span className="font-mono font-semibold text-zinc-950">
-                            Telemetry JSON: {selectedRun.run_id}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedRun(null)}
-                            className="rounded-lg px-2 py-1 text-zinc-500 hover:bg-gray-200 hover:text-zinc-950"
-                          >
-                            Close
-                          </button>
-                      </div>
-                        <pre className="overflow-x-auto font-mono text-[11px] text-zinc-800">
-                          {JSON.stringify(
-                            diagnostics
-                              ? {
-                                  ...selectedRun,
-                                  runtime_diagnostics: {
-                                    ...diagnostics,
-                                    app_version: APP_VERSION,
-                                  },
-                                }
-                              : selectedRun,
-                            null,
-                            2,
-                          )}
-                        </pre>
-                    </div>
+      {selectedRun && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
+          <div
+            id={ANCHORS.modalTelemetryJson}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="telemetry-json-modal-title"
+            className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-xs text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
+          >
+            <div
+              aria-hidden="true"
+              className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
+            />
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2
+                id="telemetry-json-modal-title"
+                className="font-mono text-sm font-semibold text-zinc-950"
+              >
+                Telemetry JSON: {selectedRun.run_id}
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleCopyJson()}
+                  className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-gray-50 sm:min-h-8"
+                >
+                  {copied ? "Copied!" : "Copy JSON"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRun(null)}
+                  className="min-h-11 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-gray-200 hover:text-zinc-950 sm:min-h-8"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <pre className="max-h-[68dvh] overflow-auto rounded-xl border border-gray-200 bg-gray-50 p-3.5 font-mono text-[11px] text-zinc-800">
+              {formattedJson}
+            </pre>
+          </div>
+        </div>
       )}
                   </section>
                 );
