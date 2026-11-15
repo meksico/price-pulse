@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.3.7";
+export const APP_VERSION = "0.3.8";
 
 export type TagColor =
   | "purple"
@@ -27,6 +27,16 @@ export const TAG_BADGE_CLASSES: Record<TagColor, string> = {
   rose: "bg-rose-50 text-rose-800 border-rose-200",
   cyan: "bg-cyan-50 text-cyan-800 border-cyan-200",
   slate: "bg-slate-100 text-slate-800 border-slate-200",
+};
+
+export const TAG_ACTIVE_BADGE_CLASSES: Record<TagColor, string> = {
+  purple: "bg-purple-600 text-white border-purple-600",
+  amber: "bg-amber-500 text-white border-amber-500",
+  emerald: "bg-emerald-600 text-white border-emerald-600",
+  blue: "bg-blue-600 text-white border-blue-600",
+  rose: "bg-rose-600 text-white border-rose-600",
+  cyan: "bg-cyan-600 text-white border-cyan-600",
+  slate: "bg-slate-600 text-white border-slate-600",
 };
 
 export const TAG_DOT_CLASSES: Record<TagColor, string> = {

@@ -1,5 +1,10 @@
 import { useState } from "react";
 import type { AddItemPayload, ScrapePreview, Tag } from "../domain/models";
+import {
+  TAG_ACTIVE_BADGE_CLASSES,
+  TAG_BADGE_CLASSES,
+  TAG_DOT_CLASSES,
+} from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 
 interface AddItemModalProps {
@@ -246,11 +251,20 @@ export function AddItemModal({
                                             type="button"
                                             aria-pressed={isSelected}
                                             onClick={() => toggleSuggestedTag(tag.name)}
-                                            className={`min-h-8 rounded-full px-3 py-1 text-xs font-medium transition-colors ${isSelected
-                                                ? "bg-zinc-950 text-white"
-                                                : "bg-gray-100 text-zinc-800 hover:bg-gray-200"
-                                              }`}
+                                            className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                              isSelected
+                                                ? TAG_ACTIVE_BADGE_CLASSES[tag.color]
+                                                : `${TAG_BADGE_CLASSES[tag.color]} hover:opacity-85`
+                                            }`}
                                           >
+                                            <span
+                                              aria-hidden="true"
+                                              className={`h-1.5 w-1.5 rounded-full ${
+                                                isSelected
+                                                  ? "bg-white"
+                                                  : TAG_DOT_CLASSES[tag.color]
+                                              }`}
+                                            />
                                             {tag.name}
                                           </button>
                                         );

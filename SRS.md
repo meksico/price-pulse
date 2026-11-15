@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.7`
+- **Document Version / App Target Baseline:** `0.3.8`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -131,7 +131,7 @@ flowchart TD
 - **`REQ-GRID-02` (Grid Toolbar Controls):**
   - **Group By** dropdown: `Flat List (None)` or `Tag` (no Category or Retailer grouping).
   - **Search** `#F3F4F6` borderless input well: filters by item `name` or any assigned `tag` across both Active and Bought views. (New URL creation lives exclusively in the top header's `+ Track New URL` primary CTA and mobile bottom bar.)
-- **`REQ-GRID-03` (Quick Tag Filter Bar):** Horizontal scrollable strip (`Filter by Tag:`) showing `Show All` plus one color-coded button (`TAG_BADGE_CLASSES[tag.color]` with `TAG_DOT_CLASSES[tag.color]` indicator dot when inactive, `#09090B` active ink when selected) per distinct tag present on active items.
+- **`REQ-GRID-03` (Quick Tag Filter Bar):** Horizontal scrollable strip (`Filter by Tag:`) showing `Show All` (`#09090B` when active) plus one color-coded button per distinct tag present on active items (`TAG_BADGE_CLASSES[tag.color]` with `TAG_DOT_CLASSES[tag.color]` bullet when inactive, transitioning to its saturated tag color `TAG_ACTIVE_BADGE_CLASSES[tag.color]` with white text `text-white` and white bullet `bg-white` when selected).
 - **`REQ-GRID-04` (Active Positions Table Columns):**
   1. `Product Name` (sortable; `44×44px` rounded thumbnail + clickable title button opening `modal-item-details`)
   2. `Tags` (semantic color-coded tag pills via `TAG_BADGE_CLASSES[tag.color]`)
@@ -201,3 +201,4 @@ flowchart TD
 | `0.3.5` | 2026-11-15 | Antigravity | Recomputed canonical `delta_pct` from `initial_price` in `GoogleSheetsRepository.load_state()`, de-overlapped coincident pooled-check bullets in a dedicated top SVG layer with dynamic per-bullet tooltips in `TrajectoryChart` (`REQ-CHART-01`, `REQ-CHART-04`), added per-bullet hover tooltips to `ItemDetailsModal` (`REQ-MODAL-03`), and fixed `Series Visible` focus-dimming reset. |
 | `0.3.6` | 2026-11-15 | Antigravity | Moved `Run Check (N Items)` button from top header bar into `#user-dropdown-menu` below `G-Sync & Configuration` (`REQ-NAV-01..02`). |
 | `0.3.7` | 2026-11-15 | Antigravity | Hydrated authenticated Google profile (`picture`, `name`, `email`) via OpenID UserInfo in the header user pill (`REQ-NAV-01`), falling back to two-letter uppercase initials (`EG` for `Eugene Garkavtcev`, `PP` when unset) and email handle nickname before `@` (`meksico` for `meksico@gmail.com`). |
+| `0.3.8` | 2026-11-15 | Antigravity | Replaced black active tag pill background with saturated `TAG_ACTIVE_BADGE_CLASSES[tag.color]`, white text, and white bullet dot across `PositionsGrid` (`Filter by Tag:` & `Tags` chips) and `AddItemModal` (`REQ-GRID-03`). |

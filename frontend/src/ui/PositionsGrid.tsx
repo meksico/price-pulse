@@ -5,7 +5,12 @@ import type {
   Tag,
   TrackedItem,
 } from "../domain/models";
-import { TAG_BADGE_CLASSES, TAG_DOT_CLASSES, formatMoney } from "../domain/models";
+import {
+  TAG_ACTIVE_BADGE_CLASSES,
+  TAG_BADGE_CLASSES,
+  TAG_DOT_CLASSES,
+  formatMoney,
+} from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 
 type GridTab = "active" | "bought";
@@ -176,7 +181,7 @@ export function PositionsGrid({
             aria-pressed={active}
             className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
               active
-                ? "border-zinc-950 bg-zinc-950 text-white"
+                ? TAG_ACTIVE_BADGE_CLASSES[tag.color]
                 : TAG_BADGE_CLASSES[tag.color]
             }`}
           >
@@ -482,7 +487,7 @@ export function PositionsGrid({
               onClick={() => handleTagChipClick(tag.tag_id)}
               className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium transition-colors sm:min-h-8 ${
                 isActive
-                  ? "border-zinc-950 bg-zinc-950 text-white"
+                  ? TAG_ACTIVE_BADGE_CLASSES[tag.color]
                   : `${TAG_BADGE_CLASSES[tag.color]} hover:opacity-85`
               }`}
             >

@@ -78,9 +78,35 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("button", { name: /Keychron Q1 Pro/i }),
     ).toBeVisible();
+    const activeWorkstationBtn = page
+      .locator("#grid-panel__tag-bar")
+      .getByRole("button", { name: "Workstation" });
+    await expect(activeWorkstationBtn).toHaveAttribute("aria-pressed", "true");
+    await expect(activeWorkstationBtn).toHaveCSS(
+      "color",
+      /rgb\(255,\s*255,\s*255\)|oklch\(1\s+0\s+0\)/i,
+    );
+    await expect(activeWorkstationBtn.locator("span").first()).toHaveCSS(
+      "background-color",
+      /rgb\(255,\s*255,\s*255\)|oklch\(1\s+0\s+0\)/i,
+    );
+    const activeWorkstationBg = await activeWorkstationBtn.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    expect(["rgb(9, 9, 11)", "oklch(0.141 0.005 285.823)"]).not.toContain(
+      activeWorkstationBg,
+    );
 
     // Reset via Show All and verify semantic tag colors + no duplicate + Add URL button
     await page.getByRole("button", { name: "Show All" }).click();
+    await expect(activeWorkstationBtn).toHaveAttribute("aria-pressed", "false");
+    await expect
+      .poll(() =>
+        activeWorkstationBtn.evaluate(
+          (el) => getComputedStyle(el).backgroundColor,
+        ),
+      )
+      .not.toBe(activeWorkstationBg);
     await expect(
       page.getByRole("button", { name: "+ Add URL" }),
     ).toHaveCount(0);
@@ -175,7 +201,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.7/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.8/)).toBeVisible();
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {
