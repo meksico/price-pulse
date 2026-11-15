@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
-APP_VERSION: str = "0.2.1"
+APP_VERSION: str = "0.2.2"
 
 TAG_COLORS: tuple[str, ...] = (
     "purple",

@@ -1,6 +1,6 @@
 # PricePulse
 
-> **Version:** `0.2.1` · **Architecture:** Hexagonal Clean Architecture (`frontend/` + `backend/`) · **Spec:** [SRS.md](SRS.md)
+> **Version:** `0.2.2` · **Architecture:** Hexagonal Clean Architecture (`frontend/` + `backend/`) · **Spec:** [SRS.md](SRS.md)
 
 **PricePulse** is a personal, automated e-commerce price intelligence and deal-tracking application. It monitors arbitrary retailer product URLs, records historical price trajectories, alerts users when target prices are reached, and tracks realized savings when items are purchased.
 
@@ -48,7 +48,7 @@ price-pulse/
 │   ├── tests/              # Automated unit tests
 │   └── scripts/            # Static analysis & quality gate (quality_check.py)
 ├── docs/                   # Data model & architectural decision records
-├── SRS.md                  # Software Requirements Specification (v0.2.1)
+├── SRS.md                  # Software Requirements Specification (v0.2.2)
 └── ui_prototype.html       # Primary reference UI prototype
 ```
 

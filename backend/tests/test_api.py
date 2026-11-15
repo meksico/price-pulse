@@ -32,7 +32,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.2.1"
+    assert body["app_version"] == "0.2.2"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
