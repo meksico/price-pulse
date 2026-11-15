@@ -19,7 +19,6 @@ export const ROUTES = {
   dashboard: "/dashboard",
   tags: "/tags",
   health: "/health",
-  settings: "/settings",
   addItem: "/items/new",
   itemDetailsPrefix: "/items/",
 } as const;
@@ -58,15 +57,6 @@ export function parseRoute(pathname: string, search: string): AppRoute {
   if (cleanPath === ROUTES.health) {
     return {
       view: "health",
-      gridTab: "active",
-      tagFilter: "ALL",
-      itemId: null,
-      addModalOpen: modalParam === "add",
-    };
-  }
-  if (cleanPath === ROUTES.settings) {
-    return {
-      view: "settings",
       gridTab: "active",
       tagFilter: "ALL",
       itemId: null,
@@ -115,8 +105,6 @@ export function buildRouteUrl(route: AppRoute): string {
     path = ROUTES.tags;
   } else if (route.view === "health") {
     path = ROUTES.health;
-  } else if (route.view === "settings") {
-    path = ROUTES.settings;
   }
 
   const params = new URLSearchParams();

@@ -171,7 +171,7 @@ def _default_seed_state() -> WorkspaceState:
         ),
         ConfigEntry(
             key="poll_interval_hours",
-            value="6",
+            value="24",
             description="Cloud Scheduler polling cadence in hours",
         ),
     ]

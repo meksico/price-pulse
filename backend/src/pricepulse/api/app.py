@@ -117,6 +117,24 @@ def _serialize_state(repo: StateRepositoryPort) -> dict[str, Any]:
         row = asdict(entry)
         row["saved_cost"] = entry.saved_cost
         bought.append(row)
+    env_sheet_id = os.getenv("SPREADSHEET_ID", "").strip()
+    config_rows: list[dict[str, str]] = []
+    has_sheet_id = False
+    for cfg in state.config:
+        cfg_row = asdict(cfg)
+        if cfg.key == "spreadsheet_id":
+            has_sheet_id = True
+            if not cfg_row["value"] and env_sheet_id:
+                cfg_row["value"] = env_sheet_id
+        config_rows.append(cfg_row)
+    if not has_sheet_id and env_sheet_id:
+        config_rows.append(
+            {
+                "key": "spreadsheet_id",
+                "value": env_sheet_id,
+                "description": "Google Sheets Workbook ID",
+            }
+        )
     return {
         "items": [_serialize_item(item) for item in state.items],
         "bought_items": bought,
@@ -130,7 +148,7 @@ def _serialize_state(repo: StateRepositoryPort) -> dict[str, Any]:
             {**asdict(run), "status": run.status.value}
             for run in state.telemetry_logs
         ],
-        "config": [asdict(cfg) for cfg in state.config],
+        "config": config_rows,
     }
 
 
@@ -431,7 +449,7 @@ def create_app(
             logger.error(f"Preview scrape failed for {payload.url}", exc=exc)
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    async def _execute_batch_check() -> dict[str, Any]:
+    async def _execute_batch_check(user_email: str = "") -> dict[str, Any]:
         """Run pooled batch price check, update state, and send digest."""
         started_at = utc_now_iso()
         start_ms = time.perf_counter()
@@ -467,10 +485,17 @@ def create_app(
                 prev[0], prev[1], item.current_price, item.target_price
             ):
                 alert_items.append(item)
-        recipient = next(
-            (c.value for c in updated_state.config if c.key == "gmail_alert_recipient"),
+        auth_email = user_email if "@" in user_email else ""
+        cfg_recipient = next(
+            (
+                c.value.strip()
+                for c in updated_state.config
+                if c.key == "gmail_alert_recipient" and c.value.strip()
+            ),
             "",
         )
+        env_email = os.getenv("ALLOWED_OWNER_EMAIL", "").split(",")[0].strip()
+        recipient = auth_email or cfg_recipient or env_email
         digest_sent = resolved_notifier.send_discount_digest(recipient, alert_items)
         logger.info(
             f"Batch run {telemetry.run_id}: {telemetry.breakdown} "
@@ -488,7 +513,7 @@ def create_app(
     @app.post("/api/scrape/run-check")
     async def run_check(_user: str = Depends(_verify_auth)) -> dict[str, Any]:
         """Trigger immediate batch price check from SPA."""
-        return await _execute_batch_check()
+        return await _execute_batch_check(user_email=_user)
 
     @app.post("/api/cron/run-check")
     async def cron_run_check(

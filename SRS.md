@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.14`
+- **Document Version / App Target Baseline:** `0.3.15`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -77,20 +77,19 @@ Full column-level schemas, formulas, and ER diagrams are defined in [docs/GSHEET
 ### 4.1 Global Header & Navigation (`REQ-NAV-01`..`REQ-NAV-04`)
 - **`REQ-NAV-01` (Compact Top Header):** Displays on `#FFFFFF` canvas with `1px solid #E5E7EB` bottom border:
   1. Brand lockup: `PricePulse` in `#09090B` (no redundant subtitle or tag-status badge).
-  2. Primary navigation tabs (`whitespace-nowrap`, underlined `2px solid #09090B` active indicator on desktop): **Dashboard** (`view-dashboard`) and **Tag Manager** (`view-tags`), with **System Health** (`view-health`) and **G-Sync & Configuration** (`view-settings`) accessed via the User Avatar Dropdown.
+  2. Primary navigation tabs (`whitespace-nowrap`, underlined `2px solid #09090B` active indicator on desktop): **Dashboard** (`view-dashboard`) and **Tag Manager** (`view-tags`), with **System Health** (`view-health`) accessed via the User Avatar Dropdown.
   3. Global action buttons: single solid `#09090B` **+ Track New URL** primary CTA (the **Run Check** action lives inside the User Avatar Dropdown rather than the top bar).
   4. **User Avatar Menu** (`user-menu-btn` / `user-dropdown-menu`) displaying the authenticated Google account avatar image (with uppercase 2-letter initials fallback such as `EG` for `Eugene Garkavtcev`, or `PP` when unset) and email local-part nickname before `@` (e.g. `meksico` for `meksico@gmail.com`, falling back to `gmail_alert_recipient` config or `Owner`).
 - **`REQ-NAV-02` (User Avatar Dropdown & Mobile Bottom Nav):** Clicking the avatar opens a light `#FFFFFF` menu containing:
   1. Sync summary (`N Positions & Tags Synced` + unified `v<APP_VERSION>`)
   2. **System Health** (`Logs review` &rarr; `view-health`)
-  3. **G-Sync & Configuration** (`Sheet ID, Gmail alerts, schedule` &rarr; `view-settings`)
-  4. **Run Check (`N` Items)** — Triggers an immediate batch price check across all active tracked items (`tabular-nums`).
-  5. **Open Google Sheet** (external link to spreadsheet)
-  6. **Sign out** (disconnect / switch account action)
-  On mobile viewports (`< 768px`), a sticky 5-icon **Bottom Navigation Bar** (`#mobile-bottom-nav`) provides one-tap switching between `Dashboard`, `Tag Manager`, `Track New URL`, `System Health` (with `#EF4444` anomaly count badge), and `G-Sync Settings`, alongside the collapsible `#header__mobile-nav` drawer. Both `#user-dropdown-menu` and `#header__mobile-nav` close immediately on outside pointer click (`mousedown` outside container) and `Escape` (`RULE-OVERLAY-DISMISS`).
-- **`REQ-NAV-03` (Single-View Switching):** Only one primary view (`view-dashboard`, `view-tags`, `view-health`, or `view-settings`) is visible at a time; switching tabs closes any open dropdowns and resets focus appropriately. Unauthenticated Sign In (`#auth-gate`) hides all app navigation chrome (`DS-LOGIC-03`) on a pure `#FFFFFF` canvas displaying `PricePulse`, `Sign in to your workspace`, a clean hairline divider, and a single `Continue with Google` OAuth button (`#F3F4F6` pill).
+  3. **Run Check (`N` Items)** — Triggers an immediate batch price check across all active tracked items (`tabular-nums`).
+  4. **Open Google Sheet** (external link to spreadsheet)
+  5. **Sign out** (disconnect / switch account action)
+  On mobile viewports (`< 768px`), a sticky 4-icon **Bottom Navigation Bar** (`#mobile-bottom-nav`) provides one-tap switching between `Dashboard`, `Tag Manager`, `Track New URL`, and `System Health` (with `#EF4444` anomaly count badge), alongside the collapsible `#header__mobile-nav` drawer. Both `#user-dropdown-menu` and `#header__mobile-nav` close immediately on outside pointer click (`mousedown` outside container) and `Escape` (`RULE-OVERLAY-DISMISS`).
+- **`REQ-NAV-03` (Single-View Switching):** Only one primary view (`view-dashboard`, `view-tags`, or `view-health`) is visible at a time; switching tabs closes any open dropdowns and resets focus appropriately. Unauthenticated Sign In (`#auth-gate`) hides all app navigation chrome (`DS-LOGIC-03`) on a pure `#FFFFFF` canvas displaying `PricePulse`, `Sign in to your workspace`, a clean hairline divider, and a single `Continue with Google` OAuth button (`#F3F4F6` pill).
 - **`REQ-NAV-04` (Modal / Bottom-Sheet Overlays):** `modal-add-item`, `modal-item-details`, and `modal-telemetry-json` open over the active view as centered `#FFFFFF` dialogs on desktop and bottom sheets with a `36×4px` grab handle on mobile, closing on outside backdrop click (`mousedown` outside dialog box), `Escape`, and explicit Close (`×`) controls (`RULE-OVERLAY-DISMISS`).
-- **`REQ-NAV-05` (Canonical URL Deep-Linking & History Parity):** Every view (`/dashboard`, `/tags`, `/health`, `/settings`), modal (`/items/:itemId`, `/items/new`, or `?modal=add`), and grid/chart filter (`?tab=active|bought&tag=<tag_id>`) MUST be synchronized with `window.location` via a centralized `src/shared/routes.ts` registry and History API (`pushState`/`replaceState`/`popstate`), respecting Vite's `BASE_URL` prefix (e.g. `/price-pulse/` on GitHub Pages). Dashboard-scoped query params (`?tab=`, `?tag=`) MUST be scoped strictly to `/dashboard` and cleared when switching between top-level sections. Direct cold loads, browser refresh, and Back/Forward navigation MUST restore the exact state; FastAPI MUST fall back non-`/api/*` routes to `frontend/dist/index.html` when built and GitHub Pages MUST publish `404.html` as a copy of `index.html`; missing/unknown item IDs MUST fall back cleanly to `/dashboard` with a `role="status"` notice.
+- **`REQ-NAV-05` (Canonical URL Deep-Linking & History Parity):** Every view (`/dashboard`, `/tags`, `/health`), modal (`/items/:itemId`, `/items/new`, or `?modal=add`), and grid/chart filter (`?tab=active|bought&tag=<tag_id>`) MUST be synchronized with `window.location` via a centralized `src/shared/routes.ts` registry and History API (`pushState`/`replaceState`/`popstate`), respecting Vite's `BASE_URL` prefix (e.g. `/price-pulse/` on GitHub Pages). Dashboard-scoped query params (`?tab=`, `?tag=`) MUST be scoped strictly to `/dashboard` and cleared when switching between top-level sections. Direct cold loads, browser refresh, and Back/Forward navigation MUST restore the exact state; FastAPI MUST fall back non-`/api/*` routes to `frontend/dist/index.html` when built and GitHub Pages MUST publish `404.html` as a copy of `index.html`; missing/unknown item IDs MUST fall back cleanly to `/dashboard` with a `role="status"` notice.
 
 ```mermaid
 flowchart TD
@@ -99,7 +98,6 @@ flowchart TD
     Header -->|"+ Track New URL"| AddModal["Add Item Modal (modal-add-item)"]
     Header -->|"Avatar Menu"| Menu["User Dropdown"]
     Menu -->|"System Health"| Health["System Health (view-health)"]
-    Menu -->|"G-Sync & Config"| Settings["Settings (view-settings)"]
     Dash -->|"Click Item Name / Item Card ->"| DetailModal["Item Card Modal (modal-item-details)"]
     Tags -->|"Click View in Grid ->"| Dash
 ```
@@ -160,9 +158,9 @@ flowchart TD
 - **`REQ-TAG-03` (Search & Summary):** Live `#F3F4F6` tag search input and total active tags counter.
 - **`REQ-TAG-04` (Cascading Rename & Delete):** Renaming or deleting a tag updates `Tags`, `Item_Tags`, active `Items`, `Bought_Items`, Chart filter options, and the Dashboard quick-filter bar atomically.
 
-### 5.6 System Health (`view-health`) & Settings (`view-settings`) (`REQ-HEALTH-01`, `REQ-CFG-01`)
+### 5.6 System Health (`view-health`) & Automatic Configuration (`REQ-HEALTH-01`, `REQ-CFG-01`)
 - **`REQ-HEALTH-01` (Telemetry Table & Inspection):** Displays an inline monospace `v<APP_VERSION>` version badge (sourced directly from the unified frontend `APP_VERSION` constant so it always matches the header user dropdown menu) beside the **System Health** heading above the telemetry ledger (`Run ID`, `Timestamp`, `Status`, `Checked`, `Breakdown`, `Duration`, and **JSON Log** popup modal (`#modal-telemetry-json`) with a **Copy JSON** clipboard action, `Close` button, and click-outside/`Escape` dismissal exposing the run payload and `RULE-DIAG` runtime diagnostic context with `app_version` normalized to `APP_VERSION`), where `SUCCESS` runs use neutral `#F3F4F6` pills and `PARTIAL`/`ERROR` anomalies display a Crimson Red (`#EF4444`) `6px` dot. Manual batch checks are triggered via **Run Check (`N` Items)** inside `#user-dropdown-menu`.
-- **`REQ-CFG-01` (G-Sync & Configuration):** Checkout-style 2-column asymmetric key-value ledger (`WORKBOOK ID`, `ALERT EMAIL`, `POLLING CADENCE` with interactive Filled Pill Tabs + accessible `<select>`), outlined **Initialize 7-Tab Schema**, and single `#09090B` **Save Configuration** CTA.
+- **`REQ-CFG-01` (Code-Configured Sync & Auto-Bound Alert Routing):** The redundant `G-Sync & Configuration` UI page is removed. `SPREADSHEET_ID` is configured in deployment/code (`_serialize_state` injects env `SPREADSHEET_ID` when empty in `Config`), Cloud Scheduler polling cadence is fixed at daily `24h` (`poll_interval_hours = "24"`), and `gmail_alert_recipient` automatically binds to the logged-in Google account email (synchronized on UI sign-in and resolved during authenticated `/api/scrape/run-check`, falling back to `ALLOWED_OWNER_EMAIL` for headless cron runs).
 
 ### 5.7 Backend Extraction, Auth & Alerting (`REQ-SCRAPE-01`..`REQ-AUTH-02`)
 - **`REQ-SCRAPE-01` (3-Tier Waterfall Extraction):** Scraper executes Tier 1 (`application/ld+json` `schema.org/Product`/`Offer`, including `ImageObject` dict `url` normalization), Tier 2 (OpenGraph/Meta + Schema.org `itemprop="price"`/`priceCurrency` tags), and Tier 3 (visible-text DOM prefix/suffix currency RegEx including `UAH`/`грн` after stripping `<script>`, `<style>`, `<noscript>`, `<template>` + `html.unescape` title normalization) inside headless Playwright.
@@ -206,3 +204,4 @@ flowchart TD
 | `0.3.12` | 2026-11-15 | Antigravity | Removed redundant `Tag Manager` menuitem from `#user-dropdown-menu` (`REQ-NAV-02`) and removed duplicate `Run Batch Check Now` button from `#view-health` header (`REQ-HEALTH-01`). |
 | `0.3.13` | 2026-11-15 | Antigravity | Added click-outside (`mousedown`) and `Escape` (`keydown`) dismissal across all modals and popups (`#modal-add-item`, `#modal-item-details`, `#user-dropdown-menu`, and `#header__mobile-nav`) per `RULE-OVERLAY-DISMISS` (`REQ-NAV-02`, `REQ-NAV-04`). |
 | `0.3.14` | 2026-11-15 | Antigravity | Converted the inline Telemetry `JSON Log` inspector in `#view-health` into a popup modal (`#modal-telemetry-json`) with a **Copy JSON** clipboard button, `Close` button, and click-outside/`Escape` dismissal (`REQ-NAV-04`, `REQ-HEALTH-01`). |
+| `0.3.15` | 2026-11-15 | Antigravity | Removed redundant `G-Sync & Configuration` page and navigation links (`REQ-NAV-01..05`), fixed default polling cadence to `24h`, exposed code/env `SPREADSHEET_ID` automatically, and bound Gmail digest alerts to the logged-in Google account email (`REQ-CFG-01`). |

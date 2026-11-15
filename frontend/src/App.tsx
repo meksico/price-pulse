@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LocalApiDataAdapter } from "./adapters/localApiAdapter";
 import type {
   AddItemPayload,
-  ConfigEntry,
   RuntimeDiagnostics,
   TagColor,
   UpdateItemPayload,
@@ -28,7 +27,6 @@ import { AddItemModal } from "./ui/AddItemModal";
 import { Header, MobileBottomNav } from "./ui/Header";
 import { ItemDetailsModal } from "./ui/ItemDetailsModal";
 import { PositionsGrid } from "./ui/PositionsGrid";
-import { SettingsView } from "./ui/SettingsView";
 import { SystemHealthView } from "./ui/SystemHealthView";
 import { TagManagerView } from "./ui/TagManagerView";
 import { TrajectoryChart } from "./ui/TrajectoryChart";
@@ -212,11 +210,6 @@ export function App() {
     await refreshAll();
   };
 
-  const handleSaveConfig = async (entries: ConfigEntry[]) => {
-    await store.saveConfig(entries);
-    await refreshAll();
-  };
-
   const spreadsheetId =
     state?.config.find((c) => c.key === "spreadsheet_id")?.value ?? "";
   const configEmail =
@@ -253,6 +246,30 @@ export function App() {
   }, [state, selectedItemId, selectedActiveItem, selectedBoughtItem, navigate]);
 
   const isUnauthenticated = authEnabled && !authToken;
+
+  useEffect(() => {
+    if (!state || !userProfile?.email) return;
+    if (configEmail === userProfile.email) return;
+    void store
+      .saveConfig([
+        {
+          key: "spreadsheet_id",
+          value: spreadsheetId,
+          description: "Google Sheets Workbook ID",
+        },
+        {
+          key: "gmail_alert_recipient",
+          value: userProfile.email,
+          description: "Recipient for target_price discount digests",
+        },
+        {
+          key: "poll_interval_hours",
+          value: "24",
+          description: "Cloud Scheduler polling cadence in hours",
+        },
+      ])
+      .then(() => refreshAll());
+  }, [state, userProfile?.email, configEmail, spreadsheetId, store, refreshAll]);
 
   const handleSelectTopView = (view: AppRoute["view"]) => {
     navigate({
@@ -474,14 +491,6 @@ export function App() {
               <SystemHealthView
                 telemetryLogs={state.telemetry_logs}
                 diagnostics={diagnostics}
-              />
-            )}
-
-            {activeView === "settings" && (
-              <SettingsView
-                config={state.config}
-                onSaveConfig={handleSaveConfig}
-                onBootstrapSheets={() => store.bootstrapSheets()}
               />
             )}
           </>

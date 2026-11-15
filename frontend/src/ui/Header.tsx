@@ -3,7 +3,7 @@ import { APP_VERSION } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 import { deriveUserInitials, deriveUserNick } from "../shared/auth";
 
-export type AppView = "dashboard" | "tags" | "health" | "settings";
+export type AppView = "dashboard" | "tags" | "health";
 
 interface HeaderProps {
   activeView: AppView;
@@ -203,14 +203,6 @@ export function Header({
                           <button
                             type="button"
                             role="menuitem"
-                            onClick={() => navigate("settings")}
-                            className="block min-h-11 w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-gray-50 sm:min-h-9"
-                          >
-                            G-Sync &amp; Configuration
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
                             disabled={isChecking}
                             aria-busy={isChecking}
                             onClick={() => {
@@ -331,18 +323,6 @@ export function Header({
               }`}
             >
               System Health
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("settings")}
-              aria-pressed={activeView === "settings"}
-              className={`min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
-                activeView === "settings"
-                  ? "bg-zinc-950 text-white"
-                  : "text-zinc-900 hover:bg-gray-100"
-              }`}
-            >
-              G-Sync &amp; Configuration
             </button>
           </div>
         </nav>
@@ -468,33 +448,6 @@ export function Header({
                     <span className="tabular-nums absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
                       {anomalyCount}
                     </span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  aria-label="G-Sync Settings"
-                  aria-current={activeView === "settings" ? "page" : undefined}
-                  onClick={() => onSelectView("settings")}
-                  className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg hover:bg-gray-50"
-                >
-                  {activeView === "settings" ? (
-                    <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="#09090B">
-                      <circle cx="12" cy="12" r="3" />
-                      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-                    </svg>
-                  ) : (
-                    <svg
-                      aria-hidden="true"
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#52525B"
-                      strokeWidth="1.75"
-                    >
-                      <circle cx="12" cy="12" r="3" />
-                      <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                    </svg>
                   )}
                 </button>
               </nav>

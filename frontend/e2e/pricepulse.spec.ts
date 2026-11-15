@@ -208,9 +208,12 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.14");
+    expect(menuVersion).toBe("v0.3.15");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
+    ).toHaveCount(0);
+    await expect(
+      userMenu.getByRole("menuitem", { name: /G-Sync & Configuration/i }),
     ).toHaveCount(0);
     await expect(
       page.getByRole("menuitem", { name: /Run Check \(\d+ Items\)/i }),
@@ -424,17 +427,12 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.goto(itemUrl);
     await expect(itemDialog).toBeVisible();
 
-    // Cold-loading /tags, /health, /settings, and /items/new
+    // Cold-loading /tags, /health, and /items/new
     await page.goto("/tags");
     await expect(page.getByRole("heading", { name: "Tag Manager" })).toBeVisible();
 
     await page.goto("/health");
     await expect(page.getByRole("heading", { name: "System Health" })).toBeVisible();
-
-    await page.goto("/settings");
-    await expect(
-      page.getByRole("heading", { name: /G-Sync & Configuration/i }),
-    ).toBeVisible();
 
     await page.goto("/items/new");
     await expect(
@@ -521,7 +519,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.14");
+    expect(healthVersion).toBe("v0.3.15");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -539,7 +537,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.14"',
+      '"app_version": "0.3.15"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',

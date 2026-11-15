@@ -7,7 +7,6 @@ export const ANCHORS = {
   viewDashboard: "view-dashboard",
   viewTags: "view-tags",
   viewHealth: "view-health",
-  viewSettings: "view-settings",
   mobileNavDrawer: "header__mobile-nav",
   mobileBottomNav: "mobile-bottom-nav",
   userDropdownMenu: "user-dropdown-menu",
