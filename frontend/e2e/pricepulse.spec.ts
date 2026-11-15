@@ -76,6 +76,24 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     // Reset via Show All
     await page.getByRole("button", { name: "Show All" }).click();
 
+    // Interactive KPI tile actions
+    await page.getByRole("button", { name: /Total Saved Costs/i }).click();
+    await expect(
+      page.getByRole("tab", { name: /Bought Items Sheet/i }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/tab=bought/);
+
+    await page.getByRole("button", { name: /Active Monitoring/i }).click();
+    await expect(
+      page.getByRole("tab", { name: /Active Positions/i }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await page.getByRole("button", { name: /Engine Health/i }).click();
+    await expect(
+      page.getByRole("heading", { name: "System Health" }),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/health$/);
+
     // Navigate to Tag Manager and create a tag
     await page.getByRole("button", { name: "Tag Manager" }).click();
     await expect(
@@ -88,7 +106,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.0/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.1/)).toBeVisible();
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {

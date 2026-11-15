@@ -19,8 +19,6 @@ interface HeaderProps {
 const DESKTOP_TABS: Array<{ id: AppView; label: string }> = [
   { id: "dashboard", label: "Dashboard" },
   { id: "tags", label: "Tag Manager" },
-  { id: "health", label: "System Health" },
-  { id: "settings", label: "G-Sync" },
 ];
 
 export function Header({

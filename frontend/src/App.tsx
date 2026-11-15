@@ -35,7 +35,6 @@ export function App() {
   const [authToken, setAuthToken] = useState<string | null>(() =>
     getStoredAuthToken(),
   );
-  const [authEmail, setAuthEmail] = useState("");
   const [isSigningIn, setIsSigningIn] = useState(false);
   const store = useMemo(
     () => new LocalApiDataAdapter(undefined, () => getStoredAuthToken()),
@@ -239,6 +238,13 @@ export function App() {
     });
   };
 
+  const scrollToGrid = (nextTab: "active" | "bought") => {
+    navigate({ gridTab: nextTab });
+    document
+      .getElementById(ANCHORS.gridPanel)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="pp-page-shell flex w-full flex-col bg-white text-zinc-950">
       {!isUnauthenticated && (
@@ -279,46 +285,8 @@ export function App() {
               <h1 className="text-[17px] font-semibold text-zinc-950">
                 Sign in to your workspace
               </h1>
-              <p className="mt-1.5 mb-6 text-[13px] leading-relaxed text-zinc-500">
-                Enter your authorized email to access tracked products and live
-                price history.
-              </p>
 
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void handleSignIn();
-                }}
-                className="w-full space-y-3"
-              >
-                <div className="text-left">
-                  <label htmlFor="auth-email" className="sr-only">
-                    Email address
-                  </label>
-                  <input
-                    id="auth-email"
-                    type="email"
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                    placeholder="name@domain.com"
-                    className="h-12 w-full rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isSigningIn}
-                  aria-busy={isSigningIn}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-zinc-950 px-4 text-[15px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-40"
-                >
-                  {isSigningIn ? "Signing in..." : "Continue"}
-                </button>
-              </form>
-
-              <div className="my-5 flex w-full items-center gap-3">
-                <div className="h-px flex-1 bg-gray-200" />
-                <span className="text-xs text-zinc-400">or</span>
-                <div className="h-px flex-1 bg-gray-200" />
-              </div>
+              <div className="my-5 h-px w-full bg-gray-200" />
 
               <button
                 type="button"
@@ -372,7 +340,11 @@ export function App() {
                 className="flex min-w-0 flex-col gap-3 sm:gap-5"
               >
                 <div className="order-3 @container grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 md:order-1">
-                  <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4">
+                  <button
+                    type="button"
+                    onClick={() => scrollToGrid("active")}
+                    className="min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 sm:p-4"
+                  >
                     <div className="truncate text-xs font-medium text-zinc-950">
                       Active Monitoring
                     </div>
@@ -383,8 +355,12 @@ export function App() {
                       {state.tags.length} Tags &bull; {state.items.length}{" "}
                       Tracked
                     </div>
-                  </div>
-                  <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollToGrid("bought")}
+                    className="min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 sm:p-4"
+                  >
                     <div className="truncate text-xs font-medium text-zinc-950">
                       Total Saved Costs
                     </div>
@@ -394,8 +370,12 @@ export function App() {
                     <div className="tabular-nums mt-0.5 truncate text-[11px] text-zinc-500">
                       {state.bought_items.length} bought items
                     </div>
-                  </div>
-                  <div className="col-span-2 min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:col-span-1 sm:p-4">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTopView("health")}
+                    className="col-span-2 min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 sm:col-span-1 sm:p-4"
+                  >
                     <div className="flex items-center justify-between gap-2 sm:block">
                       <div className="truncate text-xs font-medium text-zinc-950">
                         Engine Health
@@ -409,7 +389,7 @@ export function App() {
                         ? `${latestRun.breakdown} (${latestRun.duration_ms}ms)`
                         : "Awaiting first batch check"}
                     </div>
-                  </div>
+                  </button>
                 </div>
 
                 <div className="order-1 min-w-0 md:order-2">
