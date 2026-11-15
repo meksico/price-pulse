@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from pricepulse.adapters.local_json import LocalJsonRepository
+from pricepulse.domain.models import NewItemSpec
 
 
 def test_add_buy_and_resume_preserves_item_id(tmp_path: Path) -> None:
@@ -55,4 +56,40 @@ def test_tag_rename_and_delete_cascade(tmp_path: Path) -> None:
     state = repo.load_state()
     assert all(t.tag_id != tag.tag_id for t in state.tags)
     assert all(link.tag_id != tag.tag_id for link in state.item_tags)
+
+
+def test_add_items_batch_persists_items_tags_and_snapshots(tmp_path: Path) -> None:
+    """Verify add_items_batch creates multiple items, shared/new tags, and INITIAL snapshots."""
+    repo = LocalJsonRepository(tmp_path / "batch_state.json")
+    initial_count = len(repo.load_state().items)
+    created = repo.add_items_batch(
+        [
+            NewItemSpec(
+                name="Batch Item 1",
+                url="https://example.com/b1",
+                image_url="",
+                currency="$",
+                initial_price=120.0,
+                target_price=100.0,
+                tag_names=["Audio", "BulkTag"],
+            ),
+            NewItemSpec(
+                name="Batch Item 2",
+                url="https://example.com/b2",
+                image_url="",
+                currency="€",
+                initial_price=240.0,
+                target_price=200.0,
+                tag_names=["BulkTag"],
+            ),
+        ]
+    )
+    assert len(created) == 2
+    state = repo.load_state()
+    assert len(state.items) == initial_count + 2
+    assert any(t.name == "BulkTag" for t in state.tags)
+    for item in created:
+        snaps = [h for h in state.price_history if h.item_id == item.item_id]
+        assert len(snaps) == 1
+        assert snaps[0].event_type.value == "INITIAL"
 

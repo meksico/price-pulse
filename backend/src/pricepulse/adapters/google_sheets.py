@@ -13,6 +13,7 @@ from pricepulse.domain.models import (
     BoughtItem,
     ConfigEntry,
     ItemTag,
+    NewItemSpec,
     PriceEventType,
     PriceSnapshot,
     RunStatus,
@@ -293,30 +294,48 @@ class GoogleSheetsRepository:
             body={"values": rows},
         ).execute()
 
-    def _ensure_tags(self, tag_names: list[str], existing: list[Tag]) -> list[str]:
-        """Ensure tags exist in Tags tab and return resolved tag_ids."""
+    def _ensure_tags_map(
+        self,
+        tag_names: list[str],
+        existing: list[Tag],
+    ) -> dict[str, str]:
+        """Ensure tags exist in Tags tab and return lowercased name -> tag_id map."""
         now = utc_now_iso()
         new_rows: list[list[Any]] = []
-        resolved: list[str] = []
         known = list(existing)
+        name_to_id: dict[str, str] = {t.name.lower(): t.tag_id for t in known}
         for raw in tag_names:
             clean = raw.strip()
             if not clean:
                 continue
-            found = next((t for t in known if t.name.lower() == clean.lower()), None)
-            if found is None:
+            key = clean.lower()
+            if key not in name_to_id:
                 color = TAG_COLORS[len(known) % len(TAG_COLORS)]
-                found = Tag(
+                created = Tag(
                     tag_id=f"tag-{uuid.uuid4().hex[:8]}",
                     name=clean,
                     color=color,
                     created_at=now,
                 )
-                known.append(found)
-                new_rows.append([found.tag_id, found.name, found.color, found.created_at])
-            if found.tag_id not in resolved:
-                resolved.append(found.tag_id)
+                known.append(created)
+                name_to_id[key] = created.tag_id
+                new_rows.append(
+                    [created.tag_id, created.name, created.color, created.created_at]
+                )
         self._append_rows("Tags", new_rows)
+        return name_to_id
+
+    def _ensure_tags(self, tag_names: list[str], existing: list[Tag]) -> list[str]:
+        """Ensure tags exist in Tags tab and return resolved tag_ids."""
+        name_to_id = self._ensure_tags_map(tag_names, existing)
+        resolved: list[str] = []
+        for raw in tag_names:
+            clean = raw.strip()
+            if not clean:
+                continue
+            tid = name_to_id.get(clean.lower())
+            if tid and tid not in resolved:
+                resolved.append(tid)
         return resolved
 
     def add_item(
@@ -375,6 +394,84 @@ class GoogleSheetsRepository:
             last_checked=now,
             tag_ids=tag_ids,
         )
+
+    def add_items_batch(self, specs: list[NewItemSpec]) -> list[TrackedItem]:
+        """Append multiple tracked items, INITIAL snapshots, and tags in 1 batch per tab."""
+        if not specs:
+            return []
+        state = self.load_state()
+        now = utc_now_iso()
+        all_tag_names = [name for spec in specs for name in spec.tag_names]
+        name_to_id = self._ensure_tags_map(all_tag_names, state.tags)
+
+        items_rows: list[list[Any]] = []
+        item_tags_rows: list[list[Any]] = []
+        history_rows: list[list[Any]] = []
+        created_items: list[TrackedItem] = []
+
+        for offset, spec in enumerate(specs):
+            row_num = len(state.items) + 2 + offset
+            item_id = f"item-{uuid.uuid4().hex[:8]}"
+            tag_ids: list[str] = []
+            for raw_tag in spec.tag_names:
+                clean_tag = raw_tag.strip()
+                if not clean_tag:
+                    continue
+                tid = name_to_id.get(clean_tag.lower())
+                if tid and tid not in tag_ids:
+                    tag_ids.append(tid)
+            currency = spec.currency.strip() or "$"
+            clean_name = spec.name.strip()
+            clean_url = spec.url.strip()
+            clean_image = spec.image_url.strip()
+            items_rows.append(
+                [
+                    item_id,
+                    clean_name,
+                    clean_url,
+                    clean_image,
+                    currency,
+                    spec.initial_price,
+                    spec.initial_price,
+                    spec.target_price,
+                    spec.initial_price,
+                    f'=IF(G{row_num}<=H{row_num},"DISCOUNT","ACTIVE")',
+                    f"=IF(F{row_num}>0,ROUND(((F{row_num}-G{row_num})/F{row_num})*100,1),0)",
+                    now,
+                ]
+            )
+            for tid in tag_ids:
+                item_tags_rows.append([item_id, tid, now])
+            history_rows.append(
+                [
+                    f"hist-{uuid.uuid4().hex[:8]}",
+                    item_id,
+                    now,
+                    spec.initial_price,
+                    0.0,
+                    "INITIAL",
+                ]
+            )
+            created_items.append(
+                TrackedItem(
+                    item_id=item_id,
+                    name=clean_name,
+                    url=clean_url,
+                    image_url=clean_image,
+                    currency=currency,
+                    initial_price=spec.initial_price,
+                    current_price=spec.initial_price,
+                    target_price=spec.target_price,
+                    lowest_price=spec.initial_price,
+                    last_checked=now,
+                    tag_ids=tag_ids,
+                )
+            )
+
+        self._append_rows("Items", items_rows)
+        self._append_rows("Item_Tags", item_tags_rows)
+        self._append_rows("Price_History", history_rows)
+        return created_items
 
     def update_item(
         self,

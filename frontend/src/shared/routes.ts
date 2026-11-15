@@ -1,6 +1,7 @@
 import type { AppView } from "../ui/Header";
 
 export type GridTab = "active" | "bought";
+export type AddModalMode = "single" | "bulk";
 
 export interface AppRoute {
   view: AppView;
@@ -8,6 +9,7 @@ export interface AppRoute {
   tagFilter: string;
   itemId: string | null;
   addModalOpen: boolean;
+  addModalMode: AddModalMode;
 }
 
 /**
@@ -35,6 +37,8 @@ export function parseRoute(pathname: string, search: string): AppRoute {
   const tagParam = params.get("tag")?.trim() ?? "";
   const tagFilter = tagParam.length > 0 ? tagParam : "ALL";
   const modalParam = params.get("modal");
+  const addModalMode: AddModalMode =
+    params.get("mode") === "bulk" ? "bulk" : "single";
 
   const base = getBasePath();
   const withoutBase =
@@ -46,21 +50,25 @@ export function parseRoute(pathname: string, search: string): AppRoute {
       : withoutBase;
 
   if (cleanPath === ROUTES.tags) {
+    const isAddOpen = modalParam === "add";
     return {
       view: "tags",
       gridTab: "active",
       tagFilter: "ALL",
       itemId: null,
-      addModalOpen: modalParam === "add",
+      addModalOpen: isAddOpen,
+      addModalMode: isAddOpen ? addModalMode : "single",
     };
   }
   if (cleanPath === ROUTES.health) {
+    const isAddOpen = modalParam === "add";
     return {
       view: "health",
       gridTab: "active",
       tagFilter: "ALL",
       itemId: null,
-      addModalOpen: modalParam === "add",
+      addModalOpen: isAddOpen,
+      addModalMode: isAddOpen ? addModalMode : "single",
     };
   }
   if (cleanPath === ROUTES.addItem) {
@@ -70,6 +78,7 @@ export function parseRoute(pathname: string, search: string): AppRoute {
       tagFilter,
       itemId: null,
       addModalOpen: true,
+      addModalMode,
     };
   }
   if (cleanPath.startsWith(ROUTES.itemDetailsPrefix)) {
@@ -82,16 +91,19 @@ export function parseRoute(pathname: string, search: string): AppRoute {
         tagFilter,
         itemId: decoded,
         addModalOpen: false,
+        addModalMode: "single",
       };
     }
   }
 
+  const isAddOpen = modalParam === "add";
   return {
     view: "dashboard",
     gridTab,
     tagFilter,
     itemId: null,
-    addModalOpen: modalParam === "add",
+    addModalOpen: isAddOpen,
+    addModalMode: isAddOpen ? addModalMode : "single",
   };
 }
 
@@ -118,6 +130,9 @@ export function buildRouteUrl(route: AppRoute): string {
   }
   if (route.addModalOpen && route.view !== "dashboard" && !route.itemId) {
     params.set("modal", "add");
+  }
+  if (route.addModalOpen && route.addModalMode === "bulk" && !route.itemId) {
+    params.set("mode", "bulk");
   }
 
   const qs = params.toString();

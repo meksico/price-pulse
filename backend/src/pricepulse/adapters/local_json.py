@@ -9,9 +9,11 @@ from pathlib import Path
 
 from pricepulse.domain.models import (
     TAG_COLORS,
+    BatchPreviewOutcome,
     BoughtItem,
     ConfigEntry,
     ItemTag,
+    NewItemSpec,
     PriceEventType,
     PriceSnapshot,
     RunStatus,
@@ -325,6 +327,44 @@ class LocalJsonRepository:
         self._persist()
         return item
 
+    def add_items_batch(self, specs: list[NewItemSpec]) -> list[TrackedItem]:
+        """Add multiple tracked items and INITIAL snapshots in one persistence cycle."""
+        if not specs:
+            return []
+        now = utc_now_iso()
+        created: list[TrackedItem] = []
+        for spec in specs:
+            item_id = f"item-{uuid.uuid4().hex[:8]}"
+            tag_ids = self._ensure_tags(spec.tag_names)
+            item = TrackedItem(
+                item_id=item_id,
+                name=spec.name.strip(),
+                url=spec.url.strip(),
+                image_url=spec.image_url.strip(),
+                currency=spec.currency.strip() or "$",
+                initial_price=spec.initial_price,
+                current_price=spec.initial_price,
+                target_price=spec.target_price,
+                lowest_price=spec.initial_price,
+                last_checked=now,
+                tag_ids=tag_ids,
+            )
+            self._state.items.append(item)
+            self._sync_item_tags(item_id, tag_ids)
+            self._state.price_history.append(
+                PriceSnapshot(
+                    history_id=f"hist-{uuid.uuid4().hex[:8]}",
+                    item_id=item_id,
+                    recorded_at=now,
+                    price=spec.initial_price,
+                    delta_pct=0.0,
+                    event_type=PriceEventType.INITIAL,
+                )
+            )
+            created.append(item)
+        self._persist()
+        return created
+
     def update_item(
         self,
         item_id: str,
@@ -568,6 +608,8 @@ class DeterministicScraperAdapter:
 
     async def preview_url(self, url: str) -> ScrapePreview:
         """Return deterministic preview metadata derived from the URL."""
+        if "fail-preview" in url.lower():
+            raise ValueError(f"Unable to extract price from URL: {url}")
         slug = url.rstrip("/").split("/")[-1].replace("-", " ").title() or "Sample Product"
         return ScrapePreview(
             url=url,
@@ -578,6 +620,39 @@ class DeterministicScraperAdapter:
             extraction_tier="TIER_1_JSON_LD",
             suggested_tags=["Tech"],
         )
+
+    async def preview_urls(self, urls: list[str]) -> list[BatchPreviewOutcome]:
+        """Return deterministic batch preview results with simulated failures."""
+        outcomes: list[BatchPreviewOutcome] = []
+        for idx, url in enumerate(urls):
+            lower = url.lower()
+            if "fail" in lower or "error" in lower or "403" in lower:
+                outcomes.append(
+                    BatchPreviewOutcome(
+                        url=url,
+                        success=False,
+                        error=f"HTTP 403 Forbidden or unable to extract price from {url}",
+                    )
+                )
+                continue
+            preview = await self.preview_url(url)
+            adjusted_price = round(preview.price + idx * 25.0, 2)
+            outcomes.append(
+                BatchPreviewOutcome(
+                    url=url,
+                    success=True,
+                    preview=ScrapePreview(
+                        url=preview.url,
+                        title=preview.title,
+                        price=adjusted_price,
+                        currency=preview.currency,
+                        image_url=preview.image_url,
+                        extraction_tier=preview.extraction_tier,
+                        suggested_tags=preview.suggested_tags,
+                    ),
+                )
+            )
+        return outcomes
 
     async def check_items(self, items: list[TrackedItem]) -> list[ScrapeOutcome]:
         """Simulate small deterministic price checks across active items."""

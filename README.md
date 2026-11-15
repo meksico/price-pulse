@@ -4,7 +4,7 @@
 
 # PricePulse
 
-> **Version:** `0.3.22` · **Architecture:** Hexagonal Clean Architecture (`frontend/` + `backend/`) · **Spec:** [SRS.md](SRS.md)
+> **Version:** `0.3.23` · **Architecture:** Hexagonal Clean Architecture (`frontend/` + `backend/`) · **Spec:** [SRS.md](SRS.md)
 
 **PricePulse** is a personal, automated e-commerce price intelligence and deal-tracking application. It monitors arbitrary retailer product URLs, records historical price trajectories, alerts users when target prices are reached, and tracks realized savings when items are purchased.
 
@@ -52,7 +52,7 @@ price-pulse/
 │   ├── tests/              # Automated unit tests
 │   └── scripts/            # Static analysis & quality gate (quality_check.py)
 ├── docs/                   # Data model & architectural decision records
-├── SRS.md                  # Software Requirements Specification (v0.3.22)
+├── SRS.md                  # Software Requirements Specification (v0.3.23)
 └── ui_prototype.html       # Primary reference UI prototype
 ```
 
@@ -69,7 +69,7 @@ price-pulse/
 - **Mobile-First Responsive Layout:** Zero horizontal overflow across `320px+` viewports; data grids render as stacked touch-friendly cards on `< 768px` (`md:hidden`) with a collapsible header navigation menu.
 
 ### Modals & Lifecycle Management
-- **Track New URL (`+ Track New URL`):** Paste a URL, click **Fetch Preview** to auto-populate title, price, image, and suggested tags, and save without exposing CSS/XPath selectors.
+- **Track New URL (`+ Track New URL`):** Supports both **Single URL** mode (paste a URL, click **Fetch Preview** to auto-populate title, price, image, and suggested tags) and **Bulk URL List** mode (`/items/new?mode=bulk`, paste up to 20 URLs with shared tags and target discount %, inspect fetched items in a horizontal swipeable validation deck `(1/K)`, save in one batched Google Sheets write, and recover failed URLs in the Final Recovery Window with **Configure Manually →**).
 - **Item Card Details:** View product metadata, edit title and `Alert Target Price`, manage tags inline (`+ Add Tag`), inspect the SVG `Price Dynamics` chart with `Target Threshold` line, **Confirm Buy** to archive to `Bought_Items` (or **Resume Tracking** to restore), or **Delete Position** with two-step confirmation.
 
 ### Tag Manager, System Health & Settings

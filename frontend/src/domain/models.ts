@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.3.22";
+export const APP_VERSION = "0.3.23";
 
 export type TagColor =
   | "purple"
@@ -134,6 +134,17 @@ export interface ScrapePreview {
   image_url: string;
   extraction_tier: string;
   suggested_tags: string[];
+}
+
+export interface BatchPreviewItemResult {
+  url: string;
+  success: boolean;
+  preview: ScrapePreview | null;
+  error: string | null;
+}
+
+export interface BatchPreviewResponse {
+  results: BatchPreviewItemResult[];
 }
 
 export interface RuntimeDiagnostics {

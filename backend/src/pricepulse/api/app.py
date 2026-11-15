@@ -36,6 +36,7 @@ from pricepulse.diagnostics import StructuredLogger, collect_runtime_diagnostics
 from pricepulse.domain.models import (
     APP_VERSION,
     ConfigEntry,
+    NewItemSpec,
     RunStatus,
     TelemetryRun,
     TrackedItem,
@@ -99,6 +100,18 @@ class PreviewUrlRequest(BaseModel):
     """Payload for previewing a product URL."""
 
     url: str
+
+
+class PreviewBatchRequest(BaseModel):
+    """Payload for batch previewing up to 20 product URLs."""
+
+    urls: list[str] = Field(min_length=1, max_length=20)
+
+
+class BatchAddItemsRequest(BaseModel):
+    """Payload for batch creating up to 20 tracked items."""
+
+    items: list[AddItemRequest] = Field(min_length=1, max_length=20)
 
 
 def _serialize_item(item: TrackedItem) -> dict[str, Any]:
@@ -316,6 +329,28 @@ def create_app(
         logger.info(f"Added tracked item {item.item_id}: {item.name}")
         return _serialize_item(item)
 
+    @app.post("/api/items/batch")
+    def create_items_batch(
+        payload: BatchAddItemsRequest,
+        _user: str = Depends(_verify_auth),
+    ) -> dict[str, Any]:
+        """Create up to 20 tracked items in a single batched write."""
+        specs = [
+            NewItemSpec(
+                name=row.name,
+                url=row.url,
+                image_url=row.image_url,
+                currency=row.currency,
+                initial_price=row.initial_price,
+                target_price=row.target_price,
+                tag_names=row.tag_names,
+            )
+            for row in payload.items
+        ]
+        created = resolved_repo.add_items_batch(specs)
+        logger.info(f"Added {len(created)} tracked items in batch")
+        return {"items": [_serialize_item(item) for item in created]}
+
     @app.patch("/api/items/{item_id}")
     def patch_item(
         item_id: str,
@@ -448,6 +483,34 @@ def create_app(
         except Exception as exc:
             logger.error(f"Preview scrape failed for {payload.url}", exc=exc)
             raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    @app.post("/api/scrape/preview-batch")
+    async def preview_urls_batch(
+        payload: PreviewBatchRequest,
+        _user: str = Depends(_verify_auth),
+    ) -> dict[str, Any]:
+        """Scrape preview metadata for up to 20 URLs concurrently."""
+        clean_urls = [u.strip() for u in payload.urls if u.strip()]
+        if not clean_urls:
+            raise HTTPException(status_code=400, detail="Provide at least one URL")
+        if len(clean_urls) > 20:
+            raise HTTPException(status_code=400, detail="Maximum 20 URLs per batch")
+        outcomes = await resolved_scraper.preview_urls(clean_urls)
+        return {
+            "results": [
+                {
+                    "url": outcome.url,
+                    "success": outcome.success,
+                    "preview": (
+                        asdict(outcome.preview)
+                        if outcome.preview is not None
+                        else None
+                    ),
+                    "error": outcome.error,
+                }
+                for outcome in outcomes
+            ]
+        }
 
     async def _execute_batch_check(user_email: str = "") -> dict[str, Any]:
         """Run pooled batch price check, update state, and send digest."""

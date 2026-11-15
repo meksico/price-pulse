@@ -1,5 +1,7 @@
 import type {
   AddItemPayload,
+  BatchPreviewItemResult,
+  BatchPreviewResponse,
   BoughtItem,
   ConfigEntry,
   RuntimeDiagnostics,
@@ -104,11 +106,33 @@ export class LocalApiDataAdapter implements DataStorePort {
     });
   }
 
+  async previewUrlsBatch(urls: string[]): Promise<BatchPreviewItemResult[]> {
+    const res = await this.request<BatchPreviewResponse>(
+      "/api/scrape/preview-batch",
+      {
+        method: "POST",
+        body: JSON.stringify({ urls }),
+      },
+    );
+    return res.results;
+  }
+
   addItem(payload: AddItemPayload): Promise<TrackedItem> {
     return this.request<TrackedItem>("/api/items", {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  }
+
+  async addItemsBatch(items: AddItemPayload[]): Promise<TrackedItem[]> {
+    const res = await this.request<{ items: TrackedItem[] }>(
+      "/api/items/batch",
+      {
+        method: "POST",
+        body: JSON.stringify({ items }),
+      },
+    );
+    return res.items;
   }
 
   updateItem(itemId: string, payload: UpdateItemPayload): Promise<TrackedItem> {

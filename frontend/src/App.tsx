@@ -280,6 +280,16 @@ export function App() {
     pushToast("success", "Item added", `Started tracking "${payload.name}".`);
   };
 
+  const handleAddItemsBatch = async (payloads: AddItemPayload[]) => {
+    await store.addItemsBatch(payloads);
+    await refreshAll();
+    pushToast(
+      "success",
+      "Bulk items added",
+      `Started tracking ${payloads.length} item${payloads.length === 1 ? "" : "s"}.`,
+    );
+  };
+
   const handleUpdateItem = async (itemId: string, payload: UpdateItemPayload) => {
     try {
       const targetName =
@@ -521,6 +531,7 @@ export function App() {
       tagFilter: "ALL",
       itemId: null,
       addModalOpen: false,
+      addModalMode: "single",
     });
   };
 
@@ -541,7 +552,13 @@ export function App() {
           tagCount={state?.tags.length ?? 0}
           isChecking={isChecking}
           onRunCheck={() => void handleRunCheck()}
-          onOpenAddModal={() => navigate({ addModalOpen: true, itemId: null })}
+          onOpenAddModal={() =>
+            navigate({
+              addModalOpen: true,
+              addModalMode: "single",
+              itemId: null,
+            })
+          }
           spreadsheetId={spreadsheetId}
           userName={userProfile?.name ?? ""}
           userEmail={userProfile?.email || configEmail}
@@ -771,17 +788,30 @@ export function App() {
         <MobileBottomNav
           activeView={activeView}
           onSelectView={handleSelectTopView}
-          onOpenAddModal={() => navigate({ addModalOpen: true, itemId: null })}
+          onOpenAddModal={() =>
+            navigate({
+              addModalOpen: true,
+              addModalMode: "single",
+              itemId: null,
+            })
+          }
         />
       )}
 
       <AddItemModal
         open={addModalOpen}
+        mode={route.addModalMode}
+        onModeChange={(nextMode) => navigate({ addModalMode: nextMode })}
+        existingUrls={state?.items.map((item) => item.url) ?? []}
         availableTags={state?.tags ?? []}
         defaultCurrency={workspaceCurrency}
-        onClose={() => navigate({ addModalOpen: false })}
+        onClose={() =>
+          navigate({ addModalOpen: false, addModalMode: "single" })
+        }
         onPreviewUrl={(url) => store.previewUrl(url)}
+        onPreviewUrlsBatch={(urls) => store.previewUrlsBatch(urls)}
         onSaveItem={handleAddItem}
+        onSaveItemsBatch={handleAddItemsBatch}
         onNotify={pushToast}
       />
 

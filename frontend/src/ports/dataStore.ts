@@ -1,5 +1,6 @@
 import type {
   AddItemPayload,
+  BatchPreviewItemResult,
   BoughtItem,
   ConfigEntry,
   RuntimeDiagnostics,
@@ -16,7 +17,9 @@ export interface DataStorePort {
   loadState(): Promise<WorkspaceState>;
   getHealth(): Promise<RuntimeDiagnostics>;
   previewUrl(url: string): Promise<ScrapePreview>;
+  previewUrlsBatch(urls: string[]): Promise<BatchPreviewItemResult[]>;
   addItem(payload: AddItemPayload): Promise<TrackedItem>;
+  addItemsBatch(items: AddItemPayload[]): Promise<TrackedItem[]>;
   updateItem(itemId: string, payload: UpdateItemPayload): Promise<TrackedItem>;
   markBought(itemId: string, purchasedPrice: number): Promise<BoughtItem>;
   resumeTracking(itemId: string): Promise<TrackedItem>;

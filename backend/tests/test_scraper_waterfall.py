@@ -10,6 +10,7 @@ from pricepulse.adapters.playwright_scraper import (
     extract_preview_from_html,
     parse_proxy_config,
     parse_proxy_pool,
+    preview_urls_pooled,
 )
 from pricepulse.domain.models import TrackedItem
 
@@ -187,4 +188,37 @@ def test_parse_proxy_config() -> None:
     second = [p["server"] for p in adapter._next_proxies(2)]
     assert first == ["http://1.1.1.1:1000", "http://2.2.2.2:2000"]
     assert second == ["http://3.3.3.3:3000", "http://4.4.4.4:4000"]
+
+
+@pytest.mark.asyncio
+async def test_preview_urls_pooled_handles_mixed_success_and_failure() -> None:
+    """Verify pooled batch previewing isolates failures and retries once."""
+    attempts: dict[str, int] = {}
+
+    async def fake_fetch(url: str) -> str:
+        attempts[url] = attempts.get(url, 0) + 1
+        if "blocked" in url:
+            raise ValueError(f"HTTP 403 for URL: {url}")
+        if "flaky" in url and attempts[url] == 1:
+            raise TimeoutError("Transient timeout")
+        return (
+            '<html><meta property="og:title" content="Batch Item" />'
+            '<meta property="og:price:amount" content="199.00" /></html>'
+        )
+
+    outcomes = await preview_urls_pooled(
+        [
+            "https://example.com/flaky",
+            "https://example.com/blocked",
+        ],
+        fake_fetch,
+        concurrency=4,
+        retries=1,
+    )
+    assert len(outcomes) == 2
+    assert outcomes[0].success is True
+    assert outcomes[0].preview is not None
+    assert outcomes[0].preview.price == 199.0
+    assert outcomes[1].success is False
+    assert "HTTP 403" in (outcomes[1].error or "")
 

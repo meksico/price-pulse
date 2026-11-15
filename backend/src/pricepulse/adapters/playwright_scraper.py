@@ -14,7 +14,12 @@ from urllib.parse import unquote, urlparse
 
 from playwright.async_api import Browser, async_playwright
 
-from pricepulse.domain.models import ScrapeOutcome, ScrapePreview, TrackedItem
+from pricepulse.domain.models import (
+    BatchPreviewOutcome,
+    ScrapeOutcome,
+    ScrapePreview,
+    TrackedItem,
+)
 
 DEFAULT_CONCURRENCY: int = 4
 DEFAULT_TIMEOUT_MS: int = 20_000
@@ -380,6 +385,24 @@ class PlaywrightScraperAdapter:
             finally:
                 await browser.close()
 
+    async def preview_urls(self, urls: list[str]) -> list[BatchPreviewOutcome]:
+        """Scrape previews for multiple URLs using a shared browser and Semaphore(4)."""
+        if not urls:
+            return []
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(**self._launch_kwargs())
+            try:
+                return await preview_urls_pooled(
+                    urls=urls,
+                    fetch_fn=lambda url: self._fetch_with_proxy_fallback(
+                        pw, browser, url
+                    ),
+                    concurrency=self._concurrency,
+                    retries=self._retries,
+                )
+            finally:
+                await browser.close()
+
     async def check_items(self, items: list[TrackedItem]) -> list[ScrapeOutcome]:
         """Scrape all items using a shared Chromium browser and Semaphore(4)."""
         if not items:
@@ -431,4 +454,36 @@ async def check_items_pooled(
         )
 
     return await asyncio.gather(*(_worker(item) for item in items))
+
+
+async def preview_urls_pooled(
+    urls: list[str],
+    fetch_fn: Callable[[str], Awaitable[str]],
+    concurrency: int = DEFAULT_CONCURRENCY,
+    retries: int = MAX_RETRIES,
+) -> list[BatchPreviewOutcome]:
+    """Execute bounded concurrent preview scraping with retry and fault isolation."""
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _worker(url: str) -> BatchPreviewOutcome:
+        last_err = ""
+        async with semaphore:
+            for attempt in range(retries + 1):
+                try:
+                    html = await fetch_fn(url)
+                    preview = extract_preview_from_html(url, html)
+                    return BatchPreviewOutcome(
+                        url=url,
+                        success=True,
+                        preview=preview,
+                    )
+                except Exception as exc:
+                    last_err = f"attempt {attempt + 1}: {exc}"
+        return BatchPreviewOutcome(
+            url=url,
+            success=False,
+            error=last_err or f"Failed to extract preview for {url}",
+        )
+
+    return await asyncio.gather(*(_worker(url) for url in urls))
 

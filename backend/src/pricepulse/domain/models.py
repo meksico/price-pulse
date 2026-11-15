@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
-APP_VERSION: str = "0.3.22"
+APP_VERSION: str = "0.3.23"
 
 TAG_COLORS: tuple[str, ...] = (
     "purple",
@@ -154,6 +154,29 @@ class ScrapePreview:
     image_url: str
     extraction_tier: str
     suggested_tags: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class BatchPreviewOutcome:
+    """Result of preview-scraping a single URL within a bulk list."""
+
+    url: str
+    success: bool
+    preview: ScrapePreview | None = None
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class NewItemSpec:
+    """Validated item specification for bulk creation."""
+
+    name: str
+    url: str
+    image_url: str
+    currency: str
+    initial_price: float
+    target_price: float
+    tag_names: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

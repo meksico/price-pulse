@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import Protocol
 
 from pricepulse.domain.models import (
+    BatchPreviewOutcome,
     BoughtItem,
     ConfigEntry,
+    NewItemSpec,
     PriceSnapshot,
     ScrapeOutcome,
     ScrapePreview,
@@ -35,6 +37,10 @@ class StateRepositoryPort(Protocol):
         tag_names: list[str],
     ) -> TrackedItem:
         """Create a new tracked item, auto-register tags, and record INITIAL snapshot."""
+        ...
+
+    def add_items_batch(self, specs: list[NewItemSpec]) -> list[TrackedItem]:
+        """Create multiple tracked items, tags, and INITIAL snapshots in one batch."""
         ...
 
     def update_item(
@@ -98,6 +104,10 @@ class ScraperPort(Protocol):
 
     async def preview_url(self, url: str) -> ScrapePreview:
         """Fetch and extract title, price, currency, and image for one URL."""
+        ...
+
+    async def preview_urls(self, urls: list[str]) -> list[BatchPreviewOutcome]:
+        """Fetch and extract previews for multiple URLs with bounded concurrency."""
         ...
 
     async def check_items(self, items: list[TrackedItem]) -> list[ScrapeOutcome]:

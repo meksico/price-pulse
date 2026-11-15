@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.22");
+    expect(menuVersion).toBe("v0.3.23");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.22");
+    expect(healthVersion).toBe("v0.3.23");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.22"',
+      '"app_version": "0.3.23"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -807,6 +807,153 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       await page.mouse.up();
     }
     await expect(jsonDialog).toBeHidden();
+  });
+
+  test("bulk URL list supports pooled preview, horizontal swipe validation, and failed URL recovery", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto("/items/new?mode=bulk");
+
+    const dialog = page.getByRole("dialog", { name: /Track New Product URL/i });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("tab", { name: "Bulk URL List" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await dialog
+      .getByLabel("Product URLs (up to 20)")
+      .fill(
+        [
+          "https://example.com/products/sony-wh-1000xm5",
+          "https://example.com/products/ergonomic-chair",
+          "https://example.com/products/fail-403",
+          "https://example.com/products/usb-dock",
+        ].join("\n"),
+      );
+
+    await expect(dialog.getByRole("status")).toContainText("3 valid URLs");
+    await expect(dialog.getByRole("status")).toContainText(
+      "1 already tracked (skipped)",
+    );
+
+    await dialog.getByLabel("Add Tag").selectOption("Workstation");
+
+    let releaseBatchPreview!: () => void;
+    const batchGate = new Promise<void>((resolve) => {
+      releaseBatchPreview = resolve;
+    });
+    await page.route("**/api/scrape/preview-batch", async (route) => {
+      await batchGate;
+      await route.continue();
+    });
+
+    await dialog.getByRole("button", { name: /Fetch Previews \(3 URLs\)/i }).click();
+    const loadingOverlay = dialog.locator("#modal-add-item__loading-overlay");
+    await expect(loadingOverlay).toBeVisible();
+    releaseBatchPreview();
+    await expect(loadingOverlay).toHaveCount(0);
+    await page.unroute("**/api/scrape/preview-batch");
+
+    const carousel = dialog.locator("#modal-add-item__review-carousel");
+    await expect(carousel).toBeVisible();
+    await expect(carousel).toContainText("(1/2)");
+    await expect(carousel.getByLabel("Product Title")).toHaveValue(
+      "Ergonomic Chair",
+    );
+
+    // Edit title on card (1/2)
+    await carousel.getByLabel("Product Title").fill("Ergonomic Mesh Chair");
+
+    // Swipe horizontally left inside the validation card viewport to advance to (2/2)
+    const cardBox = await carousel
+      .getByRole("region", { name: "Fetched item preview card" })
+      .boundingBox();
+    expect(cardBox).not.toBeNull();
+    if (cardBox) {
+      const startX = cardBox.x + cardBox.width * 0.65;
+      const startY = cardBox.y + 24;
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      await page.mouse.move(startX - 110, startY, { steps: 8 });
+      await page.mouse.up();
+    }
+
+    await expect(carousel).toContainText("(2/2)");
+    await expect(carousel.getByLabel("Product Title")).toHaveValue("Usb Dock");
+
+    // Step back with Previous button and return with Next button
+    await carousel.getByRole("button", { name: "Previous fetched item" }).click();
+    await expect(carousel).toContainText("(1/2)");
+    await expect(carousel.getByLabel("Product Title")).toHaveValue(
+      "Ergonomic Mesh Chair",
+    );
+    await carousel.getByRole("button", { name: "Next fetched item" }).click();
+    await expect(carousel).toContainText("(2/2)");
+
+    // Ensure no horizontal document overflow at 390px while carousel is open
+    const hasReviewOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    );
+    expect(hasReviewOverflow).toBe(false);
+
+    await carousel.getByRole("button", { name: /Save Validated Items \(2\)/i }).click();
+
+    // Verify Final Recovery Window narrows textarea to failed URL only and lists breakdown
+    const summary = dialog.locator("#modal-add-item__bulk-summary");
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText("2 Succeeded & Saved");
+    await expect(summary).toContainText("1 Failed");
+    await expect(summary).toContainText("Ergonomic Mesh Chair");
+    await expect(summary).toContainText("Usb Dock");
+    await expect(summary).toContainText("https://example.com/products/fail-403");
+    await expect(summary).toContainText("403");
+    await expect(summary.getByLabel("Remaining Failed URLs")).toHaveValue(
+      "https://example.com/products/fail-403",
+    );
+
+    const hasSummaryOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    );
+    expect(hasSummaryOverflow).toBe(false);
+
+    // Click Configure Manually -> switches to Single URL tab with failed URL & shared tag
+    await summary
+      .getByRole("button", {
+        name: "Configure manually https://example.com/products/fail-403",
+      })
+      .click();
+
+    await expect(dialog.getByRole("tab", { name: "Single URL" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(dialog.getByLabel("Product URL")).toHaveValue(
+      "https://example.com/products/fail-403",
+    );
+    await expect(
+      dialog.getByRole("button", { name: "Remove tag Workstation" }),
+    ).toBeVisible();
+
+    await dialog.getByLabel("Product Title").fill("Manual Recovery Item");
+    await dialog.getByLabel("Baseline Price").fill("89");
+    await dialog.getByLabel("Target Alert Price").fill("75");
+    await dialog.getByRole("button", { name: /Save & Start Tracking/i }).click();
+
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.getByRole("button", { name: "Ergonomic Mesh Chair" }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Usb Dock" }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Manual Recovery Item" }).first(),
+    ).toBeVisible();
   });
 });
 

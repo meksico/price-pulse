@@ -32,7 +32,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.3.22"
+    assert body["app_version"] == "0.3.23"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
@@ -54,6 +54,72 @@ def test_preview_and_run_check_flow(tmp_path: Path) -> None:
     assert run_resp.status_code == 200
     assert run_resp.json()["telemetry"]["status"] == "SUCCESS"
     assert run_resp.json()["telemetry"]["items_checked"] == 3
+
+
+def test_batch_preview_and_batch_create_items(tmp_path: Path) -> None:
+    """Verify /api/scrape/preview-batch and /api/items/batch handle mixed results."""
+    client = _make_client(tmp_path)
+
+    batch_preview = client.post(
+        "/api/scrape/preview-batch",
+        json={
+            "urls": [
+                "https://example.com/products/desk-lamp",
+                "https://example.com/products/fail-403",
+                "https://example.com/products/usb-hub",
+            ]
+        },
+    )
+    assert batch_preview.status_code == 200
+    results = batch_preview.json()["results"]
+    assert len(results) == 3
+    assert results[0]["success"] is True
+    assert results[0]["preview"]["title"] == "Desk Lamp"
+    assert results[1]["success"] is False
+    assert "403" in results[1]["error"]
+    assert results[2]["success"] is True
+    assert results[2]["preview"]["title"] == "Usb Hub"
+
+    create_resp = client.post(
+        "/api/items/batch",
+        json={
+            "items": [
+                {
+                    "name": "Desk Lamp",
+                    "url": "https://example.com/products/desk-lamp",
+                    "image_url": "",
+                    "currency": "$",
+                    "initial_price": 149.99,
+                    "target_price": 127.49,
+                    "tag_names": ["Workstation", "BatchImport"],
+                },
+                {
+                    "name": "Usb Hub",
+                    "url": "https://example.com/products/usb-hub",
+                    "image_url": "",
+                    "currency": "$",
+                    "initial_price": 199.99,
+                    "target_price": 169.99,
+                    "tag_names": ["BatchImport"],
+                },
+            ]
+        },
+    )
+    assert create_resp.status_code == 200
+    created_items = create_resp.json()["items"]
+    assert len(created_items) == 2
+
+    state_resp = client.get("/api/state")
+    assert state_resp.status_code == 200
+    state_body = state_resp.json()
+    assert len(state_body["items"]) == 5
+    created_ids = {item["item_id"] for item in created_items}
+    initial_snaps = [
+        snap
+        for snap in state_body["price_history"]
+        if snap["item_id"] in created_ids and snap["event_type"] == "INITIAL"
+    ]
+    assert len(initial_snaps) == 2
 
 
 def test_spa_fallback_serves_index_and_preserves_api_404(tmp_path: Path) -> None:
