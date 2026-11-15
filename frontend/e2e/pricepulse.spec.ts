@@ -175,7 +175,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.6/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.7/)).toBeVisible();
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {
@@ -365,6 +365,47 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("tab", { name: /Active Positions/i }),
     ).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("header user pill shows Google avatar, two-letter initials fallback, and email nick", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.sessionStorage.setItem(
+        "pricepulse_user_profile",
+        JSON.stringify({
+          name: "Eugene Garkavtcev",
+          email: "meksico@gmail.com",
+          picture: "",
+        }),
+      );
+    });
+    await page.goto("/");
+
+    const userMenuBtn = page.getByRole("button", { name: "User account menu" });
+    await expect(userMenuBtn).toBeVisible();
+    await expect(userMenuBtn).toContainText("EG");
+    await expect(userMenuBtn).toContainText("meksico");
+
+    const avatarSvg =
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Crect width='24' height='24' fill='%232563EB'/%3E%3C/svg%3E";
+    await page.addInitScript((picture: string) => {
+      window.sessionStorage.setItem(
+        "pricepulse_user_profile",
+        JSON.stringify({
+          name: "Eugene Garkavtcev",
+          email: "meksico@gmail.com",
+          picture,
+        }),
+      );
+    }, avatarSvg);
+    await page.reload();
+
+    const hasAvatarImg = await userMenuBtn.evaluate(
+      (el) => el.querySelector("img") !== null,
+    );
+    expect(hasAvatarImg).toBe(true);
+    await expect(userMenuBtn).toContainText("meksico");
   });
 });
 

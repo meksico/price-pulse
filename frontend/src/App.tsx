@@ -12,9 +12,12 @@ import { formatSavingsByCurrency } from "./domain/models";
 import { ANCHORS } from "./shared/anchors";
 import {
   clearStoredAuthToken,
+  fetchGoogleUserProfile,
   getStoredAuthToken,
+  getStoredUserProfile,
   isGoogleAuthEnabled,
   requestGoogleAccessToken,
+  type UserProfile,
 } from "./shared/auth";
 import {
   buildRouteUrl,
@@ -34,6 +37,9 @@ export function App() {
   const authEnabled = isGoogleAuthEnabled();
   const [authToken, setAuthToken] = useState<string | null>(() =>
     getStoredAuthToken(),
+  );
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() =>
+    getStoredUserProfile(),
   );
   const [isSigningIn, setIsSigningIn] = useState(false);
   const store = useMemo(
@@ -99,6 +105,7 @@ export function App() {
       if (authEnabled && msg.startsWith("API 401")) {
         clearStoredAuthToken();
         setAuthToken(null);
+        setUserProfile(null);
         setState(null);
       }
       setErrorBanner(msg);
@@ -111,7 +118,11 @@ export function App() {
     try {
       const token = await requestGoogleAccessToken();
       setAuthToken(token);
-      await refreshAll();
+      const [profile] = await Promise.all([
+        fetchGoogleUserProfile(token),
+        refreshAll(),
+      ]);
+      if (profile) setUserProfile(profile);
     } catch (err) {
       setErrorBanner(err instanceof Error ? err.message : String(err));
     } finally {
@@ -122,6 +133,7 @@ export function App() {
   const handleSignOut = () => {
     clearStoredAuthToken();
     setAuthToken(null);
+    setUserProfile(null);
     setState(null);
     setErrorBanner(null);
   };
@@ -129,6 +141,17 @@ export function App() {
   useEffect(() => {
     void refreshAll();
   }, [refreshAll]);
+
+  useEffect(() => {
+    if (!authToken || userProfile) return;
+    let active = true;
+    void fetchGoogleUserProfile(authToken).then((profile) => {
+      if (active && profile) setUserProfile(profile);
+    });
+    return () => {
+      active = false;
+    };
+  }, [authToken, userProfile]);
 
   const handleRunCheck = async () => {
     setIsChecking(true);
@@ -196,6 +219,9 @@ export function App() {
 
   const spreadsheetId =
     state?.config.find((c) => c.key === "spreadsheet_id")?.value ?? "";
+  const configEmail =
+    state?.config.find((c) => c.key === "gmail_alert_recipient")?.value?.trim() ??
+    "";
   const latestRun = state?.telemetry_logs[0];
   const workspaceCurrency =
     state?.items[0]?.currency ?? state?.bought_items[0]?.currency ?? "₴";
@@ -257,6 +283,9 @@ export function App() {
           onRunCheck={() => void handleRunCheck()}
           onOpenAddModal={() => navigate({ addModalOpen: true, itemId: null })}
           spreadsheetId={spreadsheetId}
+          userName={userProfile?.name ?? ""}
+          userEmail={userProfile?.email || configEmail}
+          userAvatarUrl={userProfile?.picture ?? ""}
           onSignOut={authEnabled && authToken ? handleSignOut : undefined}
         />
       )}

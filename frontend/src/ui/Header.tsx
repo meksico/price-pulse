@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { APP_VERSION } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { deriveUserInitials, deriveUserNick } from "../shared/auth";
 
 export type AppView = "dashboard" | "tags" | "health" | "settings";
 
@@ -13,6 +14,9 @@ interface HeaderProps {
   onRunCheck: () => void;
   onOpenAddModal: () => void;
   spreadsheetId: string;
+  userName?: string;
+  userEmail?: string;
+  userAvatarUrl?: string;
   onSignOut?: () => void;
 }
 
@@ -30,10 +34,20 @@ export function Header({
   onRunCheck,
   onOpenAddModal,
   spreadsheetId,
+  userName = "",
+  userEmail = "",
+  userAvatarUrl = "",
   onSignOut,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
+
+  const showAvatarImage = Boolean(
+    userAvatarUrl && failedAvatarUrl !== userAvatarUrl,
+  );
+  const userInitials = deriveUserInitials(userName, userEmail);
+  const userNick = deriveUserNick(userEmail, userName);
 
   const navigate = (view: AppView) => {
     setMenuOpen(false);
@@ -107,10 +121,22 @@ export function Header({
               }}
               className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-gray-200 bg-gray-100 px-1.5 py-1 text-xs text-zinc-950 transition-colors hover:bg-gray-200 sm:min-h-9 lg:min-w-0 lg:px-2.5"
             >
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-zinc-950">
-                PP
+              {showAvatarImage ? (
+                <img
+                  src={userAvatarUrl}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  onError={() => setFailedAvatarUrl(userAvatarUrl ?? null)}
+                  className="h-6 w-6 shrink-0 rounded-full bg-white object-cover"
+                />
+              ) : (
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold uppercase text-zinc-950">
+                  {userInitials}
+                </span>
+              )}
+              <span className="hidden max-w-[120px] truncate font-medium lg:inline">
+                {userNick}
               </span>
-              <span className="hidden font-medium lg:inline">Owner</span>
             </button>
 
                 {menuOpen && (

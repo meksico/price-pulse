@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.6`
+- **Document Version / App Target Baseline:** `0.3.7`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -79,7 +79,7 @@ Full column-level schemas, formulas, and ER diagrams are defined in [docs/GSHEET
   1. Brand lockup: `PricePulse` in `#09090B` (no redundant subtitle or tag-status badge).
   2. Primary navigation tabs (`whitespace-nowrap`, underlined `2px solid #09090B` active indicator on desktop): **Dashboard** (`view-dashboard`) and **Tag Manager** (`view-tags`), with **System Health** (`view-health`) and **G-Sync & Configuration** (`view-settings`) accessed via the User Avatar Dropdown.
   3. Global action buttons: single solid `#09090B` **+ Track New URL** primary CTA (the **Run Check** action lives inside the User Avatar Dropdown rather than the top bar).
-  4. **User Avatar Menu** (`user-menu-btn` / `user-dropdown-menu`) showing `#F3F4F6` `PP` initials, name, and active sync status.
+  4. **User Avatar Menu** (`user-menu-btn` / `user-dropdown-menu`) displaying the authenticated Google account avatar image (with uppercase 2-letter initials fallback such as `EG` for `Eugene Garkavtcev`, or `PP` when unset) and email local-part nickname before `@` (e.g. `meksico` for `meksico@gmail.com`, falling back to `gmail_alert_recipient` config or `Owner`).
 - **`REQ-NAV-02` (User Avatar Dropdown & Mobile Bottom Nav):** Clicking the avatar opens a light `#FFFFFF` menu containing:
   1. Sync summary (`N Positions & Tags Synced`)
   2. **System Health** (`Logs review` &rarr; `view-health`)
@@ -200,3 +200,4 @@ flowchart TD
 | `0.3.4` | 2026-11-15 | Antigravity | Applied permanent resting soft-red destructive accent (`bg-red-50 text-red-600`) to **Delete Position** in the `ItemDetailsModal` footer (`REQ-MODAL-06`). |
 | `0.3.5` | 2026-11-15 | Antigravity | Recomputed canonical `delta_pct` from `initial_price` in `GoogleSheetsRepository.load_state()`, de-overlapped coincident pooled-check bullets in a dedicated top SVG layer with dynamic per-bullet tooltips in `TrajectoryChart` (`REQ-CHART-01`, `REQ-CHART-04`), added per-bullet hover tooltips to `ItemDetailsModal` (`REQ-MODAL-03`), and fixed `Series Visible` focus-dimming reset. |
 | `0.3.6` | 2026-11-15 | Antigravity | Moved `Run Check (N Items)` button from top header bar into `#user-dropdown-menu` below `G-Sync & Configuration` (`REQ-NAV-01..02`). |
+| `0.3.7` | 2026-11-15 | Antigravity | Hydrated authenticated Google profile (`picture`, `name`, `email`) via OpenID UserInfo in the header user pill (`REQ-NAV-01`), falling back to two-letter uppercase initials (`EG` for `Eugene Garkavtcev`, `PP` when unset) and email handle nickname before `@` (`meksico` for `meksico@gmail.com`). |
