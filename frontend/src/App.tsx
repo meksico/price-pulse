@@ -24,6 +24,7 @@ import {
   type AppRoute,
 } from "./shared/routes";
 import { AddItemModal } from "./ui/AddItemModal";
+import { BrandHeroLogo } from "./ui/BrandLogo";
 import { Header, MobileBottomNav } from "./ui/Header";
 import { ItemDetailsModal } from "./ui/ItemDetailsModal";
 import { PositionsGrid } from "./ui/PositionsGrid";
@@ -497,9 +498,7 @@ export function App() {
             className="mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-[340px] flex-col items-center justify-between py-8 text-center"
           >
             <div className="my-auto w-full">
-              <div className="mb-8 text-[26px] font-bold tracking-tight text-zinc-950">
-                PricePulse
-              </div>
+              <BrandHeroLogo />
               <h1 className="text-[17px] font-semibold text-zinc-950">
                 Sign in to your workspace
               </h1>

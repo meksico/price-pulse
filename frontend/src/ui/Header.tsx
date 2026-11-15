@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { APP_VERSION } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 import { deriveUserInitials, deriveUserNick } from "../shared/auth";
+import { BrandMark } from "./BrandLogo";
 
 export type AppView = "dashboard" | "tags" | "health";
 
@@ -85,9 +86,10 @@ export function Header({
           <button
             type="button"
             onClick={() => navigate("dashboard")}
-            className="min-h-11 shrink-0 whitespace-nowrap text-left text-sm font-bold tracking-tight text-zinc-950 sm:min-h-9 sm:text-lg"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-left text-sm font-bold tracking-tight text-zinc-950 sm:min-h-9 sm:gap-2 sm:text-lg"
           >
-            PricePulse
+            <BrandMark className="h-6 w-6 shrink-0 sm:h-7 sm:w-7" />
+            <span>PricePulse</span>
           </button>
         </div>
 

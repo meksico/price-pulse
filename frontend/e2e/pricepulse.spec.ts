@@ -7,6 +7,25 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.goto("/");
 
     await expect(page.getByText("PricePulse", { exact: true })).toBeVisible();
+    const headerBrandButton = page.getByRole("button", { name: "PricePulse" });
+    await expect(headerBrandButton).toBeVisible();
+    await expect(headerBrandButton.locator("svg")).toBeVisible();
+    const faviconHref = await page
+      .locator('link[rel="icon"]')
+      .getAttribute("href");
+    expect(faviconHref).toContain("favicon.svg");
+    if (faviconHref) {
+      const faviconResp = await page.request.get(faviconHref);
+      expect(faviconResp.status()).toBe(200);
+    }
+    const touchIconHref = await page
+      .locator('link[rel="apple-touch-icon"]')
+      .getAttribute("href");
+    expect(touchIconHref).toContain("logo.webp");
+    if (touchIconHref) {
+      const logoResp = await page.request.get(touchIconHref);
+      expect(logoResp.status()).toBe(200);
+    }
     const bodyBg = await page.evaluate(
       () => getComputedStyle(document.body).backgroundColor,
     );
@@ -214,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.19");
+    expect(menuVersion).toBe("v0.3.20");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -566,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.19");
+    expect(healthVersion).toBe("v0.3.20");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -584,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.19"',
+      '"app_version": "0.3.20"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
