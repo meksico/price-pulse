@@ -3,6 +3,17 @@ import type { PriceSnapshot, Tag, TrackedItem } from "../domain/models";
 import { formatMoney } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 
+const SERIES_PALETTE: readonly string[] = [
+  "#2563EB", // Cobalt Blue
+  "#059669", // Emerald
+  "#D97706", // Amber
+  "#9333EA", // Violet
+  "#E11D48", // Rose
+  "#0891B2", // Cyan
+  "#4F46E5", // Indigo
+  "#EA580C", // Orange
+];
+
 interface TrajectoryChartProps {
   items: TrackedItem[];
   tags: Tag[];
@@ -36,6 +47,17 @@ export function TrajectoryChart({
   const tagNameById = useMemo(
     () => new Map(tags.map((t) => [t.tag_id, t.name])),
     [tags],
+  );
+
+  const colorByItemId = useMemo(
+    () =>
+      new Map(
+        items.map((item, idx) => [
+          item.item_id,
+          SERIES_PALETTE[idx % SERIES_PALETTE.length],
+        ]),
+      ),
+    [items],
   );
 
   const filteredItems = useMemo(() => {
@@ -316,8 +338,11 @@ export function TrajectoryChart({
                                     if (snaps.length === 0) return null;
                                     const isPrimary = item.item_id === primaryItemId;
                                     const isDimmed = hoveredItemId !== null && !isPrimary;
-                                    const strokeColor = isPrimary ? "#2563EB" : "#D4D4D8";
-                                    const dotColor = isPrimary ? "#2563EB" : "#A1A1AA";
+                                    const seriesColor =
+                                      colorByItemId.get(item.item_id) ??
+                                      SERIES_PALETTE[0];
+                                    const strokeColor = seriesColor;
+                                    const dotColor = seriesColor;
                                     const points = snaps.map((snap, sIdx) => ({
                                       x: toX(snap.recorded_at, sIdx, snaps.length),
                                       y: toY(snap.delta_pct),
@@ -332,7 +357,7 @@ export function TrajectoryChart({
                                     const lastPt = points[points.length - 1];
 
                                     return (
-                <g key={item.item_id} opacity={isDimmed ? 0.35 : 1}>
+                <g key={item.item_id} opacity={isDimmed ? 0.25 : 1}>
                   {isPrimary && points.length > 1 && (
                     <polygon
                       points={`${polyline} ${lastPt.x},${plotBottomY} ${firstPt.x},${plotBottomY}`}
@@ -346,7 +371,7 @@ export function TrajectoryChart({
                       x2={points[0].x}
                       y2={points[0].y}
                       stroke={strokeColor}
-                      strokeWidth={isPrimary ? "2.25" : "1.5"}
+                      strokeWidth={isPrimary ? "2.25" : "1.75"}
                       strokeDasharray="4 3"
                       strokeLinecap="round"
                     />
@@ -354,7 +379,7 @@ export function TrajectoryChart({
                     <polyline
                       fill="none"
                       stroke={strokeColor}
-                      strokeWidth={isPrimary ? "2.25" : "1.5"}
+                      strokeWidth={isPrimary ? "2.25" : "1.75"}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       points={polyline}
@@ -365,7 +390,7 @@ export function TrajectoryChart({
                       cx={lastPt.x}
                       cy={lastPt.y}
                       r={8}
-                      fill="#2563EB"
+                      fill={seriesColor}
                       fillOpacity="0.2"
                     />
                   )}
@@ -513,7 +538,8 @@ export function TrajectoryChart({
             >
               {filteredItems.map((item) => {
                 const checked = !excludedIds.has(item.item_id);
-                const isPrimary = item.item_id === primaryItemId;
+                const seriesColor =
+                  colorByItemId.get(item.item_id) ?? SERIES_PALETTE[0];
                 return (
                   <label
                     key={item.item_id}
@@ -529,9 +555,12 @@ export function TrajectoryChart({
                         className="h-3.5 w-3.5 shrink-0 rounded accent-zinc-950"
                       />
                       <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${
-                          isPrimary ? "bg-blue-600" : "bg-zinc-300"
-                        }`}
+                        aria-hidden="true"
+                        data-series-dot="true"
+                        style={{
+                          backgroundColor: checked ? seriesColor : "#D4D4D8",
+                        }}
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
                       />
                       <span className="truncate text-zinc-800" title={item.name}>
                         {item.name}

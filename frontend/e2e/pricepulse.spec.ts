@@ -76,6 +76,17 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     // Reset via Show All
     await page.getByRole("button", { name: "Show All" }).click();
 
+    // Verify multi-series legend dots render distinct colors per tracked item
+    const legendColors = await page.evaluate(() =>
+      Array.from(
+        document
+          .getElementById("chart-series-checkboxes")
+          ?.querySelectorAll<HTMLElement>('[data-series-dot="true"]') ?? [],
+      ).map((el) => getComputedStyle(el).backgroundColor),
+    );
+    expect(legendColors.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(legendColors).size).toBeGreaterThanOrEqual(3);
+
     // Interactive KPI tile actions
     await page.getByRole("button", { name: /Total Saved Costs/i }).click();
     await expect(
@@ -106,7 +117,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.1/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.2/)).toBeVisible();
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {
