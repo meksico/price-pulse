@@ -131,7 +131,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.3/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.4/)).toBeVisible();
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {
@@ -271,6 +271,11 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.getByRole("button", { name: /Item Card/i }).first().click();
     const itemDialog = page.getByRole("dialog");
     await expect(itemDialog).toBeVisible();
+    const deleteBg = await itemDialog
+      .getByRole("button", { name: "Delete Position" })
+      .evaluate((el) => window.getComputedStyle(el).backgroundColor);
+    expect(deleteBg).not.toBe("rgba(0, 0, 0, 0)");
+    expect(deleteBg).not.toBe("rgb(255, 255, 255)");
     await expect(page).toHaveURL(/\/items\/.+/);
     const itemUrl = page.url();
 

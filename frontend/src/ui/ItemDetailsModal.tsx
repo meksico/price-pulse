@@ -550,7 +550,7 @@ export function ItemDetailsModal({
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className="min-h-11 rounded-lg px-2.5 py-1.5 font-medium text-zinc-500 hover:bg-red-50 hover:text-red-600 sm:min-h-9"
+                className="min-h-11 rounded-lg bg-red-50 px-3 py-1.5 font-medium text-red-600 hover:bg-red-100 hover:text-red-700 sm:min-h-9"
               >
                 Delete Position
               </button>
