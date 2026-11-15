@@ -192,13 +192,16 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       page.getByRole("heading", { name: "Tag Manager" }),
     ).toBeVisible();
 
-    // Open User Menu -> verify Run Check menuitem and identical version -> System Health
+    // Open User Menu -> verify Run Check menuitem, no Tag Manager item, and identical version -> System Health
     await page.getByRole("button", { name: "User account menu" }).click();
     const userMenu = page.locator("#user-dropdown-menu");
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.11");
+    expect(menuVersion).toBe("v0.3.12");
+    await expect(
+      userMenu.getByRole("menuitem", { name: "Tag Manager" }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("menuitem", { name: /Run Check \(\d+ Items\)/i }),
     ).toBeVisible();
@@ -211,6 +214,9 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
     expect(healthVersion).toBe(menuVersion);
+    await expect(
+      healthView.getByRole("button", { name: /Run Batch Check Now/i }),
+    ).toHaveCount(0);
     await expect(page.getByText("Python Executable")).toHaveCount(0);
   });
 
@@ -489,7 +495,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.11");
+    expect(healthVersion).toBe("v0.3.12");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -505,7 +511,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       .first()
       .click();
     await expect(healthView.locator("pre")).toContainText(
-      '"app_version": "0.3.11"',
+      '"app_version": "0.3.12"',
     );
     await expect(healthView.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',

@@ -9,15 +9,11 @@ import { ANCHORS } from "../shared/anchors";
 interface SystemHealthViewProps {
   telemetryLogs: TelemetryRun[];
   diagnostics: RuntimeDiagnostics | null;
-  isChecking: boolean;
-  onRunCheck: () => void;
 }
 
 export function SystemHealthView({
   telemetryLogs,
   diagnostics,
-  isChecking,
-  onRunCheck,
 }: SystemHealthViewProps) {
   const [selectedRun, setSelectedRun] = useState<TelemetryRun | null>(null);
 
@@ -27,8 +23,7 @@ export function SystemHealthView({
       aria-label="System Health and Diagnostics"
       className="mx-auto min-w-0 max-w-5xl space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6"
     >
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
+      <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-2">
             <h1 className="text-[22px] font-bold tracking-tight text-zinc-950">
               System Health
@@ -40,16 +35,6 @@ export function SystemHealthView({
           <p className="text-xs text-zinc-500">
             Batch execution telemetry &amp; runtime diagnostic context
           </p>
-        </div>
-        <button
-          type="button"
-          onClick={onRunCheck}
-          disabled={isChecking}
-          aria-busy={isChecking}
-          className="min-h-11 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
-        >
-          {isChecking ? "Running Check..." : "Run Batch Check Now"}
-        </button>
       </div>
 
               {/* Mobile-first telemetry cards (< 768px) */}

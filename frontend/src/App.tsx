@@ -474,8 +474,6 @@ export function App() {
               <SystemHealthView
                 telemetryLogs={state.telemetry_logs}
                 diagnostics={diagnostics}
-                isChecking={isChecking}
-                onRunCheck={() => void handleRunCheck()}
               />
             )}
 

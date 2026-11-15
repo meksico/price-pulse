@@ -165,14 +165,6 @@ export function Header({
                           <button
                             type="button"
                             role="menuitem"
-                            onClick={() => navigate("tags")}
-                            className="block min-h-11 w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-gray-50 sm:min-h-9"
-                          >
-                            Tag Manager
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
                             onClick={() => navigate("settings")}
                             className="block min-h-11 w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-gray-50 sm:min-h-9"
                           >
