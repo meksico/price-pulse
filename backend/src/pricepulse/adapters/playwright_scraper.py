@@ -321,7 +321,7 @@ class PlaywrightScraperAdapter:
         finally:
             await context.close()
 
-    def _next_proxies(self, max_attempts: int = 3) -> list[dict[str, str]]:
+    def _next_proxies(self, max_attempts: int = 10) -> list[dict[str, str]]:
         """Return up to max_attempts proxies in round-robin order."""
         if not self._proxies:
             return []
@@ -330,7 +330,7 @@ class PlaywrightScraperAdapter:
             self._proxies[(self._proxy_cursor + offset) % len(self._proxies)]
             for offset in range(count)
         ]
-        self._proxy_cursor = (self._proxy_cursor + 1) % len(self._proxies)
+        self._proxy_cursor = (self._proxy_cursor + count) % len(self._proxies)
         return selected
 
     def _launch_kwargs(self, proxy: dict[str, str] | None = None) -> dict[str, Any]:

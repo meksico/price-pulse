@@ -186,5 +186,5 @@ def test_parse_proxy_config() -> None:
     first = [p["server"] for p in adapter._next_proxies(2)]
     second = [p["server"] for p in adapter._next_proxies(2)]
     assert first == ["http://1.1.1.1:1000", "http://2.2.2.2:2000"]
-    assert second == ["http://2.2.2.2:2000", "http://3.3.3.3:3000"]
+    assert second == ["http://3.3.3.3:3000", "http://4.4.4.4:4000"]
 
