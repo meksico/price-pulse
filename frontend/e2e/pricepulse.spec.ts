@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.21");
+    expect(menuVersion).toBe("v0.3.22");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.21");
+    expect(healthVersion).toBe("v0.3.22");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.21"',
+      '"app_version": "0.3.22"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -716,6 +716,97 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(page.getByText("0.0% Baseline")).toBeVisible();
     await expect(syncStatus).toHaveCount(0);
     await page.unroute("**/api/state");
+  });
+
+  test("mobile bottom-sheet popups track finger swipe down and dismiss past threshold", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/");
+
+    // 1. Item Details bottom sheet: track mid-drag, snap back below threshold, dismiss past threshold
+    await page.getByRole("button", { name: /Item Card/i }).first().click();
+    const itemDialog = page.getByRole("dialog");
+    await expect(itemDialog).toBeVisible();
+    const itemHandle = itemDialog.locator('[data-swipe-handle="true"]');
+    await expect(itemHandle).toBeVisible();
+
+    const initialDialogBox = await itemDialog.boundingBox();
+    const handleBox = await itemHandle.boundingBox();
+    expect(initialDialogBox).not.toBeNull();
+    expect(handleBox).not.toBeNull();
+    if (!initialDialogBox || !handleBox) return;
+
+    const startX = handleBox.x + handleBox.width / 2;
+    const startY = handleBox.y + 10;
+
+    // Short drag (45px < 72px): tracks pointer downward then snaps back
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY + 45, { steps: 6 });
+    const midDragBox = await itemDialog.boundingBox();
+    expect(midDragBox).not.toBeNull();
+    if (midDragBox) {
+      expect(midDragBox.y).toBeGreaterThan(initialDialogBox.y + 25);
+    }
+    await page.mouse.up();
+    await expect(itemDialog).toBeVisible();
+    await expect
+      .poll(async () =>
+        Math.round((await itemDialog.boundingBox())?.y ?? 9999),
+      )
+      .toBeLessThanOrEqual(Math.round(initialDialogBox.y + 2));
+
+    // Full swipe down (140px >= 72px): dismisses the bottom sheet
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY + 140, { steps: 8 });
+    await page.mouse.up();
+    await expect(itemDialog).toBeHidden();
+
+    // 2. Add Item bottom sheet: swipe down dismisses modal
+    await page
+      .getByRole("navigation", { name: "Bottom Navigation" })
+      .getByRole("button", { name: "Track New URL" })
+      .click();
+    const addDialog = page.getByRole("dialog", { name: /Track New Product URL/i });
+    await expect(addDialog).toBeVisible();
+    const addHandleBox = await addDialog
+      .locator('[data-swipe-handle="true"]')
+      .boundingBox();
+    expect(addHandleBox).not.toBeNull();
+    if (addHandleBox) {
+      const ax = addHandleBox.x + addHandleBox.width / 2;
+      const ay = addHandleBox.y + 10;
+      await page.mouse.move(ax, ay);
+      await page.mouse.down();
+      await page.mouse.move(ax, ay + 140, { steps: 8 });
+      await page.mouse.up();
+    }
+    await expect(addDialog).toBeHidden();
+
+    // 3. Telemetry JSON bottom sheet: swipe down dismisses modal
+    await page.goto("/health");
+    await page
+      .locator("#view-health")
+      .getByRole("button", { name: "Inspect JSON Log" })
+      .first()
+      .click();
+    const jsonDialog = page.getByRole("dialog", { name: /Telemetry JSON:/i });
+    await expect(jsonDialog).toBeVisible();
+    const jsonHandleBox = await jsonDialog
+      .locator('[data-swipe-handle="true"]')
+      .boundingBox();
+    expect(jsonHandleBox).not.toBeNull();
+    if (jsonHandleBox) {
+      const jx = jsonHandleBox.x + jsonHandleBox.width / 2;
+      const jy = jsonHandleBox.y + 10;
+      await page.mouse.move(jx, jy);
+      await page.mouse.down();
+      await page.mouse.move(jx, jy + 140, { steps: 8 });
+      await page.mouse.up();
+    }
+    await expect(jsonDialog).toBeHidden();
   });
 });
 

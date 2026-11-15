@@ -5,6 +5,7 @@ import {
   type TelemetryRun,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { useBottomSheetSwipeDismiss } from "../shared/useBottomSheetSwipeDismiss";
 import type { PushToastFn } from "./ToastViewport";
 
 interface SystemHealthViewProps {
@@ -21,6 +22,14 @@ export function SystemHealthView({
   const [selectedRun, setSelectedRun] = useState<TelemetryRun | null>(null);
   const [copied, setCopied] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const swipeHandleRef = useRef<HTMLDivElement>(null);
+
+  useBottomSheetSwipeDismiss({
+    sheetRef: dialogRef,
+    handleRef: swipeHandleRef,
+    isOpen: Boolean(selectedRun),
+    onClose: () => setSelectedRun(null),
+  });
 
   useEffect(() => {
     setCopied(false);
@@ -245,31 +254,37 @@ export function SystemHealthView({
             className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-xs text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
           >
             <div
-              aria-hidden="true"
-              className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
-            />
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2
-                id="telemetry-json-modal-title"
-                className="font-mono text-sm font-semibold text-zinc-950"
-              >
-                Telemetry JSON: {selectedRun.run_id}
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleCopyJson()}
-                  className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-gray-50 sm:min-h-8"
+              ref={swipeHandleRef}
+              data-swipe-handle="true"
+              className="touch-none sm:touch-auto"
+            >
+              <div
+                aria-hidden="true"
+                className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
+              />
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2
+                  id="telemetry-json-modal-title"
+                  className="font-mono text-sm font-semibold text-zinc-950"
                 >
-                  {copied ? "Copied!" : "Copy JSON"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRun(null)}
-                  className="min-h-11 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-gray-200 hover:text-zinc-950 sm:min-h-8"
-                >
-                  Close
-                </button>
+                  Telemetry JSON: {selectedRun.run_id}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyJson()}
+                    className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-gray-50 sm:min-h-8"
+                  >
+                    {copied ? "Copied!" : "Copy JSON"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRun(null)}
+                    className="min-h-11 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-gray-200 hover:text-zinc-950 sm:min-h-8"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
             <pre className="max-h-[68dvh] overflow-auto rounded-xl border border-gray-200 bg-gray-50 p-3.5 font-mono text-[11px] text-zinc-800">

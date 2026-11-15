@@ -8,6 +8,7 @@ import type {
 } from "../domain/models";
 import { formatMoney } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { useBottomSheetSwipeDismiss } from "../shared/useBottomSheetSwipeDismiss";
 import { TagAdderControl } from "./TagAdderControl";
 import type { PushToastFn } from "./ToastViewport";
 
@@ -66,7 +67,15 @@ export function ItemDetailsModal({
   }, [item?.item_id, item?.name, activeItem]);
 
   const dialogRef = useRef<HTMLDivElement>(null);
+  const swipeHandleRef = useRef<HTMLDivElement>(null);
   const isOpen = Boolean(item);
+
+  useBottomSheetSwipeDismiss({
+    sheetRef: dialogRef,
+    handleRef: swipeHandleRef,
+    isOpen,
+    onClose,
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -184,73 +193,79 @@ export function ItemDetailsModal({
           className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
         >
           <div
-            aria-hidden="true"
-            className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
-          />
-
-          <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3.5">
-                {item.image_url ? (
-                  <img
-                    src={item.image_url}
-                    alt=""
-                    className="h-14 w-14 shrink-0 rounded-xl border border-gray-200 bg-gray-100 object-cover"
-                  />
-                ) : (
-              <div className="h-14 w-14 shrink-0 rounded-xl border border-gray-200 bg-gray-100" />
-                )}
-                <div className="min-w-0">
-                    <div className="mb-1 flex flex-wrap items-center gap-2">
-                      {activeItem ? (
-                        activeItem.status === "DISCOUNT" ? (
-                    <span className="tabular-nums rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700">
-                      -{activeItem.drop_pct}% DISCOUNT
-                    </span>
-                  ) : (
-                    <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-950">
-                      ACTIVE
-                    </span>
-                  )
-                ) : (
-                  boughtItem && (
-                    <span className="tabular-nums rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-950">
-                      BOUGHT (+{formatMoney(boughtItem.currency, boughtItem.saved_cost)})
-                    </span>
-                  )
-                )}
-                <span className="tabular-nums text-[11px] text-zinc-500">
-                  {activeItem
-                    ? `Last checked: ${formatLastChecked(activeItem.last_checked)}`
-                    : boughtItem
-                      ? `Bought: ${boughtItem.purchased_date}`
-                      : ""}
-                </span>
-              </div>
-              <h2
-                id="item-details-title"
-                className="text-[15px] font-semibold leading-snug text-zinc-950"
-              >
-                {item.name}
-              </h2>
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
-              >
-                Open Original Retailer Web Page &#x2197;
-              </a>
-            </div>
-          </div>
-          <button
-            type="button"
-            aria-label="Close Item Details modal"
-            onClick={onClose}
-            className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 sm:min-h-9 sm:min-w-9"
+            ref={swipeHandleRef}
+            data-swipe-handle="true"
+            className="touch-none sm:touch-auto"
           >
-            &times;
-          </button>
-        </div>
+            <div
+              aria-hidden="true"
+              className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
+            />
+
+            <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3.5">
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt=""
+                      className="h-14 w-14 shrink-0 rounded-xl border border-gray-200 bg-gray-100 object-cover"
+                    />
+                  ) : (
+                <div className="h-14 w-14 shrink-0 rounded-xl border border-gray-200 bg-gray-100" />
+                  )}
+                  <div className="min-w-0">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        {activeItem ? (
+                          activeItem.status === "DISCOUNT" ? (
+                      <span className="tabular-nums rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700">
+                        -{activeItem.drop_pct}% DISCOUNT
+                      </span>
+                    ) : (
+                      <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-950">
+                        ACTIVE
+                      </span>
+                    )
+                  ) : (
+                    boughtItem && (
+                      <span className="tabular-nums rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-950">
+                        BOUGHT (+{formatMoney(boughtItem.currency, boughtItem.saved_cost)})
+                      </span>
+                    )
+                  )}
+                  <span className="tabular-nums text-[11px] text-zinc-500">
+                    {activeItem
+                      ? `Last checked: ${formatLastChecked(activeItem.last_checked)}`
+                      : boughtItem
+                        ? `Bought: ${boughtItem.purchased_date}`
+                        : ""}
+                  </span>
+                </div>
+                <h2
+                  id="item-details-title"
+                  className="text-[15px] font-semibold leading-snug text-zinc-950"
+                >
+                  {item.name}
+                </h2>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                >
+                  Open Original Retailer Web Page &#x2197;
+                </a>
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label="Close Item Details modal"
+              onClick={onClose}
+              className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 sm:min-h-9 sm:min-w-9"
+            >
+              &times;
+            </button>
+          </div>
+          </div>
 
                     <div className="space-y-4 text-xs">
                           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white p-3.5">

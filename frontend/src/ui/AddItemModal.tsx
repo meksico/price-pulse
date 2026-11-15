@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AddItemPayload, ScrapePreview, Tag } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { useBottomSheetSwipeDismiss } from "../shared/useBottomSheetSwipeDismiss";
 import { TagAdderControl } from "./TagAdderControl";
 import type { PushToastFn } from "./ToastViewport";
 
@@ -32,6 +33,15 @@ export function AddItemModal({
   const [selectedTagNames, setSelectedTagNames] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const swipeHandleRef = useRef<HTMLDivElement>(null);
+
+  useBottomSheetSwipeDismiss({
+    sheetRef: dialogRef,
+    handleRef: swipeHandleRef,
+    isOpen: open,
+    disabled: fetching,
+    onClose,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -182,31 +192,37 @@ export function AddItemModal({
             )}
 
             <div
-              aria-hidden="true"
-              className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
-            />
+              ref={swipeHandleRef}
+              data-swipe-handle="true"
+              className="touch-none sm:touch-auto"
+            >
+              <div
+                aria-hidden="true"
+                className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
+              />
 
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2
-                  id="add-item-modal-title"
-                  className="text-base font-semibold text-zinc-950"
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h2
+                    id="add-item-modal-title"
+                    className="text-base font-semibold text-zinc-950"
+                  >
+                    Track New Product URL
+                  </h2>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    Paste a retailer link to extract current price and metadata
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close Add Item modal"
+                  disabled={fetching}
+                  onClick={onClose}
+                  className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:opacity-40 sm:min-h-9 sm:min-w-9"
                 >
-                  Track New Product URL
-                </h2>
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  Paste a retailer link to extract current price and metadata
-                </p>
+                  &times;
+                </button>
               </div>
-              <button
-                type="button"
-                aria-label="Close Add Item modal"
-                disabled={fetching}
-                onClick={onClose}
-                className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:opacity-40 sm:min-h-9 sm:min-w-9"
-              >
-                &times;
-              </button>
             </div>
 
               <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
