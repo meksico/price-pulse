@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AddItemPayload, ScrapePreview, Tag } from "../domain/models";
 import {
   TAG_ACTIVE_BADGE_CLASSES,
@@ -32,6 +32,25 @@ export function AddItemModal({
   const [targetPrice, setTargetPrice] = useState("");
   const [tagsText, setTagsText] = useState("");
   const [fetching, setFetching] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -102,6 +121,7 @@ export function AddItemModal({
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
         <div
           id={ANCHORS.modalAddItem}
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-item-modal-title"

@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.12`
+- **Document Version / App Target Baseline:** `0.3.13`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -87,9 +87,9 @@ Full column-level schemas, formulas, and ER diagrams are defined in [docs/GSHEET
   4. **Run Check (`N` Items)** — Triggers an immediate batch price check across all active tracked items (`tabular-nums`).
   5. **Open Google Sheet** (external link to spreadsheet)
   6. **Sign out** (disconnect / switch account action)
-  On mobile viewports (`< 768px`), a sticky 5-icon **Bottom Navigation Bar** (`#mobile-bottom-nav`) provides one-tap switching between `Dashboard`, `Tag Manager`, `Track New URL`, `System Health` (with `#EF4444` anomaly count badge), and `G-Sync Settings`, alongside the collapsible `#header__mobile-nav` drawer.
+  On mobile viewports (`< 768px`), a sticky 5-icon **Bottom Navigation Bar** (`#mobile-bottom-nav`) provides one-tap switching between `Dashboard`, `Tag Manager`, `Track New URL`, `System Health` (with `#EF4444` anomaly count badge), and `G-Sync Settings`, alongside the collapsible `#header__mobile-nav` drawer. Both `#user-dropdown-menu` and `#header__mobile-nav` close immediately on outside pointer click (`mousedown` outside container) and `Escape` (`RULE-OVERLAY-DISMISS`).
 - **`REQ-NAV-03` (Single-View Switching):** Only one primary view (`view-dashboard`, `view-tags`, `view-health`, or `view-settings`) is visible at a time; switching tabs closes any open dropdowns and resets focus appropriately. Unauthenticated Sign In (`#auth-gate`) hides all app navigation chrome (`DS-LOGIC-03`) on a pure `#FFFFFF` canvas displaying `PricePulse`, `Sign in to your workspace`, a clean hairline divider, and a single `Continue with Google` OAuth button (`#F3F4F6` pill).
-- **`REQ-NAV-04` (Modal / Bottom-Sheet Overlays):** `modal-add-item` and `modal-item-details` open over the active view as centered `#FFFFFF` dialogs on desktop and bottom sheets with a `36×4px` grab handle on mobile, with backdrop dismissal and explicit Close (`×`) controls.
+- **`REQ-NAV-04` (Modal / Bottom-Sheet Overlays):** `modal-add-item` and `modal-item-details` open over the active view as centered `#FFFFFF` dialogs on desktop and bottom sheets with a `36×4px` grab handle on mobile, closing on outside backdrop click (`mousedown` outside dialog box), `Escape`, and explicit Close (`×`) controls (`RULE-OVERLAY-DISMISS`).
 - **`REQ-NAV-05` (Canonical URL Deep-Linking & History Parity):** Every view (`/dashboard`, `/tags`, `/health`, `/settings`), modal (`/items/:itemId`, `/items/new`, or `?modal=add`), and grid/chart filter (`?tab=active|bought&tag=<tag_id>`) MUST be synchronized with `window.location` via a centralized `src/shared/routes.ts` registry and History API (`pushState`/`replaceState`/`popstate`), respecting Vite's `BASE_URL` prefix (e.g. `/price-pulse/` on GitHub Pages). Dashboard-scoped query params (`?tab=`, `?tag=`) MUST be scoped strictly to `/dashboard` and cleared when switching between top-level sections. Direct cold loads, browser refresh, and Back/Forward navigation MUST restore the exact state; FastAPI MUST fall back non-`/api/*` routes to `frontend/dist/index.html` when built and GitHub Pages MUST publish `404.html` as a copy of `index.html`; missing/unknown item IDs MUST fall back cleanly to `/dashboard` with a `role="status"` notice.
 
 ```mermaid
@@ -204,3 +204,4 @@ flowchart TD
 | `0.3.10` | 2026-11-15 | Antigravity | Excluded system `Purchased` tag from `AddItemModal` quick-select pills (`REQ-MODAL-02`) and restored semantic `TAG_BADGE_CLASSES` & `TAG_DOT_CLASSES` styling on `ItemDetailsModal` tag chips (`REQ-MODAL-04`). |
 | `0.3.11` | 2026-11-15 | Antigravity | Unified `APP_VERSION` rendering across `#user-dropdown-menu` and `#view-health`, normalized `runtime_diagnostics.app_version` in the `JSON Log` inspector (`REQ-HEALTH-01`), and synchronized `README.md` version references to `0.3.11`. |
 | `0.3.12` | 2026-11-15 | Antigravity | Removed redundant `Tag Manager` menuitem from `#user-dropdown-menu` (`REQ-NAV-02`) and removed duplicate `Run Batch Check Now` button from `#view-health` header (`REQ-HEALTH-01`). |
+| `0.3.13` | 2026-11-15 | Antigravity | Added click-outside (`mousedown`) and `Escape` (`keydown`) dismissal across all modals and popups (`#modal-add-item`, `#modal-item-details`, `#user-dropdown-menu`, and `#header__mobile-nav`) per `RULE-OVERLAY-DISMISS` (`REQ-NAV-02`, `REQ-NAV-04`). |

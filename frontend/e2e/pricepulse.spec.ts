@@ -52,7 +52,12 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       detailsDialog.getByRole("button", { name: "Save Changes" }),
     ).toBeVisible();
+    await page.mouse.click(10, 10);
+    await expect(detailsDialog).toBeHidden();
+    await firstItemCardBtn.click();
+    await expect(detailsDialog).toBeVisible();
     await detailsDialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(detailsDialog).toBeHidden();
 
     const cursors = await page.evaluate(() => {
       const navBtn = document.querySelector<HTMLElement>("header nav button");
@@ -192,13 +197,18 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       page.getByRole("heading", { name: "Tag Manager" }),
     ).toBeVisible();
 
-    // Open User Menu -> verify Run Check menuitem, no Tag Manager item, and identical version -> System Health
+    // Open User Menu -> verify click-outside dismissal, Run Check menuitem, no Tag Manager item, and identical version -> System Health
     await page.getByRole("button", { name: "User account menu" }).click();
     const userMenu = page.locator("#user-dropdown-menu");
+    await expect(userMenu).toBeVisible();
+    await page.mouse.click(10, 200);
+    await expect(userMenu).toBeHidden();
+    await page.getByRole("button", { name: "User account menu" }).click();
+    await expect(userMenu).toBeVisible();
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.12");
+    expect(menuVersion).toBe("v0.3.13");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -225,6 +235,10 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
 
     await page.getByRole("button", { name: "+ Track New URL" }).click();
     const dialog = page.getByRole("dialog", { name: /Track New Product URL/i });
+    await expect(dialog).toBeVisible();
+    await page.mouse.click(10, 10);
+    await expect(dialog).toBeHidden();
+    await page.getByRole("button", { name: "+ Track New URL" }).click();
     await expect(dialog).toBeVisible();
     await expect(
       dialog.getByRole("button", { name: "Purchased" }),
@@ -364,6 +378,18 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
           name: "Mobile navigation",
         });
         await expect(mobileNav).toBeVisible();
+        const navBox = await mobileNav.boundingBox();
+        expect(navBox).not.toBeNull();
+        if (navBox) {
+          await page.mouse.click(4, navBox.y + navBox.height + 16);
+          await expect(mobileNav).toBeHidden();
+          await hamburger.click();
+          await expect(mobileNav).toBeVisible();
+        }
+        await page.keyboard.press("Escape");
+        await expect(mobileNav).toBeHidden();
+        await hamburger.click();
+        await expect(mobileNav).toBeVisible();
         await mobileNav.getByRole("button", { name: "Tag Manager" }).click();
       } else {
         await page.getByRole("button", { name: "Tag Manager" }).click();
@@ -495,7 +521,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.12");
+    expect(healthVersion).toBe("v0.3.13");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -511,7 +537,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       .first()
       .click();
     await expect(healthView.locator("pre")).toContainText(
-      '"app_version": "0.3.12"',
+      '"app_version": "0.3.13"',
     );
     await expect(healthView.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',

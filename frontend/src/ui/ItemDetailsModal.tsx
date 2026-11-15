@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   BoughtItem,
   PriceSnapshot,
@@ -65,6 +65,27 @@ export function ItemDetailsModal({
     setConfirmDelete(false);
     setHoveredSnap(null);
   }, [item?.item_id, item?.name, activeItem]);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const isOpen = Boolean(item);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!item) return null;
 
@@ -153,6 +174,7 @@ export function ItemDetailsModal({
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
         <div
           id={ANCHORS.modalItemDetails}
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="item-details-title"

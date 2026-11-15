@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { APP_VERSION } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 import { deriveUserInitials, deriveUserNick } from "../shared/auth";
@@ -42,6 +42,44 @@ export function Header({
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
+  const userMenuContainerRef = useRef<HTMLDivElement>(null);
+  const mobileNavButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileNavDrawerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen && !mobileNavOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        menuOpen &&
+        userMenuContainerRef.current &&
+        !userMenuContainerRef.current.contains(target)
+      ) {
+        setMenuOpen(false);
+      }
+      if (
+        mobileNavOpen &&
+        mobileNavDrawerRef.current &&
+        !mobileNavDrawerRef.current.contains(target) &&
+        mobileNavButtonRef.current &&
+        !mobileNavButtonRef.current.contains(target)
+      ) {
+        setMobileNavOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        setMobileNavOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen, mobileNavOpen]);
 
   const showAvatarImage = Boolean(
     userAvatarUrl && failedAvatarUrl !== userAvatarUrl,
@@ -109,7 +147,7 @@ export function Header({
             <span className="hidden lg:inline">+ Track New URL</span>
           </button>
 
-          <div className="relative">
+          <div ref={userMenuContainerRef} className="relative">
             <button
               type="button"
               aria-label="User account menu"
@@ -212,6 +250,7 @@ export function Header({
                       </div>
 
                       <button
+                        ref={mobileNavButtonRef}
                         type="button"
                         aria-label="Toggle navigation menu"
                         aria-expanded={mobileNavOpen}
@@ -252,6 +291,7 @@ export function Header({
       {mobileNavOpen && (
         <nav
           id={ANCHORS.mobileNavDrawer}
+          ref={mobileNavDrawerRef}
           aria-label="Mobile navigation"
           className="border-t border-gray-200 bg-white px-3 py-2 md:hidden"
         >
