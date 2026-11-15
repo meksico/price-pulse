@@ -14,6 +14,77 @@ const SERIES_PALETTE: readonly string[] = [
   "#EA580C", // Orange
 ];
 
+interface HoveredChartPoint {
+  historyId: string;
+  itemId: string;
+  itemName: string;
+  seriesColor: string;
+  tagNames: string;
+  recordedAt: string;
+  formattedTime: string;
+  priceText: string;
+  baselineText: string;
+  deltaPct: number;
+  checkIndex: number;
+  totalChecks: number;
+  eventType: string;
+  x: number;
+  y: number;
+}
+
+interface ChartBulletPoint {
+  historyId: string;
+  itemId: string;
+  itemName: string;
+  seriesColor: string;
+  tagNames: string;
+  recordedAt: string;
+  formattedTime: string;
+  priceText: string;
+  baselineText: string;
+  trueDeltaPct: number;
+  checkIndex: number;
+  totalChecks: number;
+  eventType: string;
+  seriesIdx: number;
+  sIdx: number;
+  rawX: number;
+  rawY: number;
+  lineY: number;
+  cx: number;
+  cy: number;
+}
+
+interface SeriesTrajectory {
+  item: TrackedItem;
+  seriesColor: string;
+  points: ChartBulletPoint[];
+}
+
+function formatSnapshotTimestamp(iso: string): string {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return iso;
+  const d = new Date(ms);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const min = String(d.getUTCMinutes()).padStart(2, "0");
+  const ss = String(d.getUTCSeconds()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss} UTC`;
+}
+
+function computeTrueDeltaPct(item: TrackedItem, snap: PriceSnapshot): number {
+  if (item.initial_price > 0) {
+    return (
+      Math.round(
+        ((snap.price - item.initial_price) / item.initial_price) * 1000,
+      ) / 10
+    );
+  }
+  return snap.delta_pct;
+}
+
 interface TrajectoryChartProps {
   items: TrackedItem[];
   tags: Tag[];
@@ -34,15 +105,9 @@ export function TrajectoryChart({
   const [seriesMode, setSeriesMode] = useState<"all" | "top5" | "custom">("all");
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
-  const [hoveredPoint, setHoveredPoint] = useState<{
-    itemName: string;
-    tagNames: string;
-    recordedAt: string;
-    priceText: string;
-    deltaPct: number;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [hoveredPoint, setHoveredPoint] = useState<HoveredChartPoint | null>(
+    null,
+  );
 
   const tagNameById = useMemo(
     () => new Map(tags.map((t) => [t.tag_id, t.name])),
@@ -83,7 +148,13 @@ export function TrajectoryChart({
   const allSelected =
     filteredItems.length > 0 && visibleItems.length === filteredItems.length;
 
+  const clearHover = () => {
+    setHoveredPoint(null);
+    setHoveredItemId(null);
+  };
+
   const toggleAll = () => {
+    clearHover();
     setSeriesMode("custom");
     if (allSelected) {
       setExcludedIds(new Set(filteredItems.map((i) => i.item_id)));
@@ -93,6 +164,7 @@ export function TrajectoryChart({
   };
 
   const selectTop5Drops = () => {
+    clearHover();
     setSeriesMode("top5");
     const top5 = new Set(
       [...filteredItems]
@@ -108,11 +180,13 @@ export function TrajectoryChart({
   };
 
   const selectAllInView = () => {
+    clearHover();
     setSeriesMode("all");
     setExcludedIds(new Set());
   };
 
   const toggleItem = (itemId: string) => {
+    clearHover();
     setSeriesMode("custom");
     setExcludedIds((prev) => {
       const next = new Set(prev);
@@ -128,18 +202,32 @@ export function TrajectoryChart({
   const padY = 20;
   const plotBottomY = height - padY;
 
-  const allSnapshots = useMemo(() => {
-    const visibleSet = new Set(visibleItems.map((i) => i.item_id));
-    return priceHistory.filter((snap) => visibleSet.has(snap.item_id));
-  }, [priceHistory, visibleItems]);
+  const visibleItemById = useMemo(
+    () => new Map(visibleItems.map((i) => [i.item_id, i])),
+    [visibleItems],
+  );
+
+  const allSnapshots = useMemo(
+    () => priceHistory.filter((snap) => visibleItemById.has(snap.item_id)),
+    [priceHistory, visibleItemById],
+  );
+
+  const visibleDeltas = useMemo(
+    () =>
+      allSnapshots.map((snap) => {
+        const item = visibleItemById.get(snap.item_id);
+        return item ? computeTrueDeltaPct(item, snap) : snap.delta_pct;
+      }),
+    [allSnapshots, visibleItemById],
+  );
 
   const minTick = Math.min(
     -30,
-    Math.floor(Math.min(0, ...allSnapshots.map((s) => s.delta_pct)) / 5) * 5,
+    Math.floor(Math.min(0, ...visibleDeltas) / 5) * 5,
   );
   const maxTick = Math.max(
     5,
-    Math.ceil(Math.max(5, ...allSnapshots.map((s) => s.delta_pct)) / 5) * 5,
+    Math.ceil(Math.max(5, ...visibleDeltas) / 5) * 5,
   );
   const yTicks: number[] = [];
   for (let t = maxTick; t >= minTick; t -= 5) {
@@ -160,13 +248,6 @@ export function TrajectoryChart({
   const minTs = parsedTimes.length > 0 ? Math.min(...parsedTimes) : 0;
   const maxTs = parsedTimes.length > 0 ? Math.max(...parsedTimes) : 1;
   const timeSpan = Math.max(1, maxTs - minTs);
-  const toX = (recordedAt: string, idx: number, total: number) => {
-    const ts = Date.parse(recordedAt);
-    if (!Number.isNaN(ts) && maxTs > minTs) {
-      return padX + ((ts - minTs) / timeSpan) * plotWidth;
-    }
-    return total > 1 ? padX + (idx / (total - 1)) * plotWidth : padX + plotWidth;
-  };
 
   const timelineLabels = useMemo(() => {
     const timestamps = Array.from(
@@ -222,12 +303,150 @@ export function TrajectoryChart({
 
   const primaryItemId = hoveredItemId ?? visibleItems[0]?.item_id ?? null;
 
-  const orderedVisibleItems = useMemo(() => {
-    if (!primaryItemId) return visibleItems;
-    const secondary = visibleItems.filter((i) => i.item_id !== primaryItemId);
-    const primary = visibleItems.filter((i) => i.item_id === primaryItemId);
+  const { seriesTrajectories, allBullets } = useMemo(() => {
+    const plotSpanY = Math.max(1, maxTick - minTick);
+    const calcY = (delta: number) =>
+      padY + ((maxTick - delta) / plotSpanY) * (height - padY * 2);
+    const calcX = (recordedAt: string, idx: number, total: number) => {
+      const ts = Date.parse(recordedAt);
+      if (!Number.isNaN(ts) && maxTs > minTs) {
+        return padX + ((ts - minTs) / timeSpan) * plotWidth;
+      }
+      return total > 1
+        ? padX + (idx / (total - 1)) * plotWidth
+        : padX + plotWidth;
+    };
+
+    const trajectories: SeriesTrajectory[] = [];
+    const bullets: ChartBulletPoint[] = [];
+
+    visibleItems.forEach((item, seriesIdx) => {
+      const snaps = priceHistory
+        .filter((s) => s.item_id === item.item_id)
+        .sort((a, b) => a.recorded_at.localeCompare(b.recorded_at));
+      if (snaps.length === 0) return;
+
+      const seriesColor = colorByItemId.get(item.item_id) ?? SERIES_PALETTE[0];
+      const tagNames =
+        item.tag_ids
+          .map((id) => tagNameById.get(id))
+          .filter(Boolean)
+          .join(", ") || "Untagged";
+      const baselineText = formatMoney(item.currency, item.initial_price);
+      const lineOffset =
+        visibleItems.length > 1
+          ? (seriesIdx - (visibleItems.length - 1) / 2) * 1.25
+          : 0;
+
+      const points: ChartBulletPoint[] = snaps.map((snap, sIdx) => {
+        const trueDeltaPct = computeTrueDeltaPct(item, snap);
+        const rawX = calcX(snap.recorded_at, sIdx, snaps.length);
+        const rawY = calcY(trueDeltaPct);
+        const lineY = rawY + lineOffset;
+        const pt: ChartBulletPoint = {
+          historyId: snap.history_id,
+          itemId: item.item_id,
+          itemName: item.name,
+          seriesColor,
+          tagNames,
+          recordedAt: snap.recorded_at,
+          formattedTime: formatSnapshotTimestamp(snap.recorded_at),
+          priceText: formatMoney(item.currency, snap.price),
+          baselineText,
+          trueDeltaPct,
+          checkIndex: sIdx + 1,
+          totalChecks: snaps.length,
+          eventType: snap.event_type,
+          seriesIdx,
+          sIdx,
+          rawX,
+          rawY,
+          lineY,
+          cx: rawX,
+          cy: lineY,
+        };
+        bullets.push(pt);
+        return pt;
+      });
+
+      trajectories.push({ item, seriesColor, points });
+    });
+
+    const minX = padX + 4;
+    const maxX = padX + plotWidth - 4;
+    const minGap = 8;
+    const bands = new Map<number, ChartBulletPoint[]>();
+    for (const pt of bullets) {
+      const bucket = Math.round(pt.rawY / 6);
+      const arr = bands.get(bucket);
+      if (arr) arr.push(pt);
+      else bands.set(bucket, [pt]);
+    }
+
+    for (const band of bands.values()) {
+      if (band.length <= 1) {
+        if (band.length === 1) {
+          band[0].cx = Math.max(minX, Math.min(maxX, band[0].rawX));
+        }
+        continue;
+      }
+      band.sort(
+        (a, b) => a.rawX - b.rawX || a.seriesIdx - b.seriesIdx || a.sIdx - b.sIdx,
+      );
+      const n = band.length;
+      const effGap = Math.min(minGap, (maxX - minX) / Math.max(1, n - 1));
+      const xs = band.map((pt) => Math.max(minX, Math.min(maxX, pt.rawX)));
+
+      for (let i = 1; i < n; i++) {
+        if (xs[i] < xs[i - 1] + effGap) {
+          xs[i] = xs[i - 1] + effGap;
+        }
+      }
+      if (xs[n - 1] > maxX) {
+        xs[n - 1] = maxX;
+      }
+      for (let i = n - 2; i >= 0; i--) {
+        if (xs[i] > xs[i + 1] - effGap) {
+          xs[i] = xs[i + 1] - effGap;
+        }
+      }
+      if (xs[0] < minX) {
+        xs[0] = minX;
+        for (let i = 1; i < n; i++) {
+          if (xs[i] < xs[i - 1] + effGap) {
+            xs[i] = xs[i - 1] + effGap;
+          }
+        }
+      }
+      for (let i = 0; i < n; i++) {
+        band[i].cx = xs[i];
+      }
+    }
+
+    return { seriesTrajectories: trajectories, allBullets: bullets };
+  }, [
+    visibleItems,
+    priceHistory,
+    colorByItemId,
+    tagNameById,
+    maxTick,
+    minTick,
+    minTs,
+    maxTs,
+    timeSpan,
+    plotWidth,
+  ]);
+
+  const orderedTrajectories = useMemo(() => {
+    if (!primaryItemId) return seriesTrajectories;
+    const secondary = seriesTrajectories.filter(
+      (s) => s.item.item_id !== primaryItemId,
+    );
+    const primary = seriesTrajectories.filter(
+      (s) => s.item.item_id === primaryItemId,
+    );
     return [...secondary, ...primary];
-  }, [visibleItems, primaryItemId]);
+  }, [seriesTrajectories, primaryItemId]);
 
   return (
     <section
@@ -288,183 +507,211 @@ export function TrajectoryChart({
                               </span>
                             </div>
 
-                            <svg
-                              viewBox={`0 0 ${width} ${height}`}
-                              role="img"
-                              aria-label="Normalized percentage price trajectory chart"
-                              className="h-44 w-full sm:h-60"
-                            >
-                              <defs>
-                                <linearGradient id="cobaltArea" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="0%" stopColor="#2563EB" stopOpacity="0.14" />
-                                  <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
-                                </linearGradient>
-                              </defs>
+                            <div className="relative">
+                              <svg
+                                viewBox={`0 0 ${width} ${height}`}
+                                role="img"
+                                aria-label="Normalized percentage price trajectory chart"
+                                className="h-44 w-full sm:h-60"
+                              >
+                                <defs>
+                                  <linearGradient id="cobaltArea" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#2563EB" stopOpacity="0.14" />
+                                    <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
+                                  </linearGradient>
+                                </defs>
 
-                              {yTicks.map((tick) => {
-                                const y = toY(tick);
-                                const isZero = tick === 0;
-                                const label = tick > 0 ? `+${tick}%` : `${tick}%`;
-                                return (
-                                  <g key={tick}>
-                                    <line
-                                      x1={padX}
-                                      y1={y}
-                                      x2={width - 16}
-                                      y2={y}
-                                      stroke={isZero ? "#D4D4D8" : "#F3F4F6"}
-                                      strokeDasharray={isZero ? "4 4" : undefined}
-                                    />
-                                    <text
-                                      x={padX - 6}
-                                      y={y + 3.5}
-                                      textAnchor="end"
-                                      fill={isZero ? "#09090B" : "#71717A"}
-                                      fontSize="10"
-                                      fontWeight={isZero ? "600" : "400"}
-                                      style={{ fontVariantNumeric: "tabular-nums" }}
-                                    >
-                                      {label}
-                                    </text>
-                                  </g>
-                                );
-                              })}
+                                {yTicks.map((tick) => {
+                                  const y = toY(tick);
+                                  const isZero = tick === 0;
+                                  const label = tick > 0 ? `+${tick}%` : `${tick}%`;
+                                  return (
+                                    <g key={tick}>
+                                      <line
+                                        x1={padX}
+                                        y1={y}
+                                        x2={width - 16}
+                                        y2={y}
+                                        stroke={isZero ? "#D4D4D8" : "#F3F4F6"}
+                                        strokeDasharray={isZero ? "4 4" : undefined}
+                                      />
+                                      <text
+                                        x={padX - 6}
+                                        y={y + 3.5}
+                                        textAnchor="end"
+                                        fill={isZero ? "#09090B" : "#71717A"}
+                                        fontSize="10"
+                                        fontWeight={isZero ? "600" : "400"}
+                                        style={{ fontVariantNumeric: "tabular-nums" }}
+                                      >
+                                        {label}
+                                      </text>
+                                    </g>
+                                  );
+                                })}
 
-                                {
-                                  orderedVisibleItems.map((item) => {
-                                    const snaps = priceHistory
-                                      .filter((s) => s.item_id === item.item_id)
-                                      .sort((a, b) => a.recorded_at.localeCompare(b.recorded_at));
-                                    if (snaps.length === 0) return null;
-                                    const isPrimary = item.item_id === primaryItemId;
+                                {/* Series lines and area layer */}
+                                {orderedTrajectories.map(({ item, seriesColor, points }) => {
+                                  const isPrimary = item.item_id === primaryItemId;
+                                  const isDimmed = hoveredItemId !== null && !isPrimary;
+                                  const polyline = points
+                                    .map((p) => `${p.cx},${p.cy}`)
+                                    .join(" ");
+                                  const firstPt = points[0];
+                                  const lastPt = points[points.length - 1];
+
+                                  return (
+                                    <g key={item.item_id} opacity={isDimmed ? 0.25 : 1}>
+                                      {isPrimary && points.length > 1 && (
+                                        <polygon
+                                          points={`${polyline} ${lastPt.cx},${plotBottomY} ${firstPt.cx},${plotBottomY}`}
+                                          fill="url(#cobaltArea)"
+                                        />
+                                      )}
+                                      {points.length === 1 ? (
+                                        <line
+                                          x1={Math.max(padX, points[0].cx - 36)}
+                                          y1={points[0].cy}
+                                          x2={points[0].cx}
+                                          y2={points[0].cy}
+                                          stroke={seriesColor}
+                                          strokeWidth={isPrimary ? "2.25" : "1.75"}
+                                          strokeDasharray="4 3"
+                                          strokeLinecap="round"
+                                        />
+                                      ) : (
+                                        <polyline
+                                          fill="none"
+                                          stroke={seriesColor}
+                                          strokeWidth={isPrimary ? "2.25" : "1.75"}
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          points={polyline}
+                                        />
+                                      )}
+                                      {isPrimary && lastPt && (
+                                        <circle
+                                          cx={lastPt.cx}
+                                          cy={lastPt.cy}
+                                          r={8}
+                                          fill={seriesColor}
+                                          fillOpacity="0.2"
+                                        />
+                                      )}
+                                    </g>
+                                  );
+                                })}
+
+                                {/* Top interactive bullets layer */}
+                                <g data-chart-bullets="true">
+                                  {allBullets.map((pt) => {
+                                    const isPrimary = pt.itemId === primaryItemId;
                                     const isDimmed = hoveredItemId !== null && !isPrimary;
-                                    const seriesColor =
-                                      colorByItemId.get(item.item_id) ??
-                                      SERIES_PALETTE[0];
-                                    const strokeColor = seriesColor;
-                                    const dotColor = seriesColor;
-                                    const points = snaps.map((snap, sIdx) => ({
-                                      x: toX(snap.recorded_at, sIdx, snaps.length),
-                                      y: toY(snap.delta_pct),
-                                      snap,
-                                    }));
-                                    const polyline = points.map((p) => `${p.x},${p.y}`).join(" ");
-                                    const tagNames = item.tag_ids
-                                      .map((id) => tagNameById.get(id))
-                                      .filter(Boolean)
-                                      .join(", ");
-                                    const firstPt = points[0];
-                                    const lastPt = points[points.length - 1];
-
+                                    const isActiveBullet =
+                                      hoveredPoint?.historyId === pt.historyId;
+                                    const activatePoint = () => {
+                                      setHoveredItemId(pt.itemId);
+                                      setHoveredPoint({
+                                        historyId: pt.historyId,
+                                        itemId: pt.itemId,
+                                        itemName: pt.itemName,
+                                        seriesColor: pt.seriesColor,
+                                        tagNames: pt.tagNames,
+                                        recordedAt: pt.recordedAt,
+                                        formattedTime: pt.formattedTime,
+                                        priceText: pt.priceText,
+                                        baselineText: pt.baselineText,
+                                        deltaPct: pt.trueDeltaPct,
+                                        checkIndex: pt.checkIndex,
+                                        totalChecks: pt.totalChecks,
+                                        eventType: pt.eventType,
+                                        x: pt.cx,
+                                        y: pt.cy,
+                                      });
+                                    };
                                     return (
-                <g key={item.item_id} opacity={isDimmed ? 0.25 : 1}>
-                  {isPrimary && points.length > 1 && (
-                    <polygon
-                      points={`${polyline} ${lastPt.x},${plotBottomY} ${firstPt.x},${plotBottomY}`}
-                      fill="url(#cobaltArea)"
-                    />
-                  )}
-                  {points.length === 1 ? (
-                    <line
-                      x1={Math.max(padX, points[0].x - 36)}
-                      y1={points[0].y}
-                      x2={points[0].x}
-                      y2={points[0].y}
-                      stroke={strokeColor}
-                      strokeWidth={isPrimary ? "2.25" : "1.75"}
-                      strokeDasharray="4 3"
-                      strokeLinecap="round"
-                    />
-                  ) : (
-                    <polyline
-                      fill="none"
-                      stroke={strokeColor}
-                      strokeWidth={isPrimary ? "2.25" : "1.75"}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      points={polyline}
-                    />
-                  )}
-                  {isPrimary && lastPt && (
-                    <circle
-                      cx={lastPt.x}
-                      cy={lastPt.y}
-                      r={8}
-                      fill={seriesColor}
-                      fillOpacity="0.2"
-                    />
-                  )}
-                  {points.map((pt) => (
-                    <circle
-                      key={pt.snap.history_id}
-                      cx={pt.x}
-                      cy={pt.y}
-                      r={isPrimary ? 4 : 3}
-                      fill={dotColor}
-                      stroke="#FFFFFF"
-                      strokeWidth="1.5"
-                      className="cursor-pointer"
-                      onMouseEnter={() =>
-                        setHoveredPoint({
-                          itemName: item.name,
-                          tagNames: tagNames || "Untagged",
-                          recordedAt: pt.snap.recorded_at,
-                          priceText: formatMoney(item.currency, pt.snap.price),
-                          deltaPct: pt.snap.delta_pct,
-                          x: pt.x,
-                          y: pt.y,
-                        })
-                      }
-                      onMouseLeave={() => setHoveredPoint(null)}
-                      onClick={() =>
-                        setHoveredPoint({
-                          itemName: item.name,
-                          tagNames: tagNames || "Untagged",
-                          recordedAt: pt.snap.recorded_at,
-                          priceText: formatMoney(item.currency, pt.snap.price),
-                          deltaPct: pt.snap.delta_pct,
-                          x: pt.x,
-                          y: pt.y,
-                        })
-                      }
-                    />
-                  ))}
-                </g>
-              );
-            })}
-          </svg>
+                                      <circle
+                                        key={pt.historyId}
+                                        data-chart-bullet="true"
+                                        data-item-id={pt.itemId}
+                                        data-history-id={pt.historyId}
+                                        cx={pt.cx}
+                                        cy={pt.cy}
+                                        r={isActiveBullet ? 5 : isPrimary ? 4 : 3}
+                                        fill={pt.seriesColor}
+                                        stroke="#FFFFFF"
+                                        strokeWidth="1.5"
+                                        opacity={isDimmed ? 0.25 : 1}
+                                        className="cursor-pointer"
+                                        onMouseEnter={activatePoint}
+                                        onMouseLeave={clearHover}
+                                        onClick={activatePoint}
+                                      />
+                                    );
+                                  })}
+                                </g>
+                              </svg>
 
-          <div className="tabular-nums flex items-center justify-between gap-1 border-t border-gray-100 px-3 py-2 text-[10px] text-zinc-500 sm:text-[11px]">
-            {timelineLabels.map((lbl, idx) => (
-              <span
-                key={`${lbl}-${idx}`}
-                className={`truncate ${
-                  idx === timelineLabels.length - 1
-                    ? "font-medium text-zinc-700"
-                    : ""
-                }`}
-              >
-                {lbl}
-              </span>
-            ))}
-          </div>
+                              {hoveredPoint && (
+                                <div
+                                  role="status"
+                                  style={{
+                                    left: `clamp(8px, calc(${(hoveredPoint.x / width) * 100}% - 120px), calc(100% - 250px))`,
+                                    ...(hoveredPoint.y < 95
+                                      ? {
+                                          top: `calc(${(hoveredPoint.y / height) * 100}% + 12px)`,
+                                        }
+                                      : {
+                                          bottom: `calc(${((height - hoveredPoint.y) / height) * 100}% + 12px)`,
+                                        }),
+                                  }}
+                                  className="pointer-events-none absolute z-10 w-[min(242px,calc(100%-16px))] rounded-lg border border-gray-200 bg-white/95 px-3 py-2 text-[11px] leading-snug shadow-lg backdrop-blur-[2px]"
+                                >
+                                  <div className="flex items-start gap-1.5 font-semibold text-zinc-950">
+                                    <span
+                                      aria-hidden="true"
+                                      style={{
+                                        backgroundColor: hoveredPoint.seriesColor,
+                                      }}
+                                      className="mt-1 h-2 w-2 shrink-0 rounded-full"
+                                    />
+                                    <span className="line-clamp-2">
+                                      {hoveredPoint.itemName}
+                                    </span>
+                                  </div>
+                                  <div className="mt-0.5 text-zinc-500">
+                                    Tags: {hoveredPoint.tagNames} &bull; Point{" "}
+                                    {hoveredPoint.checkIndex}/{hoveredPoint.totalChecks}{" "}
+                                    ({hoveredPoint.eventType})
+                                  </div>
+                                  <div className="tabular-nums mt-0.5 font-medium text-blue-600">
+                                    {hoveredPoint.priceText} (
+                                    {hoveredPoint.deltaPct > 0 ? "+" : ""}
+                                    {hoveredPoint.deltaPct}% vs{" "}
+                                    {hoveredPoint.baselineText} baseline)
+                                  </div>
+                                  <div className="tabular-nums mt-0.5 text-[10px] text-zinc-400">
+                                    {hoveredPoint.formattedTime}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
 
-          {hoveredPoint && (
-            <div
-              role="status"
-              className="pointer-events-none absolute top-11 right-2 left-2 rounded-lg border border-gray-200 bg-white/95 px-3 py-2 text-xs shadow-lg sm:top-12 sm:right-auto sm:left-12"
-            >
-              <div className="font-semibold text-zinc-950">
-                {hoveredPoint.itemName}
-              </div>
-              <div className="text-zinc-500">Tags: {hoveredPoint.tagNames}</div>
-              <div className="tabular-nums font-medium text-blue-600">
-                {hoveredPoint.priceText} ({hoveredPoint.deltaPct}%) &bull;{" "}
-                {hoveredPoint.recordedAt}
-              </div>
-            </div>
-          )}
-        </div>
+                            <div className="tabular-nums flex items-center justify-between gap-1 border-t border-gray-100 px-3 py-2 text-[10px] text-zinc-500 sm:text-[11px]">
+                              {timelineLabels.map((lbl, idx) => (
+                                <span
+                                  key={`${lbl}-${idx}`}
+                                  className={`truncate ${
+                                    idx === timelineLabels.length - 1
+                                      ? "font-medium text-zinc-700"
+                                      : ""
+                                  }`}
+                                >
+                                  {lbl}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
 
         <div className="min-w-0 w-full lg:col-span-4">
           <button
@@ -509,7 +756,10 @@ export function TrajectoryChart({
               id={ANCHORS.chartCategoryFilter}
               aria-label="Filter chart by tag"
               value={activeTagFilter}
-              onChange={(e) => onTagFilterChange(e.target.value)}
+              onChange={(e) => {
+                clearHover();
+                onTagFilterChange(e.target.value);
+              }}
               className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9"
             >
               <option value="ALL">All Tags ({tags.length})</option>
@@ -527,7 +777,10 @@ export function TrajectoryChart({
               id="chart-series-search"
               type="search"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                clearHover();
+                setSearchQuery(e.target.value);
+              }}
               placeholder="Filter series..."
               className="min-h-11 w-full rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9"
             />
@@ -550,7 +803,9 @@ export function TrajectoryChart({
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleItem(item.item_id)}
-                        onFocus={() => setHoveredItemId(item.item_id)}
+                        onFocus={() => {
+                          if (checked) setHoveredItemId(item.item_id);
+                        }}
                         onBlur={() => setHoveredItemId(null)}
                         className="h-3.5 w-3.5 shrink-0 rounded accent-zinc-950"
                       />

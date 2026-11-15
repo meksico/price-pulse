@@ -193,18 +193,32 @@ class GoogleSheetsRepository:
             for r in rows_by_tab[1]
             if len(r) >= 7
         ]
-        history = [
-            PriceSnapshot(
-                history_id=r[0],
-                item_id=r[1],
-                recorded_at=r[2],
-                price=float(r[3]),
-                delta_pct=float(r[4]),
-                event_type=PriceEventType(r[5]),
+        initial_by_item: dict[str, float] = {
+            it.item_id: it.initial_price for it in items
+        }
+        for bought in bought_items:
+            initial_by_item[bought.item_id] = bought.initial_price
+        history: list[PriceSnapshot] = []
+        for r in rows_by_tab[4]:
+            if len(r) < 6:
+                continue
+            snap_price = float(r[3])
+            base_price = initial_by_item.get(r[1], 0.0)
+            delta_pct = (
+                compute_delta_pct(base_price, snap_price)
+                if base_price > 0
+                else float(r[4])
             )
-            for r in rows_by_tab[4]
-            if len(r) >= 6
-        ]
+            history.append(
+                PriceSnapshot(
+                    history_id=r[0],
+                    item_id=r[1],
+                    recorded_at=r[2],
+                    price=snap_price,
+                    delta_pct=delta_pct,
+                    event_type=PriceEventType(r[5]),
+                )
+            )
         telemetry = [
             TelemetryRun(
                 run_id=r[0],

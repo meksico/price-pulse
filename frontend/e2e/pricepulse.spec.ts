@@ -101,6 +101,41 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     expect(legendColors.length).toBeGreaterThanOrEqual(3);
     expect(new Set(legendColors).size).toBeGreaterThanOrEqual(3);
 
+    // Verify coincident bullets are de-overlapped and hover shows specific item labels
+    const initialBulletCxs = await page.evaluate(() => {
+      const seen = new Set<string>();
+      const cxs: number[] = [];
+      for (const el of document.querySelectorAll<SVGCircleElement>(
+        '#chart-panel svg circle[data-chart-bullet="true"]',
+      )) {
+        const itemId = el.getAttribute("data-item-id") ?? "";
+        if (!itemId || seen.has(itemId)) continue;
+        seen.add(itemId);
+        const cx = Number(el.getAttribute("cx"));
+        if (!Number.isNaN(cx)) cxs.push(cx);
+      }
+      return cxs;
+    });
+    expect(initialBulletCxs.length).toBe(3);
+    expect(new Set(initialBulletCxs.map((x) => Math.round(x))).size).toBe(3);
+
+    const chartPanel = page.locator("#chart-panel");
+    await page
+      .locator('#chart-panel svg circle[data-chart-bullet="true"][data-item-id="item-1"]')
+      .first()
+      .hover();
+    await expect(chartPanel.getByRole("status")).toContainText(
+      "Sony WH-1000XM5 Wireless Headphones",
+    );
+
+    await page
+      .locator('#chart-panel svg circle[data-chart-bullet="true"][data-item-id="item-2"]')
+      .first()
+      .hover();
+    await expect(chartPanel.getByRole("status")).toContainText(
+      "Keychron Q1 Pro Mechanical Keyboard",
+    );
+
     // Interactive KPI tile actions
     await page.getByRole("button", { name: /Total Saved Costs/i }).click();
     await expect(
@@ -131,7 +166,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.4/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.5/)).toBeVisible();
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {

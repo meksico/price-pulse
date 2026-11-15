@@ -42,12 +42,24 @@ export function ItemDetailsModal({
   );
   const [newTag, setNewTag] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [hoveredSnap, setHoveredSnap] = useState<{
+    historyId: string;
+    priceText: string;
+    deltaPct: number;
+    formattedTime: string;
+    eventType: string;
+    index: number;
+    total: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     setTitle(item?.name ?? "");
     setTargetPrice(activeItem ? String(activeItem.target_price) : "");
     setBuyPrice(activeItem ? String(activeItem.current_price) : "");
     setConfirmDelete(false);
+    setHoveredSnap(null);
   }, [item?.item_id, item?.name, activeItem]);
 
   if (!item) return null;
@@ -109,6 +121,19 @@ export function ItemDetailsModal({
   const plotBottomY = chartH - padY;
   const toY = (val: number) =>
     padY + ((maxP - val) / span) * (chartH - padY * 2);
+
+  const formatSnapshotTimestamp = (iso: string) => {
+    const ms = Date.parse(iso);
+    if (Number.isNaN(ms)) return iso;
+    const d = new Date(ms);
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    const hh = String(d.getUTCHours()).padStart(2, "0");
+    const min = String(d.getUTCMinutes()).padStart(2, "0");
+    const ss = String(d.getUTCSeconds()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss} UTC`;
+  };
 
   const formatLastChecked = (iso: string) => {
     const ms = Date.parse(iso);
@@ -224,111 +249,175 @@ export function ItemDetailsModal({
               </span>
             </div>
 
-            <svg
-              viewBox={`0 0 ${chartW} ${chartH}`}
-              role="img"
-              aria-label="Item price history"
-              className="h-28 w-full sm:h-32"
-            >
-              <defs>
-                <linearGradient id="modalCobaltArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2563EB" stopOpacity="0.14" />
-                  <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
-                </linearGradient>
-              </defs>
+            <div className="relative">
+              <svg
+                viewBox={`0 0 ${chartW} ${chartH}`}
+                role="img"
+                aria-label="Item price history"
+                className="h-28 w-full sm:h-32"
+              >
+                <defs>
+                  <linearGradient id="modalCobaltArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2563EB" stopOpacity="0.14" />
+                    <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
 
-              {[0.2, 0.5, 0.8].map((frac) => (
-                <line
-                  key={frac}
-                  x1={padX}
-                  y1={padY + frac * (chartH - padY * 2)}
-                  x2={chartW - padX}
-                  y2={padY + frac * (chartH - padY * 2)}
-                  stroke="#F3F4F6"
-                />
-              ))}
-
-              {numericTarget !== null && (
-                <g>
+                {[0.2, 0.5, 0.8].map((frac) => (
                   <line
+                    key={frac}
                     x1={padX}
-                    y1={toY(numericTarget)}
+                    y1={padY + frac * (chartH - padY * 2)}
                     x2={chartW - padX}
-                    y2={toY(numericTarget)}
-                    stroke="#A1A1AA"
-                    strokeWidth="1.25"
-                    strokeDasharray="4 4"
+                    y2={padY + frac * (chartH - padY * 2)}
+                    stroke="#F3F4F6"
                   />
-                  <text
-                    x={chartW - padX}
-                    y={Math.max(12, toY(numericTarget) - 5)}
-                    textAnchor="end"
-                    fill="#71717A"
-                    fontSize="10"
-                    style={{ fontVariantNumeric: "tabular-nums" }}
-                  >
-                    Target: {formatMoney(item.currency, numericTarget)}
-                  </text>
-                </g>
-              )}
+                ))}
 
-              {sortedSnaps.length > 0 &&
-                (() => {
-                  const pts = sortedSnaps.map((s, idx) => ({
-                    x:
-                      sortedSnaps.length > 1
-                        ? padX +
-                          (idx / (sortedSnaps.length - 1)) * (chartW - padX * 2)
-                        : chartW - padX,
-                    y: toY(s.price),
-                    id: s.history_id,
-                  }));
-                  const polyline = pts.map((p) => `${p.x},${p.y}`).join(" ");
-                  const firstPt = pts[0];
-                  const lastPt = pts[pts.length - 1];
-                  return (
-                    <g>
-                      {pts.length > 1 && (
-                        <polygon
-                          points={`${polyline} ${lastPt.x},${plotBottomY} ${firstPt.x},${plotBottomY}`}
-                          fill="url(#modalCobaltArea)"
-                        />
-                      )}
-                      {pts.length === 1 ? (
-                        <line
-                          x1={padX}
-                          y1={pts[0].y}
-                          x2={pts[0].x}
-                          y2={pts[0].y}
-                          stroke="#2563EB"
-                          strokeWidth="2"
-                          strokeDasharray="4 3"
-                        />
-                      ) : (
-                        <polyline
-                          fill="none"
-                          stroke="#2563EB"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          points={polyline}
-                        />
-                      )}
-                      {pts.map((p) => (
-                        <circle
-                          key={p.id}
-                          cx={p.x}
-                          cy={p.y}
-                          r={4}
-                          fill="#2563EB"
-                          stroke="#FFFFFF"
-                          strokeWidth="1.5"
-                        />
-                      ))}
-                    </g>
-                  );
-                })()}
-            </svg>
+                {numericTarget !== null && (
+                  <g>
+                    <line
+                      x1={padX}
+                      y1={toY(numericTarget)}
+                      x2={chartW - padX}
+                      y2={toY(numericTarget)}
+                      stroke="#A1A1AA"
+                      strokeWidth="1.25"
+                      strokeDasharray="4 4"
+                    />
+                    <text
+                      x={chartW - padX}
+                      y={Math.max(12, toY(numericTarget) - 5)}
+                      textAnchor="end"
+                      fill="#71717A"
+                      fontSize="10"
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      Target: {formatMoney(item.currency, numericTarget)}
+                    </text>
+                  </g>
+                )}
+
+                {sortedSnaps.length > 0 &&
+                  (() => {
+                    const pts = sortedSnaps.map((s, idx) => {
+                      const trueDeltaPct =
+                        item.initial_price > 0
+                          ? Math.round(
+                              ((s.price - item.initial_price) / item.initial_price) *
+                                1000,
+                            ) / 10
+                          : s.delta_pct;
+                      return {
+                        x:
+                          sortedSnaps.length > 1
+                            ? padX +
+                              (idx / (sortedSnaps.length - 1)) * (chartW - padX * 2)
+                            : chartW - padX,
+                        y: toY(s.price),
+                        id: s.history_id,
+                        snap: s,
+                        index: idx + 1,
+                        trueDeltaPct,
+                      };
+                    });
+                    const polyline = pts.map((p) => `${p.x},${p.y}`).join(" ");
+                    const firstPt = pts[0];
+                    const lastPt = pts[pts.length - 1];
+                    return (
+                      <g>
+                        {pts.length > 1 && (
+                          <polygon
+                            points={`${polyline} ${lastPt.x},${plotBottomY} ${firstPt.x},${plotBottomY}`}
+                            fill="url(#modalCobaltArea)"
+                          />
+                        )}
+                        {pts.length === 1 ? (
+                          <line
+                            x1={padX}
+                            y1={pts[0].y}
+                            x2={pts[0].x}
+                            y2={pts[0].y}
+                            stroke="#2563EB"
+                            strokeWidth="2"
+                            strokeDasharray="4 3"
+                          />
+                        ) : (
+                          <polyline
+                            fill="none"
+                            stroke="#2563EB"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            points={polyline}
+                          />
+                        )}
+                        {pts.map((p) => {
+                          const activateSnap = () =>
+                            setHoveredSnap({
+                              historyId: p.id,
+                              priceText: formatMoney(item.currency, p.snap.price),
+                              deltaPct: p.trueDeltaPct,
+                              formattedTime: formatSnapshotTimestamp(
+                                p.snap.recorded_at,
+                              ),
+                              eventType: p.snap.event_type,
+                              index: p.index,
+                              total: pts.length,
+                              x: p.x,
+                              y: p.y,
+                            });
+                          return (
+                            <circle
+                              key={p.id}
+                              cx={p.x}
+                              cy={p.y}
+                              r={hoveredSnap?.historyId === p.id ? 5 : 4}
+                              fill="#2563EB"
+                              stroke="#FFFFFF"
+                              strokeWidth="1.5"
+                              className="cursor-pointer"
+                              onMouseEnter={activateSnap}
+                              onMouseLeave={() => setHoveredSnap(null)}
+                              onClick={activateSnap}
+                            />
+                          );
+                        })}
+                      </g>
+                    );
+                  })()}
+              </svg>
+
+              {hoveredSnap && (
+                <div
+                  role="status"
+                  style={{
+                    left: `clamp(8px, calc(${(hoveredSnap.x / chartW) * 100}% - 95px), calc(100% - 198px))`,
+                    ...(hoveredSnap.y < 60
+                      ? {
+                          top: `calc(${(hoveredSnap.y / chartH) * 100}% + 10px)`,
+                        }
+                      : {
+                          bottom: `calc(${((chartH - hoveredSnap.y) / chartH) * 100}% + 10px)`,
+                        }),
+                  }}
+                  className="pointer-events-none absolute z-10 w-[min(190px,calc(100%-16px))] rounded-lg border border-gray-200 bg-white/95 px-2.5 py-1.5 text-[11px] leading-snug shadow-md"
+                >
+                  <div className="font-semibold text-zinc-950">
+                    Point {hoveredSnap.index}/{hoveredSnap.total} (
+                    {hoveredSnap.eventType})
+                  </div>
+                  <div className="tabular-nums font-medium text-blue-600">
+                    {hoveredSnap.priceText} (
+                    {hoveredSnap.deltaPct > 0 ? "+" : ""}
+                    {hoveredSnap.deltaPct}% vs baseline)
+                  </div>
+                  <div className="tabular-nums text-[10px] text-zinc-400">
+                    {hoveredSnap.formattedTime}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="divide-y divide-gray-200 border-t border-b border-gray-200">
