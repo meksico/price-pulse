@@ -5,7 +5,7 @@ import type {
   Tag,
   TrackedItem,
 } from "../domain/models";
-import { TAG_BADGE_CLASSES, formatMoney } from "../domain/models";
+import { TAG_BADGE_CLASSES, TAG_DOT_CLASSES, formatMoney } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 
 type GridTab = "active" | "bought";
@@ -24,7 +24,6 @@ interface PositionsGridProps {
   activeTagFilter: string;
   onTagFilterChange: (tagId: string) => void;
   onOpenItem: (itemId: string) => void;
-  onOpenAddModal: () => void;
 }
 
 function Sparkline({ snapshots }: { snapshots: PriceSnapshot[] }) {
@@ -66,7 +65,6 @@ export function PositionsGrid({
   activeTagFilter,
   onTagFilterChange,
   onOpenItem,
-  onOpenAddModal,
 }: PositionsGridProps) {
   const [groupBy, setGroupBy] = useState<GroupMode>("none");
   const [searchQuery, setSearchQuery] = useState("");
@@ -435,13 +433,6 @@ export function PositionsGrid({
                 </select>
               </>
             )}
-            <button
-              type="button"
-              onClick={onOpenAddModal}
-              className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:hidden"
-            >
-              + Add URL
-            </button>
           </div>
           <label htmlFor="grid-search" className="sr-only">
             Search items or tags
@@ -457,13 +448,6 @@ export function PositionsGrid({
             placeholder="Search products or tags..."
             className="min-h-11 w-full rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9 sm:w-56"
           />
-          <button
-            type="button"
-            onClick={onOpenAddModal}
-            className="hidden min-h-9 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:inline-block"
-          >
-            + Add URL
-          </button>
         </div>
       </div>
 
@@ -488,21 +472,30 @@ export function PositionsGrid({
         >
           Show All
         </button>
-        {distinctActiveTags.map((tag) => (
-          <button
-            key={tag.tag_id}
-            type="button"
-            aria-pressed={activeTagFilter === tag.tag_id}
-            onClick={() => handleTagChipClick(tag.tag_id)}
-            className={`min-h-11 shrink-0 rounded-lg border px-3 py-1 text-xs font-medium transition-colors sm:min-h-8 ${
-              activeTagFilter === tag.tag_id
-                ? "border-zinc-950 bg-zinc-950 text-white"
-                : "border-gray-200 bg-white text-zinc-950 hover:bg-gray-50"
-            }`}
-          >
-            {tag.name}
-          </button>
-        ))}
+        {distinctActiveTags.map((tag) => {
+          const isActive = activeTagFilter === tag.tag_id;
+          return (
+            <button
+              key={tag.tag_id}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => handleTagChipClick(tag.tag_id)}
+              className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium transition-colors sm:min-h-8 ${
+                isActive
+                  ? "border-zinc-950 bg-zinc-950 text-white"
+                  : `${TAG_BADGE_CLASSES[tag.color]} hover:opacity-85`
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 rounded-full ${
+                  isActive ? "bg-white" : TAG_DOT_CLASSES[tag.color]
+                }`}
+              />
+              {tag.name}
+            </button>
+          );
+        })}
       </div>
 
       {/* Mobile-first stacked cards (< 768px) */}

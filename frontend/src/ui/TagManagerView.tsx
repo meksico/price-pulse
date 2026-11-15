@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import type { BoughtItem, Tag, TagColor, TrackedItem } from "../domain/models";
 import {
+  TAG_BADGE_CLASSES,
   TAG_COLOR_OPTIONS,
+  TAG_DOT_CLASSES,
   formatSavingsByCurrency,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
@@ -141,7 +143,7 @@ export function TagManagerView({
               id="new-tag-color"
               value={newColor}
               onChange={(e) => setNewColor(e.target.value as TagColor)}
-              className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-9"
+              className={`min-h-11 w-full rounded-lg border px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-9 ${TAG_BADGE_CLASSES[newColor]}`}
             >
               {TAG_COLOR_OPTIONS.map((c) => (
                 <option key={c} value={c}>
@@ -193,10 +195,12 @@ export function TagManagerView({
                     </button>
                   </div>
                 ) : (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-zinc-950">
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${TAG_BADGE_CLASSES[tag.color]}`}
+                  >
                     <span
                       aria-hidden="true"
-                      className="h-1.5 w-1.5 rounded-full bg-zinc-950"
+                      className={`h-1.5 w-1.5 rounded-full ${TAG_DOT_CLASSES[tag.color]}`}
                     />
                     {tag.name}
                   </span>
@@ -231,7 +235,7 @@ export function TagManagerView({
                       color: e.target.value as TagColor,
                     })
                   }
-                  className="min-h-11 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs text-zinc-900 sm:min-h-9"
+                  className={`min-h-11 rounded-lg border px-2.5 py-1 text-xs font-medium sm:min-h-9 ${TAG_BADGE_CLASSES[tag.color]}`}
                 >
                   {TAG_COLOR_OPTIONS.map((c) => (
                     <option key={c} value={c}>
@@ -311,10 +315,12 @@ export function TagManagerView({
                                               </button>
                                             </div>
                                           ) : (
-                      <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-zinc-950">
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${TAG_BADGE_CLASSES[tag.color]}`}
+                      >
                         <span
                           aria-hidden="true"
-                          className="h-1.5 w-1.5 rounded-full bg-zinc-950"
+                          className={`h-1.5 w-1.5 rounded-full ${TAG_DOT_CLASSES[tag.color]}`}
                         />
                         {tag.name}
                       </span>
@@ -354,7 +360,7 @@ export function TagManagerView({
                               color: e.target.value as TagColor,
                             })
                           }
-                          className="h-8 rounded-lg border border-gray-200 bg-white px-2 text-xs text-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          className={`h-8 rounded-lg border px-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950 ${TAG_BADGE_CLASSES[tag.color]}`}
                         >
                           {TAG_COLOR_OPTIONS.map((c) => (
                             <option key={c} value={c}>

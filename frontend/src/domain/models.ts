@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.3.2";
+export const APP_VERSION = "0.3.3";
 
 export type TagColor =
   | "purple"
@@ -20,13 +20,23 @@ export const TAG_COLOR_OPTIONS: readonly TagColor[] = [
 ];
 
 export const TAG_BADGE_CLASSES: Record<TagColor, string> = {
-  purple: "bg-gray-100 text-zinc-900 border-gray-200",
-  amber: "bg-gray-100 text-zinc-900 border-gray-200",
-  emerald: "bg-gray-100 text-zinc-900 border-gray-200",
-  blue: "bg-gray-100 text-zinc-900 border-gray-200",
-  rose: "bg-gray-100 text-zinc-900 border-gray-200",
-  cyan: "bg-gray-100 text-zinc-900 border-gray-200",
-  slate: "bg-gray-100 text-zinc-900 border-gray-200",
+  purple: "bg-purple-50 text-purple-800 border-purple-200",
+  amber: "bg-amber-50 text-amber-800 border-amber-200",
+  emerald: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  blue: "bg-blue-50 text-blue-800 border-blue-200",
+  rose: "bg-rose-50 text-rose-800 border-rose-200",
+  cyan: "bg-cyan-50 text-cyan-800 border-cyan-200",
+  slate: "bg-slate-100 text-slate-800 border-slate-200",
+};
+
+export const TAG_DOT_CLASSES: Record<TagColor, string> = {
+  purple: "bg-purple-600",
+  amber: "bg-amber-500",
+  emerald: "bg-emerald-600",
+  blue: "bg-blue-600",
+  rose: "bg-rose-600",
+  cyan: "bg-cyan-600",
+  slate: "bg-slate-600",
 };
 
 export interface Tag {

@@ -415,9 +415,6 @@ export function App() {
                     onOpenItem={(itemId) =>
                       navigate({ itemId, addModalOpen: false })
                     }
-                    onOpenAddModal={() =>
-                      navigate({ addModalOpen: true, itemId: null })
-                    }
                   />
                 </div>
               </section>

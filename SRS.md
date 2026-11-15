@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.2`
+- **Document Version / App Target Baseline:** `0.3.3`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -129,12 +129,11 @@ flowchart TD
 - **`REQ-GRID-01` (View Switcher Tabs):** Filled Pill Tabs (`#09090B` active vs `#F3F4F6` inactive) toggling between **Active Positions (`N`)** and **Bought Items Sheet (`M`)**.
 - **`REQ-GRID-02` (Grid Toolbar Controls):**
   - **Group By** dropdown: `Flat List (None)` or `Tag` (no Category or Retailer grouping).
-  - **Search** `#F3F4F6` borderless input well: filters by item `name` or any assigned `tag` across both Active and Bought views.
-  - **+ Add URL** outlined shortcut button.
-- **`REQ-GRID-03` (Quick Tag Filter Bar):** Horizontal scrollable strip (`Filter by Tag:`) showing `Show All` plus one outlined/active-ink button per distinct tag present on active items.
+  - **Search** `#F3F4F6` borderless input well: filters by item `name` or any assigned `tag` across both Active and Bought views. (New URL creation lives exclusively in the top header's `+ Track New URL` primary CTA and mobile bottom bar.)
+- **`REQ-GRID-03` (Quick Tag Filter Bar):** Horizontal scrollable strip (`Filter by Tag:`) showing `Show All` plus one color-coded button (`TAG_BADGE_CLASSES[tag.color]` with `TAG_DOT_CLASSES[tag.color]` indicator dot when inactive, `#09090B` active ink when selected) per distinct tag present on active items.
 - **`REQ-GRID-04` (Active Positions Table Columns):**
   1. `Product Name` (sortable; `44×44px` rounded thumbnail + clickable title button opening `modal-item-details`)
-  2. `Tags` (unified monochrome `#F3F4F6` tag chips)
+  2. `Tags` (semantic color-coded tag pills via `TAG_BADGE_CLASSES[tag.color]`)
   3. `Baseline` (`initial_price`, sortable, `tabular-nums`)
   4. `Current Price` (sortable, `tabular-nums`)
   5. `Target Alert` (`target_price`, sortable, `tabular-nums`)
@@ -155,10 +154,10 @@ flowchart TD
 - **`REQ-MODAL-06` (Delete Position Location):** **Delete Position** (two-step **Confirm Delete**) is located exclusively inside the `modal-item-details` footer (never on dashboard rows/titles) and removes the position after confirmation.
 
 ### 5.5 Tag Manager (`view-tags`) (`REQ-TAG-01`..`REQ-TAG-04`)
-- **`REQ-TAG-01` (Single-Level Creation Form):** Single `#09090B` `+ Create New Tag` button reveals a minimal form containing **Tag Name** and **Color Theme** (`purple`, `amber`, `emerald`, `blue`, `rose`, `cyan`, `slate` preserved in data schema), plus a Save button.
-- **`REQ-TAG-02` (2-Column Tag Data Grid):** Displays tags in a clean `#FFFFFF` hairline table/list (no rainbow pill clutter):
-  - **Column 1 (`Tag Name`):** Unified monochrome `#F3F4F6` pill badge with `6px` `#09090B` indicator dot.
-  - **Column 2 (`Additional Info & Edit Options`):** Active item count, average drop `%`, realized savings from `Bought_Items` formatted with workspace currency (`tabular-nums`), inline **Color Theme** `<select>`, outlined **View in Grid &rarr;** (switches to Dashboard filtered to that tag), **Rename**, and hover-red **Delete**.
+- **`REQ-TAG-01` (Single-Level Creation Form):** Single `#09090B` `+ Create New Tag` button reveals a minimal form containing **Tag Name** and **Color Theme** (`purple`, `amber`, `emerald`, `blue`, `rose`, `cyan`, `slate` rendered with `TAG_BADGE_CLASSES`), plus a Save button.
+- **`REQ-TAG-02` (2-Column Tag Data Grid):** Displays tags in a clean `#FFFFFF` hairline table/list:
+  - **Column 1 (`Tag Name`):** Color-tinted pill badge (`TAG_BADGE_CLASSES[tag.color]`) with `6px` `TAG_DOT_CLASSES[tag.color]` indicator dot.
+  - **Column 2 (`Additional Info & Edit Options`):** Active item count, average drop `%`, realized savings from `Bought_Items` formatted with workspace currency (`tabular-nums`), inline **Color Theme** `<select>` styled with `TAG_BADGE_CLASSES[tag.color]`, outlined **View in Grid &rarr;** (switches to Dashboard filtered to that tag), **Rename**, and hover-red **Delete**.
 - **`REQ-TAG-03` (Search & Summary):** Live `#F3F4F6` tag search input and total active tags counter.
 - **`REQ-TAG-04` (Cascading Rename & Delete):** Renaming or deleting a tag updates `Tags`, `Item_Tags`, active `Items`, `Bought_Items`, Chart filter options, and the Dashboard quick-filter bar atomically.
 
@@ -196,3 +195,4 @@ flowchart TD
 | `0.3.0` | 2026-11-15 | Antigravity | Full `DS-BASELINE-360` High-Contrast Editorial Minimalism UI redesign across all 7 screens: 90/8/2 light surface ratio (`#FFFFFF` / `#F3F4F6` / `#09090B`), Single Ink Anchor (`#09090B`) CTA discipline, Cobalt Blue (`#2563EB`) focus trajectory & micro-sparklines, Crimson Red (`#EF4444`) anomaly dots, unified monochrome tag badges, Checkout-style 2-column asymmetric key-value forms, deduplicated chart X-axis labels, fixed `↗` retailer link glyph, workspace-currency `tabular-nums` alignment, chromeless Auth Gate, mobile bottom sheets, and 5-icon `mobile-bottom-nav`. |
 | `0.3.1` | 2026-11-15 | Antigravity | Made Dashboard KPI tiles interactive (`REQ-DASH-01..03`: `Active Monitoring` scrolls to `#grid-panel`, `Total Saved Costs` switches to `Bought Items Sheet` and scrolls to `#grid-panel`, `Engine Health` navigates to `/health`), simplified top header desktop navigation (`REQ-NAV-01`) to 2 tabs (**Dashboard**, **Tag Manager**; leaving **System Health** and **G-Sync & Configuration** in the `PP Owner` dropdown), and streamlined `#auth-gate` Sign-In screen (`REQ-NAV-03`) to remove email input / `Continue` form and `"or"` divider, keeping `PricePulse`, `Sign in to your workspace`, hairline divider, and `Continue with Google` CTA. |
 | `0.3.2` | 2026-11-15 | Antigravity | Restored distinct per-series colors (`SERIES_PALETTE`) across the `TrajectoryChart` SVG lines, point markers, endpoint halo, and `Series Visible` legend dots with keyboard focus isolation (`REQ-CHART-01..02`). |
+| `0.3.3` | 2026-11-15 | Antigravity | Restored semantic `Tag.color` pill and color-select styling (`TAG_BADGE_CLASSES`, `TAG_DOT_CLASSES`) across `PositionsGrid` (`Filter by Tag:` and `Tags` column), `TagManagerView` (`Tag Name` pill + `Color Theme` `<select>`), and modals (`REQ-GRID-03..04`, `REQ-TAG-01..02`), and removed duplicate `+ Add URL` button from `PositionsGrid` toolbar (`REQ-GRID-02`). |

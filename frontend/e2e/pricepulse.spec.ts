@@ -73,8 +73,22 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       page.getByRole("button", { name: /Keychron Q1 Pro/i }),
     ).toBeVisible();
 
-    // Reset via Show All
+    // Reset via Show All and verify semantic tag colors + no duplicate + Add URL button
     await page.getByRole("button", { name: "Show All" }).click();
+    await expect(
+      page.getByRole("button", { name: "+ Add URL" }),
+    ).toHaveCount(0);
+    const tagBarColors = await page.evaluate(() =>
+      Array.from(
+        document
+          .getElementById("grid-panel__tag-bar")
+          ?.querySelectorAll<HTMLElement>("button") ?? [],
+      )
+        .slice(1)
+        .map((el) => getComputedStyle(el).backgroundColor),
+    );
+    expect(tagBarColors.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(tagBarColors).size).toBeGreaterThanOrEqual(3);
 
     // Verify multi-series legend dots render distinct colors per tracked item
     const legendColors = await page.evaluate(() =>
@@ -117,7 +131,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.2/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.3/)).toBeVisible();
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {
