@@ -18,6 +18,7 @@ export const ANCHORS = {
   gridPanelToolbar: "grid-panel__toolbar",
   gridPanelTagBar: "grid-panel__tag-bar",
   modalAddItem: "modal-add-item",
+  modalAddItemLoadingOverlay: "modal-add-item__loading-overlay",
   modalItemDetails: "modal-item-details",
   modalTelemetryJson: "modal-telemetry-json",
   toastViewport: "toast-viewport",

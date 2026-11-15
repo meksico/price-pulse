@@ -36,11 +36,13 @@ export function AddItemModal({
   useEffect(() => {
     if (!open) return;
     const handlePointerDown = (e: MouseEvent) => {
+      if (fetching) return;
       if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (fetching) return;
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("mousedown", handlePointerDown);
@@ -49,7 +51,7 @@ export function AddItemModal({
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose]);
+  }, [open, fetching, onClose]);
 
   if (!open) return null;
 
@@ -113,6 +115,7 @@ export function AddItemModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (fetching) return;
     const init = Number(initialPrice);
     const target = Number(targetPrice);
     if (!title.trim() || !url.trim() || !(init > 0) || !(target > 0)) {
@@ -155,9 +158,29 @@ export function AddItemModal({
           ref={dialogRef}
           role="dialog"
           aria-modal="true"
+          aria-busy={fetching}
           aria-labelledby="add-item-modal-title"
-          className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
+          className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
         >
+            {fetching && (
+              <div
+                id={ANCHORS.modalAddItemLoadingOverlay}
+                aria-live="polite"
+                className="pointer-events-auto absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 rounded-t-[20px] bg-white/80 p-6 text-center backdrop-blur-[2px] sm:rounded-2xl"
+              >
+                <div
+                  aria-hidden="true"
+                  className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-950"
+                />
+                <div className="text-xs font-semibold text-zinc-950">
+                  Fetching product metadata...
+                </div>
+                <div className="text-[11px] text-zinc-500">
+                  Waiting for server response
+                </div>
+              </div>
+            )}
+
             <div
               aria-hidden="true"
               className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
@@ -178,14 +201,19 @@ export function AddItemModal({
               <button
                 type="button"
                 aria-label="Close Add Item modal"
+                disabled={fetching}
                 onClick={onClose}
-                className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 sm:min-h-9 sm:min-w-9"
+                className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:opacity-40 sm:min-h-9 sm:min-w-9"
               >
                 &times;
               </button>
             </div>
 
               <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+                <fieldset
+                  disabled={fetching}
+                  className="m-0 min-w-0 space-y-3.5 border-0 p-0"
+                >
                 <div>
                     <label
                       htmlFor="add-item-url"
@@ -297,6 +325,7 @@ export function AddItemModal({
                                     selectedTagNames={selectedTagNames}
                                     onAddTag={handleAddTag}
                                     onRemoveTag={handleRemoveTag}
+                                    readOnly={fetching}
                                   />
                                 </div>
 
@@ -315,6 +344,7 @@ export function AddItemModal({
                                       Save &amp; Start Tracking
                                     </button>
                                   </div>
+                                </fieldset>
                                 </form>
                             </div>
                         </div>

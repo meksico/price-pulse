@@ -214,7 +214,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.18");
+    expect(menuVersion).toBe("v0.3.19");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -277,10 +277,38 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     ).toBeVisible();
     await expect(dialog.getByLabel("Add Tag")).toBeVisible();
 
+    let releasePreview!: () => void;
+    const previewGate = new Promise<void>((resolve) => {
+      releasePreview = resolve;
+    });
+    await page.route("**/api/scrape/preview", async (route) => {
+      await previewGate;
+      await route.continue();
+    });
+
     await dialog
       .getByLabel("Product URL")
       .fill("https://example.com/products/mechanical-mouse");
     await dialog.getByRole("button", { name: "Fetch Preview" }).click();
+
+    const loadingOverlay = dialog.locator("#modal-add-item__loading-overlay");
+    await expect(loadingOverlay).toBeVisible();
+    await expect(loadingOverlay).toContainText(
+      "Fetching product metadata...",
+    );
+    await expect(
+      dialog.getByRole("button", { name: "Close Add Item modal" }),
+    ).toBeDisabled();
+    await expect(
+      dialog.getByRole("button", { name: /Save & Start Tracking/i }),
+    ).toBeDisabled();
+    await page.mouse.click(10, 10);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeVisible();
+
+    releasePreview();
+    await expect(loadingOverlay).toHaveCount(0);
+    await page.unroute("**/api/scrape/preview");
     await expect(dialog.getByLabel("Product Title")).toHaveValue(
       "Mechanical Mouse",
     );
@@ -538,7 +566,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.18");
+    expect(healthVersion).toBe("v0.3.19");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -556,7 +584,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.18"',
+      '"app_version": "0.3.19"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
