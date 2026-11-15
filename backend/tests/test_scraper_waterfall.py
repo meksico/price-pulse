@@ -5,9 +5,11 @@ from __future__ import annotations
 import pytest
 
 from pricepulse.adapters.playwright_scraper import (
+    PlaywrightScraperAdapter,
     check_items_pooled,
     extract_preview_from_html,
     parse_proxy_config,
+    parse_proxy_pool,
 )
 from pricepulse.domain.models import TrackedItem
 
@@ -163,7 +165,7 @@ def test_tier3_ignores_script_and_style_dollar_tokens() -> None:
 
 
 def test_parse_proxy_config() -> None:
-    """Verify optional SCRAPER_PROXY_URL parsing for Playwright."""
+    """Verify optional SCRAPER_PROXY_URL parsing and round-robin rotation."""
     assert parse_proxy_config(None) is None
     assert parse_proxy_config("   ") is None
     cfg = parse_proxy_config("http://user%401:p%40ss@proxy.example.com:8080")
@@ -172,4 +174,17 @@ def test_parse_proxy_config() -> None:
         "username": "user@1",
         "password": "p@ss",
     }
+    pool = parse_proxy_pool(
+        "1.2.3.4:6000:u1:p1, http://u2:p2@5.6.7.8:7000\n9.10.11.12:8000:u3:p3"
+    )
+    assert len(pool) == 3
+    assert pool[0] == {"server": "http://1.2.3.4:6000", "username": "u1", "password": "p1"}
+
+    adapter = PlaywrightScraperAdapter(
+        proxy_url="1.1.1.1:1000:u:p,2.2.2.2:2000:u:p,3.3.3.3:3000:u:p,4.4.4.4:4000:u:p"
+    )
+    first = [p["server"] for p in adapter._next_proxies(2)]
+    second = [p["server"] for p in adapter._next_proxies(2)]
+    assert first == ["http://1.1.1.1:1000", "http://2.2.2.2:2000"]
+    assert second == ["http://2.2.2.2:2000", "http://3.3.3.3:3000"]
 

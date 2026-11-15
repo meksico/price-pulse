@@ -244,9 +244,21 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
 
 
 def parse_proxy_config(proxy_url: str | None) -> dict[str, str] | None:
-    """Parse an optional HTTP/SOCKS proxy URL into Playwright proxy settings."""
+    """Parse a single proxy (URL or host:port:user:pass) into Playwright settings."""
     raw = (proxy_url or "").strip()
     if not raw:
+        return None
+    if "://" not in raw:
+        parts = raw.split(":")
+        if len(parts) == 4 and all(parts):
+            host, port, user, password = parts
+            return {
+                "server": f"http://{host}:{port}",
+                "username": user,
+                "password": password,
+            }
+        if len(parts) == 2 and all(parts):
+            return {"server": f"http://{parts[0]}:{parts[1]}"}
         return None
     parsed = urlparse(raw)
     if not parsed.scheme or not parsed.hostname:
@@ -258,6 +270,19 @@ def parse_proxy_config(proxy_url: str | None) -> dict[str, str] | None:
     if parsed.password:
         cfg["password"] = unquote(parsed.password)
     return cfg
+
+
+def parse_proxy_pool(raw_pool: str | None) -> list[dict[str, str]]:
+    """Parse comma/newline-separated proxy entries into a revolving pool."""
+    if not raw_pool:
+        return []
+    entries = re.split(r"[,\n]+", raw_pool)
+    pool: list[dict[str, str]] = []
+    for entry in entries:
+        cfg = parse_proxy_config(entry)
+        if cfg is not None:
+            pool.append(cfg)
+    return pool
 
 
 class PlaywrightScraperAdapter:
@@ -273,7 +298,8 @@ class PlaywrightScraperAdapter:
         self._concurrency = concurrency
         self._timeout_ms = timeout_ms
         self._retries = retries
-        self._proxy = parse_proxy_config(proxy_url or os.getenv("SCRAPER_PROXY_URL"))
+        self._proxies = parse_proxy_pool(proxy_url or os.getenv("SCRAPER_PROXY_URL"))
+        self._proxy_cursor = 0
 
     async def _fetch_html(self, browser: Browser, url: str) -> str:
         """Render URL in an isolated browser page and return full HTML."""
@@ -295,7 +321,19 @@ class PlaywrightScraperAdapter:
         finally:
             await context.close()
 
-    def _launch_kwargs(self) -> dict[str, Any]:
+    def _next_proxies(self, max_attempts: int = 3) -> list[dict[str, str]]:
+        """Return up to max_attempts proxies in round-robin order."""
+        if not self._proxies:
+            return []
+        count = min(len(self._proxies), max_attempts)
+        selected = [
+            self._proxies[(self._proxy_cursor + offset) % len(self._proxies)]
+            for offset in range(count)
+        ]
+        self._proxy_cursor = (self._proxy_cursor + 1) % len(self._proxies)
+        return selected
+
+    def _launch_kwargs(self, proxy: dict[str, str] | None = None) -> dict[str, Any]:
         """Build Playwright Chromium launch arguments including optional proxy."""
         kwargs: dict[str, Any] = {
             "headless": True,
@@ -304,16 +342,40 @@ class PlaywrightScraperAdapter:
                 "--disable-blink-features=AutomationControlled",
             ],
         }
-        if self._proxy is not None:
-            kwargs["proxy"] = self._proxy
+        if proxy is not None:
+            kwargs["proxy"] = proxy
         return kwargs
+
+    async def _fetch_with_proxy_fallback(
+        self,
+        pw: Any,
+        direct_browser: Browser,
+        url: str,
+    ) -> str:
+        """Fetch URL directly first; rotate through proxy pool if direct fails."""
+        try:
+            return await self._fetch_html(direct_browser, url)
+        except Exception as direct_exc:
+            proxies = self._next_proxies()
+            if not proxies:
+                raise direct_exc
+            last_exc: Exception = direct_exc
+            for proxy_cfg in proxies:
+                proxy_browser = await pw.chromium.launch(**self._launch_kwargs(proxy_cfg))
+                try:
+                    return await self._fetch_html(proxy_browser, url)
+                except Exception as proxy_exc:
+                    last_exc = proxy_exc
+                finally:
+                    await proxy_browser.close()
+            raise last_exc from direct_exc
 
     async def preview_url(self, url: str) -> ScrapePreview:
         """Fetch and extract preview metadata for a single URL."""
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(**self._launch_kwargs())
             try:
-                html = await self._fetch_html(browser, url)
+                html = await self._fetch_with_proxy_fallback(pw, browser, url)
                 return extract_preview_from_html(url, html)
             finally:
                 await browser.close()
@@ -327,7 +389,9 @@ class PlaywrightScraperAdapter:
             try:
                 return await check_items_pooled(
                     items=items,
-                    fetch_fn=lambda url: self._fetch_html(browser, url),
+                    fetch_fn=lambda url: self._fetch_with_proxy_fallback(
+                        pw, browser, url
+                    ),
                     concurrency=self._concurrency,
                     retries=self._retries,
                 )
