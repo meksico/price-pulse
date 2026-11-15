@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LocalApiDataAdapter } from "./adapters/localApiAdapter";
 import type {
   AddItemPayload,
@@ -29,6 +29,11 @@ import { ItemDetailsModal } from "./ui/ItemDetailsModal";
 import { PositionsGrid } from "./ui/PositionsGrid";
 import { SystemHealthView } from "./ui/SystemHealthView";
 import { TagManagerView } from "./ui/TagManagerView";
+import {
+  ToastViewport,
+  type PushToastFn,
+  type ToastMessage,
+} from "./ui/ToastViewport";
 import { TrajectoryChart } from "./ui/TrajectoryChart";
 
 export function App() {
@@ -50,7 +55,33 @@ export function App() {
     parseRoute(window.location.pathname, window.location.search),
   );
   const [isChecking, setIsChecking] = useState(false);
-  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const toastTimersRef = useRef<Record<string, number>>({});
+
+  const dismissToast = useCallback((id: string) => {
+    const timer = toastTimersRef.current[id];
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      delete toastTimersRef.current[id];
+    }
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const pushToast = useCallback<PushToastFn>((variant, title, message) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((prev) => [...prev.slice(-3), { id, variant, title, message }]);
+    toastTimersRef.current[id] = window.setTimeout(() => {
+      delete toastTimersRef.current[id];
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
+  }, []);
+
+  useEffect(() => {
+    const timers = toastTimersRef.current;
+    return () => {
+      Object.values(timers).forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
 
   const navigate = useCallback(
     (
@@ -90,7 +121,6 @@ export function App() {
     if (authEnabled && !getStoredAuthToken()) {
       return;
     }
-    setErrorBanner(null);
     try {
       const [nextState, nextHealth] = await Promise.all([
         store.loadState(),
@@ -105,14 +135,19 @@ export function App() {
         setAuthToken(null);
         setUserProfile(null);
         setState(null);
+        pushToast(
+          "warning",
+          "Session expired",
+          "Please sign in again with your Google account.",
+        );
+      } else {
+        pushToast("error", "Workspace sync failed", msg);
       }
-      setErrorBanner(msg);
     }
-  }, [authEnabled, store]);
+  }, [authEnabled, pushToast, store]);
 
   const handleSignIn = async () => {
     setIsSigningIn(true);
-    setErrorBanner(null);
     try {
       const token = await requestGoogleAccessToken();
       setAuthToken(token);
@@ -121,8 +156,19 @@ export function App() {
         refreshAll(),
       ]);
       if (profile) setUserProfile(profile);
+      pushToast(
+        "success",
+        "Signed in",
+        profile?.email
+          ? `Connected as ${profile.email}.`
+          : "Google account connected.",
+      );
     } catch (err) {
-      setErrorBanner(err instanceof Error ? err.message : String(err));
+      pushToast(
+        "error",
+        "Sign in failed",
+        err instanceof Error ? err.message : String(err),
+      );
     } finally {
       setIsSigningIn(false);
     }
@@ -133,7 +179,7 @@ export function App() {
     setAuthToken(null);
     setUserProfile(null);
     setState(null);
-    setErrorBanner(null);
+    pushToast("info", "Signed out", "Disconnected from workspace session.");
   };
 
   useEffect(() => {
@@ -153,11 +199,34 @@ export function App() {
 
   const handleRunCheck = async () => {
     setIsChecking(true);
+    pushToast(
+      "info",
+      "Batch check started",
+      "Checking tracked product URLs...",
+    );
     try {
-      await store.runBatchCheck();
+      const result = await store.runBatchCheck();
       await refreshAll();
+      const { telemetry, alerts_triggered } = result;
+      if (telemetry.status === "PARTIAL") {
+        pushToast(
+          "warning",
+          "Batch check finished with warnings",
+          `${telemetry.breakdown} (${telemetry.duration_ms}ms). Check System Health for details.`,
+        );
+      } else {
+        pushToast(
+          "success",
+          "Batch check complete",
+          `${telemetry.breakdown}${alerts_triggered > 0 ? ` · ${alerts_triggered} alert(s) triggered` : ""} (${telemetry.duration_ms}ms).`,
+        );
+      }
     } catch (err) {
-      setErrorBanner(err instanceof Error ? err.message : String(err));
+      pushToast(
+        "error",
+        "Batch check failed",
+        err instanceof Error ? err.message : String(err),
+      );
     } finally {
       setIsChecking(false);
     }
@@ -166,48 +235,152 @@ export function App() {
   const handleAddItem = async (payload: AddItemPayload) => {
     await store.addItem(payload);
     await refreshAll();
+    pushToast("success", "Item added", `Started tracking "${payload.name}".`);
   };
 
   const handleUpdateItem = async (itemId: string, payload: UpdateItemPayload) => {
-    await store.updateItem(itemId, payload);
-    await refreshAll();
+    try {
+      const targetName =
+        payload.name ??
+        state?.items.find((i) => i.item_id === itemId)?.name ??
+        "Item";
+      await store.updateItem(itemId, payload);
+      await refreshAll();
+      const tagsOnly =
+        payload.tag_names !== undefined &&
+        payload.name === undefined &&
+        payload.target_price === undefined;
+      pushToast(
+        "success",
+        tagsOnly ? "Item tags updated" : "Item card updated",
+        tagsOnly
+          ? `Updated tags for "${targetName}".`
+          : `Saved changes for "${targetName}".`,
+      );
+    } catch (err) {
+      pushToast(
+        "error",
+        "Update failed",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   };
 
   const handleBuyItem = async (itemId: string, purchasedPrice: number) => {
-    await store.markBought(itemId, purchasedPrice);
-    navigate({ gridTab: "bought", itemId: null }, true);
-    await refreshAll();
+    try {
+      const target = state?.items.find((i) => i.item_id === itemId);
+      await store.markBought(itemId, purchasedPrice);
+      navigate({ gridTab: "bought", itemId: null }, true);
+      await refreshAll();
+      pushToast(
+        "success",
+        "Marked as bought",
+        target
+          ? `Moved "${target.name}" to Bought Items at ${target.currency}${purchasedPrice.toFixed(2)}.`
+          : "Moved item to Bought Items Sheet.",
+      );
+    } catch (err) {
+      pushToast(
+        "error",
+        "Could not mark as bought",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   };
 
   const handleResumeItem = async (itemId: string) => {
-    await store.resumeTracking(itemId);
-    navigate({ gridTab: "active", itemId: null }, true);
-    await refreshAll();
+    try {
+      const target = state?.bought_items.find((i) => i.item_id === itemId);
+      await store.resumeTracking(itemId);
+      navigate({ gridTab: "active", itemId: null }, true);
+      await refreshAll();
+      pushToast(
+        "success",
+        "Tracking resumed",
+        target
+          ? `Returned "${target.name}" to Active Positions.`
+          : "Returned item to Active Positions.",
+      );
+    } catch (err) {
+      pushToast(
+        "error",
+        "Could not resume tracking",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    await store.deleteItem(itemId);
-    navigate({ itemId: null }, true);
-    await refreshAll();
+    try {
+      const targetName =
+        state?.items.find((i) => i.item_id === itemId)?.name ??
+        state?.bought_items.find((i) => i.item_id === itemId)?.name ??
+        itemId;
+      await store.deleteItem(itemId);
+      navigate({ itemId: null }, true);
+      await refreshAll();
+      pushToast(
+        "success",
+        "Position deleted",
+        `Removed "${targetName}" from tracking.`,
+      );
+    } catch (err) {
+      pushToast(
+        "error",
+        "Delete failed",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   };
 
   const handleCreateTag = async (name: string, color: TagColor) => {
-    await store.createTag(name, color);
-    await refreshAll();
+    try {
+      await store.createTag(name, color);
+      await refreshAll();
+      pushToast("success", "Tag created", `Added tag "${name}".`);
+    } catch (err) {
+      pushToast(
+        "error",
+        "Tag creation failed",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   };
 
   const handleUpdateTag = async (
     tagId: string,
     updates: { name?: string; color?: TagColor },
   ) => {
-    await store.updateTag(tagId, updates);
-    await refreshAll();
+    try {
+      const existing = state?.tags.find((t) => t.tag_id === tagId);
+      await store.updateTag(tagId, updates);
+      await refreshAll();
+      const label = updates.name ?? existing?.name ?? tagId;
+      pushToast("success", "Tag updated", `Saved changes to "${label}".`);
+    } catch (err) {
+      pushToast(
+        "error",
+        "Tag update failed",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   };
 
   const handleDeleteTag = async (tagId: string) => {
-    await store.deleteTag(tagId);
-    if (activeTagFilter === tagId) navigate({ tagFilter: "ALL" }, true);
-    await refreshAll();
+    try {
+      const existingName =
+        state?.tags.find((t) => t.tag_id === tagId)?.name ?? tagId;
+      await store.deleteTag(tagId);
+      if (activeTagFilter === tagId) navigate({ tagFilter: "ALL" }, true);
+      await refreshAll();
+      pushToast("success", "Tag deleted", `Removed tag "${existingName}".`);
+    } catch (err) {
+      pushToast(
+        "error",
+        "Tag deletion failed",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   };
 
   const spreadsheetId =
@@ -240,10 +413,21 @@ export function App() {
       !selectedActiveItem &&
       !selectedBoughtItem
     ) {
-      setErrorBanner(`Item "${selectedItemId}" was not found.`);
+      pushToast(
+        "warning",
+        "Item not found",
+        `Item "${selectedItemId}" was not found.`,
+      );
       navigate({ itemId: null }, true);
     }
-  }, [state, selectedItemId, selectedActiveItem, selectedBoughtItem, navigate]);
+  }, [
+    state,
+    selectedItemId,
+    selectedActiveItem,
+    selectedBoughtItem,
+    navigate,
+    pushToast,
+  ]);
 
   const isUnauthenticated = authEnabled && !authToken;
 
@@ -308,15 +492,6 @@ export function App() {
       )}
 
       <main className="mx-auto w-full max-w-7xl min-w-0 flex-1 space-y-3 px-3 py-3 sm:space-y-5 sm:px-4 sm:py-5">
-        {errorBanner && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-medium text-red-700"
-          >
-            {errorBanner}
-          </div>
-        )}
 
         {isUnauthenticated ? (
           <section
@@ -491,6 +666,7 @@ export function App() {
               <SystemHealthView
                 telemetryLogs={state.telemetry_logs}
                 diagnostics={diagnostics}
+                onNotify={pushToast}
               />
             )}
           </>
@@ -513,6 +689,7 @@ export function App() {
         onClose={() => navigate({ addModalOpen: false })}
         onPreviewUrl={(url) => store.previewUrl(url)}
         onSaveItem={handleAddItem}
+        onNotify={pushToast}
       />
 
       <ItemDetailsModal
@@ -525,7 +702,10 @@ export function App() {
         onBuyItem={handleBuyItem}
         onResumeItem={handleResumeItem}
         onDeleteItem={handleDeleteItem}
+        onNotify={pushToast}
       />
+
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

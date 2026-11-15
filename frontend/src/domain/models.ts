@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.3.15";
+export const APP_VERSION = "0.3.16";
 
 export type TagColor =
   | "purple"

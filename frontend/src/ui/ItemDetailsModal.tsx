@@ -12,6 +12,7 @@ import {
   formatMoney,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import type { PushToastFn } from "./ToastViewport";
 
 interface ItemDetailsModalProps {
   activeItem: TrackedItem | null;
@@ -23,6 +24,7 @@ interface ItemDetailsModalProps {
   onBuyItem: (itemId: string, purchasedPrice: number) => Promise<void>;
   onResumeItem: (itemId: string) => Promise<void>;
   onDeleteItem: (itemId: string) => Promise<void>;
+  onNotify?: PushToastFn;
 }
 
 export function ItemDetailsModal({
@@ -35,6 +37,7 @@ export function ItemDetailsModal({
   onBuyItem,
   onResumeItem,
   onDeleteItem,
+  onNotify,
 }: ItemDetailsModalProps) {
   const item = activeItem ?? boughtItem;
   const [title, setTitle] = useState(item?.name ?? "");
@@ -668,7 +671,14 @@ export function ItemDetailsModal({
             {!confirmDelete ? (
               <button
                 type="button"
-                onClick={() => setConfirmDelete(true)}
+                onClick={() => {
+                  setConfirmDelete(true);
+                  onNotify?.(
+                    "warning",
+                    "Confirm deletion",
+                    "Click Confirm Delete to permanently remove this position.",
+                  );
+                }}
                 className="min-h-11 rounded-lg bg-red-50 px-3 py-1.5 font-medium text-red-600 hover:bg-red-100 hover:text-red-700 sm:min-h-9"
               >
                 Delete Position

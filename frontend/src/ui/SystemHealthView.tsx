@@ -5,15 +5,18 @@ import {
   type TelemetryRun,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import type { PushToastFn } from "./ToastViewport";
 
 interface SystemHealthViewProps {
   telemetryLogs: TelemetryRun[];
   diagnostics: RuntimeDiagnostics | null;
+  onNotify?: PushToastFn;
 }
 
 export function SystemHealthView({
   telemetryLogs,
   diagnostics,
+  onNotify,
 }: SystemHealthViewProps) {
   const [selectedRun, setSelectedRun] = useState<TelemetryRun | null>(null);
   const [copied, setCopied] = useState(false);
@@ -62,18 +65,39 @@ export function SystemHealthView({
       } else {
         throw new Error("Clipboard API unavailable");
       }
+      setCopied(true);
+      onNotify?.(
+        "success",
+        "Copied telemetry JSON",
+        "Run log copied to your clipboard.",
+      );
     } catch {
-      const textarea = document.createElement("textarea");
-      textarea.value = formattedJson;
-      textarea.setAttribute("readonly", "true");
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = formattedJson;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        setCopied(true);
+        onNotify?.(
+          "success",
+          "Copied telemetry JSON",
+          "Run log copied to your clipboard.",
+        );
+      } catch (err) {
+        onNotify?.(
+          "error",
+          "Copy failed",
+          err instanceof Error
+            ? err.message
+            : "Could not copy telemetry JSON to clipboard.",
+        );
+      }
     }
-    setCopied(true);
   };
 
   return (

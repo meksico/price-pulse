@@ -17,8 +17,8 @@ from pricepulse.domain.models import (
 
 
 def test_app_version_matches_srs() -> None:
-    """Verify domain APP_VERSION matches SRS 0.3.15."""
-    assert APP_VERSION == "0.3.15"
+    """Verify domain APP_VERSION matches SRS 0.3.16."""
+    assert APP_VERSION == "0.3.16"
 
 
 def test_drop_and_delta_calculations() -> None:

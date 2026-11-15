@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.15`
+- **Document Version / App Target Baseline:** `0.3.16`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -90,6 +90,7 @@ Full column-level schemas, formulas, and ER diagrams are defined in [docs/GSHEET
 - **`REQ-NAV-03` (Single-View Switching):** Only one primary view (`view-dashboard`, `view-tags`, or `view-health`) is visible at a time; switching tabs closes any open dropdowns and resets focus appropriately. Unauthenticated Sign In (`#auth-gate`) hides all app navigation chrome (`DS-LOGIC-03`) on a pure `#FFFFFF` canvas displaying `PricePulse`, `Sign in to your workspace`, a clean hairline divider, and a single `Continue with Google` OAuth button (`#F3F4F6` pill).
 - **`REQ-NAV-04` (Modal / Bottom-Sheet Overlays):** `modal-add-item`, `modal-item-details`, and `modal-telemetry-json` open over the active view as centered `#FFFFFF` dialogs on desktop and bottom sheets with a `36×4px` grab handle on mobile, closing on outside backdrop click (`mousedown` outside dialog box), `Escape`, and explicit Close (`×`) controls (`RULE-OVERLAY-DISMISS`).
 - **`REQ-NAV-05` (Canonical URL Deep-Linking & History Parity):** Every view (`/dashboard`, `/tags`, `/health`), modal (`/items/:itemId`, `/items/new`, or `?modal=add`), and grid/chart filter (`?tab=active|bought&tag=<tag_id>`) MUST be synchronized with `window.location` via a centralized `src/shared/routes.ts` registry and History API (`pushState`/`replaceState`/`popstate`), respecting Vite's `BASE_URL` prefix (e.g. `/price-pulse/` on GitHub Pages). Dashboard-scoped query params (`?tab=`, `?tag=`) MUST be scoped strictly to `/dashboard` and cleared when switching between top-level sections. Direct cold loads, browser refresh, and Back/Forward navigation MUST restore the exact state; FastAPI MUST fall back non-`/api/*` routes to `frontend/dist/index.html` when built and GitHub Pages MUST publish `404.html` as a copy of `index.html`; missing/unknown item IDs MUST fall back cleanly to `/dashboard` with a `role="status"` notice.
+- **`REQ-NAV-06` (Unified Action Confirmation, Warning & Error Toaster):** All user-initiated and system-triggered operations (URL preview fetch, item creation/card update/tag update/purchase/resume/delete/delete-confirmation, tag CRUD, batch check start/success/`PARTIAL` warning/error, sign-in/sign-out/401 session expiry, JSON clipboard copy, and missing deep-link item fallback) MUST emit accessible notifications in `#toast-viewport` (`role="status"`, `aria-live="polite"`, auto-dismissing with manual `Dismiss notification` control, `RULE-TOAST`).
 
 ```mermaid
 flowchart TD
@@ -205,3 +206,4 @@ flowchart TD
 | `0.3.13` | 2026-11-15 | Antigravity | Added click-outside (`mousedown`) and `Escape` (`keydown`) dismissal across all modals and popups (`#modal-add-item`, `#modal-item-details`, `#user-dropdown-menu`, and `#header__mobile-nav`) per `RULE-OVERLAY-DISMISS` (`REQ-NAV-02`, `REQ-NAV-04`). |
 | `0.3.14` | 2026-11-15 | Antigravity | Converted the inline Telemetry `JSON Log` inspector in `#view-health` into a popup modal (`#modal-telemetry-json`) with a **Copy JSON** clipboard button, `Close` button, and click-outside/`Escape` dismissal (`REQ-NAV-04`, `REQ-HEALTH-01`). |
 | `0.3.15` | 2026-11-15 | Antigravity | Removed redundant `G-Sync & Configuration` page and navigation links (`REQ-NAV-01..05`), fixed default polling cadence to `24h`, exposed code/env `SPREADSHEET_ID` automatically, and bound Gmail digest alerts to the logged-in Google account email (`REQ-CFG-01`). |
+| `0.3.16` | 2026-11-15 | Antigravity | Implemented global toast notification system (`#toast-viewport`) across all user actions, warnings, and errors (`REQ-NAV-06`, `RULE-TOAST`). |

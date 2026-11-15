@@ -208,7 +208,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.15");
+    expect(menuVersion).toBe("v0.3.16");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -276,8 +276,10 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(dialog.getByLabel("Product Title")).toHaveValue(
       "Mechanical Mouse",
     );
+    await expect(page.getByRole("status")).toContainText("Preview fetched");
 
     await dialog.getByRole("button", { name: /Save & Start Tracking/i }).click();
+    await expect(page.getByRole("status")).toContainText("Item added");
     await expect(
       page.getByRole("button", { name: "Mechanical Mouse" }).first(),
     ).toBeVisible();
@@ -519,7 +521,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.15");
+    expect(healthVersion).toBe("v0.3.16");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -537,7 +539,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.15"',
+      '"app_version": "0.3.16"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -546,6 +548,14 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       jsonModal.getByRole("button", { name: "Copied!" }),
     ).toBeVisible();
+    await expect(page.getByRole("status")).toContainText(
+      "Copied telemetry JSON",
+    );
+    await page
+      .getByRole("button", { name: "Dismiss notification" })
+      .first()
+      .click();
+    await expect(page.locator("#toast-viewport")).toHaveCount(0);
     await page.mouse.click(10, 10);
     await expect(jsonModal).toBeHidden();
   });

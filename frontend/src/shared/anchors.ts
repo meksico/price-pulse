@@ -20,6 +20,7 @@ export const ANCHORS = {
   modalAddItem: "modal-add-item",
   modalItemDetails: "modal-item-details",
   modalTelemetryJson: "modal-telemetry-json",
+  toastViewport: "toast-viewport",
 } as const;
 
 export type AnchorId = (typeof ANCHORS)[keyof typeof ANCHORS];

@@ -6,6 +6,7 @@ import {
   TAG_DOT_CLASSES,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import type { PushToastFn } from "./ToastViewport";
 
 interface AddItemModalProps {
   open: boolean;
@@ -14,6 +15,7 @@ interface AddItemModalProps {
   onClose: () => void;
   onPreviewUrl: (url: string) => Promise<ScrapePreview>;
   onSaveItem: (payload: AddItemPayload) => Promise<void>;
+  onNotify?: PushToastFn;
 }
 
 export function AddItemModal({
@@ -23,6 +25,7 @@ export function AddItemModal({
   onClose,
   onPreviewUrl,
   onSaveItem,
+  onNotify,
 }: AddItemModalProps) {
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -74,7 +77,14 @@ export function AddItemModal({
   };
 
   const handleFetch = async () => {
-    if (!url.trim()) return;
+    if (!url.trim()) {
+      onNotify?.(
+        "warning",
+        "Missing URL",
+        "Enter a product URL before fetching a preview.",
+      );
+      return;
+    }
     setFetching(true);
     try {
       const preview = await onPreviewUrl(url.trim());
@@ -86,6 +96,19 @@ export function AddItemModal({
       if (preview.suggested_tags.length > 0 && !tagsText) {
         setTagsText(preview.suggested_tags.join(", "));
       }
+      onNotify?.(
+        "success",
+        "Preview fetched",
+        `Extracted ${preview.title} (${preview.currency}${preview.price}).`,
+      );
+    } catch (err) {
+      onNotify?.(
+        "error",
+        "Preview failed",
+        err instanceof Error
+          ? err.message
+          : "Could not extract product metadata.",
+      );
     } finally {
       setFetching(false);
     }
@@ -95,26 +118,41 @@ export function AddItemModal({
     e.preventDefault();
     const init = Number(initialPrice);
     const target = Number(targetPrice);
-    if (!title.trim() || !url.trim() || !(init > 0) || !(target > 0)) return;
+    if (!title.trim() || !url.trim() || !(init > 0) || !(target > 0)) {
+      onNotify?.(
+        "warning",
+        "Incomplete item details",
+        "Provide a product URL, title, and positive baseline/target prices.",
+      );
+      return;
+    }
     const tagNames = tagsText
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    await onSaveItem({
-      name: title.trim(),
-      url: url.trim(),
-      image_url: imageUrl.trim(),
-      currency: currency.trim() || defaultCurrency,
-      initial_price: init,
-      target_price: target,
-      tag_names: tagNames,
-    });
-    setUrl("");
-    setTitle("");
-    setInitialPrice("");
-    setTargetPrice("");
-    setTagsText("");
-    onClose();
+    try {
+      await onSaveItem({
+        name: title.trim(),
+        url: url.trim(),
+        image_url: imageUrl.trim(),
+        currency: currency.trim() || defaultCurrency,
+        initial_price: init,
+        target_price: target,
+        tag_names: tagNames,
+      });
+      setUrl("");
+      setTitle("");
+      setInitialPrice("");
+      setTargetPrice("");
+      setTagsText("");
+      onClose();
+    } catch (err) {
+      onNotify?.(
+        "error",
+        "Failed to add item",
+        err instanceof Error ? err.message : "Could not save tracked item.",
+      );
+    }
   };
 
   return (
