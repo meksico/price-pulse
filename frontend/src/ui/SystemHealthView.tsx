@@ -1,5 +1,9 @@
 import { useState } from "react";
-import type { RuntimeDiagnostics, TelemetryRun } from "../domain/models";
+import {
+  APP_VERSION,
+  type RuntimeDiagnostics,
+  type TelemetryRun,
+} from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 
 interface SystemHealthViewProps {
@@ -25,12 +29,17 @@ export function SystemHealthView({
     >
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
+          <div className="flex flex-wrap items-baseline gap-2">
             <h1 className="text-[22px] font-bold tracking-tight text-zinc-950">
               System Health
             </h1>
-            <p className="text-xs text-zinc-500">
-              Batch execution telemetry &amp; runtime diagnostic context
-            </p>
+            <span className="tabular-nums font-mono text-xs font-semibold text-zinc-950">
+              v{diagnostics?.app_version ?? APP_VERSION}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500">
+            Batch execution telemetry &amp; runtime diagnostic context
+          </p>
         </div>
         <button
           type="button"
@@ -42,59 +51,6 @@ export function SystemHealthView({
           {isChecking ? "Running Check..." : "Run Batch Check Now"}
         </button>
       </div>
-
-      {diagnostics && (
-              <div className="grid min-w-0 grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-white p-4 text-xs sm:grid-cols-2 lg:grid-cols-3">
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                    App Version
-                  </div>
-                  <div className="tabular-nums mt-0.5 font-mono text-zinc-950">
-                    v{diagnostics.app_version}
-                </div>
-              </div>
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                      Python Executable
-                    </div>
-                    <div className="mt-0.5 break-all font-mono text-zinc-950">
-                      {diagnostics.python_executable}
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                      Storage Adapter
-                    </div>
-                    <div className="mt-0.5 font-mono text-zinc-950">
-                      {diagnostics.storage_adapter}
-                  </div>
-              </div>
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                      Python Version
-                    </div>
-                    <div className="tabular-nums mt-0.5 font-mono text-zinc-950">
-                      {diagnostics.python_version}
-                  </div>
-              </div>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                    Platform
-                  </div>
-                  <div className="mt-0.5 font-mono text-zinc-950">
-                    {diagnostics.platform}
-                  </div>
-                </div>
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                        Workspace
-                      </div>
-                      <div className="mt-0.5 break-all font-mono text-zinc-950">
-                        {diagnostics.workspace_dir}
-                    </div>
-                </div>
-              </div>
-      )}
 
               {/* Mobile-first telemetry cards (< 768px) */}
               <div className="min-w-0 space-y-2.5 md:hidden">
@@ -225,7 +181,13 @@ export function SystemHealthView({
                           </button>
                       </div>
                         <pre className="overflow-x-auto font-mono text-[11px] text-zinc-800">
-                          {JSON.stringify(selectedRun, null, 2)}
+                          {JSON.stringify(
+                            diagnostics
+                              ? { ...selectedRun, runtime_diagnostics: diagnostics }
+                              : selectedRun,
+                            null,
+                            2,
+                          )}
                         </pre>
                     </div>
       )}

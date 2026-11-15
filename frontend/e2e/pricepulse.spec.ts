@@ -201,7 +201,8 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.8/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.9/)).toBeVisible();
+    await expect(page.getByText("Python Executable")).toHaveCount(0);
   });
 
   test("add item preview modal and run check flow", async ({ page }) => {
