@@ -201,7 +201,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("heading", { name: "System Health" }),
     ).toBeVisible();
-    await expect(page.getByText(/v0\.3\.9/)).toBeVisible();
+    await expect(page.getByText(/v0\.3\.10/)).toBeVisible();
     await expect(page.getByText("Python Executable")).toHaveCount(0);
   });
 
@@ -211,6 +211,31 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.getByRole("button", { name: "+ Track New URL" }).click();
     const dialog = page.getByRole("dialog", { name: /Track New Product URL/i });
     await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Purchased" }),
+    ).toHaveCount(0);
+
+    const audioPill = dialog.getByRole("button", { name: "Audio" });
+    await expect(audioPill).toBeVisible();
+    const unselectedAudioBg = await audioPill.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    expect([
+      "rgb(243, 244, 246)",
+      "oklch(0.967 0.003 264.542)",
+    ]).not.toContain(unselectedAudioBg);
+    await audioPill.click();
+    await expect(audioPill).toHaveAttribute("aria-pressed", "true");
+    await expect(audioPill).toHaveCSS(
+      "color",
+      /rgb\(255,\s*255,\s*255\)|oklch\(1\s+0\s+0\)/i,
+    );
+    await expect
+      .poll(() =>
+        audioPill.evaluate((el) => getComputedStyle(el).backgroundColor),
+      )
+      .not.toBe(unselectedAudioBg);
+    await audioPill.click();
 
     await dialog
       .getByLabel("Product URL")

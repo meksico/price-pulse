@@ -6,7 +6,11 @@ import type {
   TrackedItem,
   UpdateItemPayload,
 } from "../domain/models";
-import { formatMoney } from "../domain/models";
+import {
+  TAG_BADGE_CLASSES,
+  TAG_DOT_CLASSES,
+  formatMoney,
+} from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 
 interface ItemDetailsModalProps {
@@ -436,15 +440,19 @@ export function ItemDetailsModal({
                     return (
                       <span
                         key={tid}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-zinc-950"
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${TAG_BADGE_CLASSES[tag.color]}`}
                       >
+                        <span
+                          aria-hidden="true"
+                          className={`h-1.5 w-1.5 rounded-full ${TAG_DOT_CLASSES[tag.color]}`}
+                        />
                         {tag.name}
                         {activeItem && (
                           <button
                             type="button"
                             aria-label={`Remove tag ${tag.name}`}
                             onClick={() => void handleRemoveTag(tag.name)}
-                            className="ml-0.5 text-zinc-400 hover:text-zinc-950"
+                            className="ml-0.5 opacity-60 hover:opacity-100"
                           >
                             &times;
                           </button>

@@ -40,6 +40,10 @@ export function AddItemModal({
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const selectableTags = availableTags.filter(
+    (tag) => tag.name.trim().toLowerCase() !== "purchased",
+  );
+
   const toggleSuggestedTag = (tagName: string) => {
     const exists = selectedTagNames.some(
       (n) => n.toLowerCase() === tagName.toLowerCase(),
@@ -239,9 +243,9 @@ export function AddItemModal({
                                   >
                                     Tags (comma-separated)
                                   </label>
-                                  {availableTags.length > 0 && (
+                                  {selectableTags.length > 0 && (
                                     <div className="flex flex-wrap items-center gap-1.5">
-                                      {availableTags.map((tag) => {
+                                      {selectableTags.map((tag) => {
                                         const isSelected = selectedTagNames.some(
                                           (n) => n.toLowerCase() === tag.name.toLowerCase(),
                                         );
