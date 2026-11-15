@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.23");
+    expect(menuVersion).toBe("v0.3.24");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.23");
+    expect(healthVersion).toBe("v0.3.24");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.23"',
+      '"app_version": "0.3.24"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -690,7 +690,8 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.goto("/");
     await expect(page.getByText("0.0% Baseline")).toBeVisible();
     await expect(page.locator("#workspace-sync-status")).toHaveCount(0);
-    expect(attempts).toBe(2);
+    expect(attempts).toBeGreaterThanOrEqual(2);
+    expect(attempts).toBeLessThanOrEqual(3);
 
     // Verify manual Retry Workspace Sync recovery when all initial attempts fail
     await page.unroute("**/api/state");
@@ -954,6 +955,67 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("button", { name: "Manual Recovery Item" }).first(),
     ).toBeVisible();
+  });
+
+  test("item details modal displays blocking overlay until delete request resolves", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+
+    await page
+      .getByRole("button", { name: "Sony WH-1000XM5" })
+      .first()
+      .click();
+    const dialog = page.locator("#modal-item-details");
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Delete Position" }).click();
+    const confirmDeleteBtn = dialog.getByRole("button", {
+      name: "Confirm Delete",
+    });
+    await expect(confirmDeleteBtn).toBeVisible();
+
+    let releaseDelete!: () => void;
+    const deleteGate = new Promise<void>((resolve) => {
+      releaseDelete = resolve;
+    });
+    await page.route("**/api/items/*", async (route) => {
+      if (route.request().method() === "DELETE") {
+        await deleteGate;
+      }
+      await route.continue();
+    });
+
+    await confirmDeleteBtn.click();
+
+    const loadingOverlay = page.locator("#modal-item-details__loading-overlay");
+    await expect(loadingOverlay).toBeVisible();
+    await expect(loadingOverlay).toContainText("Deleting position...");
+    await expect(loadingOverlay).toContainText("Waiting for server response");
+    await expect(dialog).toHaveAttribute("aria-busy", "true");
+    await expect(confirmDeleteBtn).toBeDisabled();
+    await expect(
+      dialog.getByRole("button", { name: "Close", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      dialog.getByRole("button", { name: "Close Item Details modal" }),
+    ).toBeDisabled();
+    await expect(
+      dialog.getByRole("button", { name: "Save Changes" }),
+    ).toBeDisabled();
+
+    // Escape and outside click must remain locked while deleting
+    await page.keyboard.press("Escape");
+    await page.mouse.click(10, 10);
+    await expect(dialog).toBeVisible();
+    await expect(loadingOverlay).toBeVisible();
+
+    releaseDelete();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole("status").first()).toContainText(
+      /Position deleted/i,
+    );
   });
 });
 

@@ -23,6 +23,7 @@ export const ANCHORS = {
   modalAddItemReviewCarousel: "modal-add-item__review-carousel",
   modalAddItemBulkSummary: "modal-add-item__bulk-summary",
   modalItemDetails: "modal-item-details",
+  modalItemDetailsLoadingOverlay: "modal-item-details__loading-overlay",
   modalTelemetryJson: "modal-telemetry-json",
   toastViewport: "toast-viewport",
   workspaceSyncStatus: "workspace-sync-status",

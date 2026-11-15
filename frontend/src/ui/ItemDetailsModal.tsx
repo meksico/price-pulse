@@ -46,6 +46,7 @@ export function ItemDetailsModal({
     activeItem ? String(activeItem.current_price) : "",
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [hoveredSnap, setHoveredSnap] = useState<{
     historyId: string;
     priceText: string;
@@ -63,6 +64,7 @@ export function ItemDetailsModal({
     setTargetPrice(activeItem ? String(activeItem.target_price) : "");
     setBuyPrice(activeItem ? String(activeItem.current_price) : "");
     setConfirmDelete(false);
+    setDeleting(false);
     setHoveredSnap(null);
   }, [item?.item_id, item?.name, activeItem]);
 
@@ -75,16 +77,19 @@ export function ItemDetailsModal({
     handleRef: swipeHandleRef,
     isOpen,
     onClose,
+    disabled: deleting,
   });
 
   useEffect(() => {
     if (!isOpen) return;
     const handlePointerDown = (e: MouseEvent) => {
+      if (deleting) return;
       if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (deleting) return;
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("mousedown", handlePointerDown);
@@ -93,7 +98,7 @@ export function ItemDetailsModal({
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, deleting]);
 
   if (!item) return null;
 
@@ -189,9 +194,28 @@ export function ItemDetailsModal({
           ref={dialogRef}
           role="dialog"
           aria-modal="true"
+          aria-busy={deleting}
           aria-labelledby="item-details-title"
-          className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
+          className="relative max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
         >
+          {deleting && (
+            <div
+              id={ANCHORS.modalItemDetailsLoadingOverlay}
+              aria-live="polite"
+              className="pointer-events-auto absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 rounded-t-[20px] bg-white/80 p-6 text-center backdrop-blur-[2px] sm:rounded-2xl"
+            >
+              <div
+                aria-hidden="true"
+                className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-950"
+              />
+              <div className="text-xs font-semibold text-zinc-950">
+                Deleting position...
+              </div>
+              <div className="text-[11px] text-zinc-500">
+                Waiting for server response
+              </div>
+            </div>
+          )}
           <div
             ref={swipeHandleRef}
             data-swipe-handle="true"
@@ -258,9 +282,10 @@ export function ItemDetailsModal({
             </div>
             <button
               type="button"
+              disabled={deleting}
               aria-label="Close Item Details modal"
               onClick={onClose}
-              className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 sm:min-h-9 sm:min-w-9"
+              className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:min-w-9"
             >
               &times;
             </button>
@@ -651,11 +676,17 @@ export function ItemDetailsModal({
             ) : (
               <button
                 type="button"
+                disabled={deleting}
                 onClick={async () => {
-                  await onDeleteItem(item.item_id);
-                  onClose();
+                  setDeleting(true);
+                  try {
+                    await onDeleteItem(item.item_id);
+                    onClose();
+                  } finally {
+                    setDeleting(false);
+                  }
                 }}
-                className="min-h-11 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white hover:bg-red-500 sm:min-h-9"
+                className="min-h-11 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
                 Confirm Delete
               </button>
@@ -665,27 +696,30 @@ export function ItemDetailsModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              disabled={deleting}
               onClick={onClose}
-              className="min-h-11 rounded-lg bg-gray-100 px-4 py-1.5 font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-9"
+              className="min-h-11 rounded-lg bg-gray-100 px-4 py-1.5 font-medium text-zinc-950 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
             >
               Close
             </button>
             {activeItem ? (
               <button
                 type="button"
+                disabled={deleting}
                 onClick={() => void handleSaveDetails()}
-                className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 sm:min-h-9"
+                className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
                 Save Changes
               </button>
             ) : (
               <button
                 type="button"
+                disabled={deleting}
                 onClick={async () => {
                   await onResumeItem(item.item_id);
                   onClose();
                 }}
-                className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 sm:min-h-9"
+                className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
                 Resume Tracking
               </button>
