@@ -277,7 +277,7 @@ def create_app(
     app = FastAPI(title="PricePulse API", version=APP_VERSION)
     cors_origins = os.getenv(
         "CORS_ORIGINS",
-        "http://127.0.0.1:5173,http://localhost:5173",
+        "http://127.0.0.1:5173,http://localhost:5173,https://meksico.github.io",
     ).split(",")
     app.add_middleware(
         CORSMiddleware,

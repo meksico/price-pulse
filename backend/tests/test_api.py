@@ -32,7 +32,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.3.20"
+    assert body["app_version"] == "0.3.21"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
@@ -151,4 +151,28 @@ def test_google_oauth_verifies_client_id_and_allows_test_users(
         ),
     )
     assert client.get("/api/state", headers={"Authorization": "Bearer tok"}).status_code == 200
+
+
+def test_default_cors_allows_github_pages_origin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify default CORS policy allows https://meksico.github.io."""
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    client = _make_client(tmp_path)
+    origin = "https://meksico.github.io"
+    preflight = client.options(
+        "/api/state",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+    assert preflight.status_code == 200
+    assert preflight.headers.get("access-control-allow-origin") == origin
+
+    health_resp = client.get("/api/health", headers={"Origin": origin})
+    assert health_resp.status_code == 200
+    assert health_resp.headers.get("access-control-allow-origin") == origin
 

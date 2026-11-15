@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.20");
+    expect(menuVersion).toBe("v0.3.21");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.20");
+    expect(healthVersion).toBe("v0.3.21");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.20"',
+      '"app_version": "0.3.21"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -622,6 +622,100 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(page.locator("#toast-viewport")).toHaveCount(0);
     await page.mouse.click(10, 10);
     await expect(jsonModal).toBeHidden();
+  });
+
+  test("persists auth token and profile across browser tabs via localStorage", async ({
+    context,
+    page,
+  }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+      window.localStorage.setItem("pricepulse_oauth_token", "tok-cross-tab");
+      window.localStorage.setItem(
+        "pricepulse_oauth_expires_at",
+        String(Date.now() + 3_600_000),
+      );
+      window.localStorage.setItem(
+        "pricepulse_user_profile",
+        JSON.stringify({
+          name: "Eugene Garkavtcev",
+          email: "meksico@gmail.com",
+          picture: "",
+        }),
+      );
+    });
+
+    const secondTab = await context.newPage();
+    await secondTab.goto("/");
+    const secondUserBtn = secondTab.getByRole("button", {
+      name: "User account menu",
+    });
+    await expect(secondUserBtn).toContainText("EG");
+    await expect(secondUserBtn).toContainText("meksico");
+    expect(
+      await secondTab.evaluate(() =>
+        window.localStorage.getItem("pricepulse_oauth_token"),
+      ),
+    ).toBe("tok-cross-tab");
+
+    // Mutating profile in tab 1 syncs tab 2 via window storage event
+    await page.evaluate(() => {
+      window.localStorage.setItem(
+        "pricepulse_user_profile",
+        JSON.stringify({
+          name: "Jane Doe",
+          email: "jane@example.com",
+          picture: "",
+        }),
+      );
+    });
+    await expect(secondUserBtn).toContainText("JD");
+    await expect(secondUserBtn).toContainText("jane");
+    await secondTab.close();
+  });
+
+  test("automatically retries transient Load failed aborts and recovers via Retry Workspace Sync", async ({
+    page,
+  }) => {
+    let attempts = 0;
+    await page.route("**/api/state", async (route) => {
+      attempts += 1;
+      if (attempts === 1) {
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto("/");
+    await expect(page.getByText("0.0% Baseline")).toBeVisible();
+    await expect(page.locator("#workspace-sync-status")).toHaveCount(0);
+    expect(attempts).toBe(2);
+
+    // Verify manual Retry Workspace Sync recovery when all initial attempts fail
+    await page.unroute("**/api/state");
+    let blockState = true;
+    await page.route("**/api/state", async (route) => {
+      if (blockState) {
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.reload();
+    const syncStatus = page.locator("#workspace-sync-status");
+    await expect(syncStatus).toContainText("Unable to load PricePulse workspace");
+    const retryBtn = syncStatus.getByRole("button", {
+      name: "Retry Workspace Sync",
+    });
+    await expect(retryBtn).toBeVisible();
+
+    blockState = false;
+    await retryBtn.click();
+    await expect(page.getByText("0.0% Baseline")).toBeVisible();
+    await expect(syncStatus).toHaveCount(0);
+    await page.unroute("**/api/state");
   });
 });
 

@@ -15,7 +15,9 @@ import {
   getStoredAuthToken,
   getStoredUserProfile,
   isGoogleAuthEnabled,
+  PROFILE_STORAGE_KEY,
   requestGoogleAccessToken,
+  STORAGE_KEY,
   type UserProfile,
 } from "./shared/auth";
 import {
@@ -52,6 +54,8 @@ export function App() {
   );
   const [state, setState] = useState<WorkspaceState | null>(null);
   const [diagnostics, setDiagnostics] = useState<RuntimeDiagnostics | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [route, setRoute] = useState<AppRoute>(() =>
     parseRoute(window.location.pathname, window.location.search),
   );
@@ -118,17 +122,22 @@ export function App() {
   const addModalOpen = route.addModalOpen;
   const selectedItemId = route.itemId;
 
-  const refreshAll = useCallback(async () => {
+  const refreshAll = useCallback(async (): Promise<boolean> => {
     if (authEnabled && !getStoredAuthToken()) {
-      return;
+      return false;
     }
+    setIsSyncing(true);
     try {
       const [nextState, nextHealth] = await Promise.all([
         store.loadState(),
-        store.getHealth(),
+        store.getHealth().catch(() => null),
       ]);
       setState(nextState);
-      setDiagnostics(nextHealth);
+      if (nextHealth) {
+        setDiagnostics(nextHealth);
+      }
+      setSyncError(null);
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (authEnabled && msg.startsWith("API 401")) {
@@ -136,14 +145,19 @@ export function App() {
         setAuthToken(null);
         setUserProfile(null);
         setState(null);
+        setSyncError(null);
         pushToast(
           "warning",
           "Session expired",
           "Please sign in again with your Google account.",
         );
       } else {
+        setSyncError(msg);
         pushToast("error", "Workspace sync failed", msg);
       }
+      return false;
+    } finally {
+      setIsSyncing(false);
     }
   }, [authEnabled, pushToast, store]);
 
@@ -152,6 +166,7 @@ export function App() {
     try {
       const token = await requestGoogleAccessToken();
       setAuthToken(token);
+      setSyncError(null);
       const [profile] = await Promise.all([
         fetchGoogleUserProfile(token),
         refreshAll(),
@@ -180,6 +195,7 @@ export function App() {
     setAuthToken(null);
     setUserProfile(null);
     setState(null);
+    setSyncError(null);
     pushToast("info", "Signed out", "Disconnected from workspace session.");
   };
 
@@ -188,7 +204,7 @@ export function App() {
   }, [refreshAll]);
 
   useEffect(() => {
-    if (!authToken || userProfile) return;
+    if (!authToken || userProfile || isSigningIn) return;
     let active = true;
     void fetchGoogleUserProfile(authToken).then((profile) => {
       if (active && profile) setUserProfile(profile);
@@ -196,7 +212,32 @@ export function App() {
     return () => {
       active = false;
     };
-  }, [authToken, userProfile]);
+  }, [authToken, userProfile, isSigningIn]);
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (
+        event.key !== STORAGE_KEY &&
+        event.key !== PROFILE_STORAGE_KEY &&
+        event.key !== null
+      ) {
+        return;
+      }
+      const nextToken = getStoredAuthToken();
+      const nextProfile = getStoredUserProfile();
+      setAuthToken(nextToken);
+      setUserProfile(nextProfile);
+      if (nextToken) {
+        setSyncError(null);
+        void refreshAll();
+      } else {
+        setState(null);
+        setSyncError(null);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [refreshAll]);
 
   const handleRunCheck = async () => {
     setIsChecking(true);
@@ -430,6 +471,25 @@ export function App() {
   const isUnauthenticated = authEnabled && !authToken;
 
   useEffect(() => {
+    const retryIfNeeded = () => {
+      if (
+        document.visibilityState === "visible" &&
+        !isUnauthenticated &&
+        !state &&
+        !isSyncing
+      ) {
+        void refreshAll();
+      }
+    };
+    document.addEventListener("visibilitychange", retryIfNeeded);
+    window.addEventListener("online", retryIfNeeded);
+    return () => {
+      document.removeEventListener("visibilitychange", retryIfNeeded);
+      window.removeEventListener("online", retryIfNeeded);
+    };
+  }, [isUnauthenticated, state, isSyncing, refreshAll]);
+
+  useEffect(() => {
     if (!state || !userProfile?.email) return;
     if (configEmail === userProfile.email) return;
     void store
@@ -450,7 +510,8 @@ export function App() {
           description: "Cloud Scheduler polling cadence in hours",
         },
       ])
-      .then(() => refreshAll());
+      .then(() => refreshAll())
+      .catch(() => {});
   }, [state, userProfile?.email, configEmail, spreadsheetId, store, refreshAll]);
 
   const handleSelectTopView = (view: AppRoute["view"]) => {
@@ -545,9 +606,46 @@ export function App() {
             </p>
           </section>
         ) : !state ? (
-          <div role="status" className="text-sm text-zinc-500">
-            Loading PricePulse workspace...
-          </div>
+          isSyncing || !syncError ? (
+            <div
+              id={ANCHORS.workspaceSyncStatus}
+              role="status"
+              className="text-sm text-zinc-500"
+            >
+              Loading PricePulse workspace...
+            </div>
+          ) : (
+            <div
+              id={ANCHORS.workspaceSyncStatus}
+              role="status"
+              className="mx-auto my-8 max-w-md rounded-xl border border-gray-200 bg-white p-5 text-center sm:p-6"
+            >
+              <h2 className="text-base font-semibold text-zinc-950">
+                Unable to load PricePulse workspace
+              </h2>
+              <p className="mt-1.5 break-words text-sm text-zinc-500">
+                {syncError}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => void refreshAll()}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-zinc-950 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
+                >
+                  Retry Workspace Sync
+                </button>
+                {authEnabled && (
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-4 text-sm font-medium text-zinc-950 transition-colors hover:bg-gray-100"
+                  >
+                    Sign out
+                  </button>
+                )}
+              </div>
+            </div>
+          )
         ) : (
           <>
             {activeView === "dashboard" && (

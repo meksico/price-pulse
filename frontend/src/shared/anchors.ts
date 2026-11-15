@@ -22,6 +22,7 @@ export const ANCHORS = {
   modalItemDetails: "modal-item-details",
   modalTelemetryJson: "modal-telemetry-json",
   toastViewport: "toast-viewport",
+  workspaceSyncStatus: "workspace-sync-status",
 } as const;
 
 export type AnchorId = (typeof ANCHORS)[keyof typeof ANCHORS];

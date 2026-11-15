@@ -12,6 +12,20 @@ import type {
   WorkspaceState,
 } from "../domain/models";
 import type { DataStorePort } from "../ports/dataStore";
+import { waitForDocumentVisible } from "../shared/auth";
+
+const RETRY_DELAYS_MS = [350, 800] as const;
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+
+function isTransientNetworkError(err: unknown): boolean {
+  if (err instanceof TypeError) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /load failed|failed to fetch|networkerror/i.test(msg);
+}
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 export class LocalApiDataAdapter implements DataStorePort {
   private readonly baseUrl: string;
@@ -30,18 +44,49 @@ export class LocalApiDataAdapter implements DataStorePort {
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const token = this.getAuthToken?.();
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(token && path !== "/api/health"
+        ? { Authorization: `Bearer ${token}` }
+        : {}),
     };
-    const resp = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: { ...headers, ...(init?.headers as Record<string, string> | undefined) },
-    });
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`API ${resp.status}: ${text}`);
+    const maxAttempts = 3;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      await waitForDocumentVisible(600);
+      try {
+        const resp = await fetch(`${this.baseUrl}${path}`, {
+          ...init,
+          headers: {
+            ...headers,
+            ...(init?.headers as Record<string, string> | undefined),
+          },
+        });
+        if (resp.ok) {
+          return (await resp.json()) as T;
+        }
+        if (
+          RETRYABLE_STATUSES.has(resp.status) &&
+          attempt < maxAttempts - 1
+        ) {
+          await delayMs(RETRY_DELAYS_MS[attempt] ?? 800);
+          continue;
+        }
+        const text = await resp.text();
+        throw new Error(`API ${resp.status}: ${text}`);
+      } catch (err) {
+        lastError = err;
+        if (isTransientNetworkError(err) && attempt < maxAttempts - 1) {
+          await delayMs(RETRY_DELAYS_MS[attempt] ?? 800);
+          continue;
+        }
+        throw err;
+      }
     }
-    return (await resp.json()) as T;
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Request failed after retries.");
   }
 
   loadState(): Promise<WorkspaceState> {
