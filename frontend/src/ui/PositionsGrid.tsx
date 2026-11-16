@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   BoughtItem,
   PriceSnapshot,
@@ -139,6 +139,77 @@ export function PositionsGrid({
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [isMobileScrolledPast, setIsMobileScrolledPast] = useState(false);
+  const [isStickyExpanded, setIsStickyExpanded] = useState(false);
+
+  const filtrationHeaderRef = useRef<HTMLDivElement>(null);
+  const stickyPanelRef = useRef<HTMLDivElement>(null);
+  const expandedScrollYRef = useRef<number>(0);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+
+    const evaluateScroll = () => {
+      if (!mediaQuery.matches) {
+        setIsMobileScrolledPast(false);
+        setIsStickyExpanded(false);
+        return;
+      }
+      const headerEl = filtrationHeaderRef.current;
+      if (!headerEl) {
+        setIsMobileScrolledPast(false);
+        return;
+      }
+      const passed = headerEl.getBoundingClientRect().bottom <= 0;
+      setIsMobileScrolledPast(passed);
+      if (!passed) {
+        setIsStickyExpanded(false);
+      }
+    };
+
+    evaluateScroll();
+    window.addEventListener("scroll", evaluateScroll, { passive: true });
+    window.addEventListener("resize", evaluateScroll);
+    mediaQuery.addEventListener("change", evaluateScroll);
+    return () => {
+      window.removeEventListener("scroll", evaluateScroll);
+      window.removeEventListener("resize", evaluateScroll);
+      mediaQuery.removeEventListener("change", evaluateScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isStickyExpanded) return;
+    expandedScrollYRef.current = window.scrollY;
+
+    const handleScrollCollapse = () => {
+      if (Math.abs(window.scrollY - expandedScrollYRef.current) >= 24) {
+        setIsStickyExpanded(false);
+      }
+    };
+
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (stickyPanelRef.current && !stickyPanelRef.current.contains(target)) {
+        setIsStickyExpanded(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsStickyExpanded(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScrollCollapse, { passive: true });
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("scroll", handleScrollCollapse);
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isStickyExpanded]);
 
   const tagById = useMemo(
     () => new Map(tags.map((t) => [t.tag_id, t])),
@@ -502,14 +573,20 @@ export function PositionsGrid({
     );
   };
 
-  return (
-    <section
-      id={ANCHORS.gridPanel}
-      aria-label="Tracked positions and bought items"
-      className="@container min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4"
-    >
+  const activeSectionLabel =
+    activeTab === "active"
+      ? "Active Positions"
+      : activeTab === "manual"
+        ? "Manual check"
+        : "Bought Items Sheet";
+  const activeTagObj =
+    activeTagFilter !== "ALL" ? tagById.get(activeTagFilter) : undefined;
+  const activeTagLabel = activeTagObj ? activeTagObj.name : "Show All";
+
+  const renderFiltrationControls = (idPrefix: string, withAnchors: boolean) => (
+    <>
       <div
-        id={ANCHORS.gridPanelToolbar}
+        id={withAnchors ? ANCHORS.gridPanelToolbar : undefined}
         className="mb-3 flex min-w-0 flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between"
       >
         <div
@@ -579,11 +656,14 @@ export function PositionsGrid({
           <div className="flex min-w-0 items-center gap-2">
             {activeTab === "active" && (
               <>
-                <label htmlFor="grid-group-by" className="shrink-0 text-xs text-zinc-500">
+                <label
+                  htmlFor={`${idPrefix}-group-by`}
+                  className="shrink-0 text-xs text-zinc-500"
+                >
                   Group By
                 </label>
                 <select
-                  id="grid-group-by"
+                  id={`${idPrefix}-group-by`}
                   value={groupBy}
                   onChange={(e) => setGroupBy(e.target.value as GroupMode)}
                   className="min-h-11 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9 sm:flex-none"
@@ -594,11 +674,11 @@ export function PositionsGrid({
               </>
             )}
           </div>
-          <label htmlFor="grid-search" className="sr-only">
+          <label htmlFor={`${idPrefix}-search`} className="sr-only">
             Search items or tags
           </label>
           <input
-            id="grid-search"
+            id={`${idPrefix}-search`}
             type="search"
             value={searchQuery}
             onChange={(e) => {
@@ -612,7 +692,7 @@ export function PositionsGrid({
       </div>
 
       <div
-        id={ANCHORS.gridPanelTagBar}
+        id={withAnchors ? ANCHORS.gridPanelTagBar : undefined}
         data-scroll-container="true"
         className="no-scrollbar mb-3 flex items-center gap-2 overflow-x-auto border-b border-gray-100 pb-2.5"
       >
@@ -656,6 +736,103 @@ export function PositionsGrid({
             </button>
           );
         })}
+      </div>
+    </>
+  );
+
+  return (
+    <section
+      id={ANCHORS.gridPanel}
+      aria-label="Tracked positions and bought items"
+      className="@container min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4"
+    >
+      {isMobileScrolledPast && !isStickyExpanded && (
+        <div
+          id={ANCHORS.gridPanelStickyRibbon}
+          className="fixed inset-x-0 top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur md:hidden"
+        >
+          <button
+            type="button"
+            aria-expanded={false}
+            aria-controls={ANCHORS.gridPanelStickyPanel}
+            onClick={() => setIsStickyExpanded(true)}
+            className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2 px-3 py-2 text-left text-xs"
+          >
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+              <span className="truncate font-semibold text-zinc-950 underline decoration-zinc-300 underline-offset-2">
+                {activeSectionLabel}
+              </span>
+              <span aria-hidden="true" className="shrink-0 text-zinc-400">
+                /
+              </span>
+              <span className="inline-flex min-w-0 items-center gap-1 truncate font-medium text-blue-600 underline decoration-blue-200 underline-offset-2">
+                {activeTagObj && (
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${TAG_DOT_CLASSES[activeTagObj.color]}`}
+                  />
+                )}
+                <span className="truncate">{activeTagLabel}</span>
+              </span>
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-zinc-500">
+              <span>Filters</span>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
+          </button>
+        </div>
+      )}
+
+      {isMobileScrolledPast && isStickyExpanded && (
+        <div
+          ref={stickyPanelRef}
+          id={ANCHORS.gridPanelStickyPanel}
+          className="fixed inset-x-0 top-0 z-40 max-h-[85dvh] overflow-y-auto border-b border-gray-200 bg-white p-3.5 shadow-lg md:hidden"
+        >
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-zinc-950">
+              View &amp; Tag Filters
+            </span>
+            <button
+              type="button"
+              aria-label="Collapse filters"
+              onClick={() => setIsStickyExpanded(false)}
+              className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-zinc-600 hover:bg-gray-100 hover:text-zinc-950"
+            >
+              <span>Done</span>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
+            </button>
+          </div>
+          {renderFiltrationControls("grid-sticky", false)}
+        </div>
+      )}
+
+      <div ref={filtrationHeaderRef}>
+        {renderFiltrationControls("grid", true)}
       </div>
 
       {/* Mobile-first stacked cards (< 768px) */}

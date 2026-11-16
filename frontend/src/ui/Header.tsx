@@ -80,7 +80,7 @@ export function Header({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur">
+    <header className="relative z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur md:sticky md:top-0">
       <div className="mx-auto flex h-14 w-full max-w-7xl min-w-0 items-center justify-between gap-1.5 px-2 sm:gap-2 sm:px-4">
         <div className="flex shrink-0 items-center">
           <button

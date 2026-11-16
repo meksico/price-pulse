@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.33`
+- **Document Version / App Target Baseline:** `0.3.34`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -75,7 +75,7 @@ Full column-level schemas, formulas, and ER diagrams are defined in [docs/GSHEET
 ## 4. Application Structure & Navigation Map
 
 ### 4.1 Global Header & Navigation (`REQ-NAV-01`..`REQ-NAV-04`)
-- **`REQ-NAV-01` (Compact Top Header):** Displays on `#FFFFFF` canvas with `1px solid #E5E7EB` bottom border:
+- **`REQ-NAV-01` (Compact Top Header):** Displays on `#FFFFFF` canvas with `1px solid #E5E7EB` bottom border (non-sticky `relative` on mobile `< 768px` so it scrolls out of view to preserve vertical working space, and `sticky top-0` on `>= 768px`):
   1. Brand lockup: tilted `#09090B` price-tag outline + Cobalt Blue `#2563EB` ECG pulse vector icon mark (`BrandMark`) paired with `PricePulse` in `#09090B` (and matching vector `favicon.svg` + `logo.webp` app icon; no redundant subtitle or tag-status badge).
   2. Primary navigation tabs (`whitespace-nowrap`, underlined `2px solid #09090B` active indicator on desktop): **Dashboard** (`view-dashboard`) and **Tag Manager** (`view-tags`), with **System Health** (`view-health`) accessed via the User Avatar Dropdown.
   3. Global action buttons: single solid `#09090B` **+ Track New URL** primary CTA displayed in the top header on desktop/tablet (`>= 768px`) and hidden on mobile (`< 768px`) where `#mobile-bottom-nav` is shown (the **Run Check** action lives inside the User Avatar Dropdown rather than the top bar).
@@ -129,6 +129,7 @@ flowchart TD
   - **Group By** dropdown: `Flat List (None)` or `Tag` (no Category or Retailer grouping).
   - **Search** `#F3F4F6` borderless input well: filters by item `name` or any assigned `tag` across both Active and Bought views. (New URL creation lives exclusively in the top header's `+ Track New URL` primary CTA and mobile bottom bar.)
 - **`REQ-GRID-03` (Quick Tag Filter Bar):** Horizontal scrollable strip (`Filter by Tag:`) showing `Show All` (`#09090B` when active) plus one color-coded button per distinct tag present on active items (`TAG_BADGE_CLASSES[tag.color]` with `TAG_DOT_CLASSES[tag.color]` bullet when inactive, transitioning to its saturated tag color `TAG_ACTIVE_BADGE_CLASSES[tag.color]` with white text `text-white` and white bullet `bg-white` when selected).
+- **`REQ-GRID-09` (Mobile Scroll-Triggered Collapsible Filtration Ribbon):** On mobile viewports (`< 768px`), once the user scrolls past the in-flow filtration header (`#grid-panel__toolbar` + `#grid-panel__tag-bar`), a narrow sticky ribbon (`#grid-panel__sticky-ribbon`, `fixed top-0`) pins to the top of the viewport showing the active section (`Active Positions`, `Manual check`, or `Bought Items Sheet`) and active tag (`Show All` or tag name) as compact link-style triggers. Clicking the ribbon expands `#grid-panel__sticky-panel` with full filtration controls (tabs, `Group By`, `Search`, and `Filter by Tag:`); scrolling again (`>= 24px` delta), clicking outside, pressing `Escape`, or tapping Collapse transforms it back into the narrow sticky ribbon.
 - **`REQ-GRID-04` (Active Positions Table Columns):**
   1. `Product Name` (sortable; `44×44px` rounded thumbnail + clickable title button opening `modal-item-details`)
   2. `Tags` (semantic color-coded tag pills via `TAG_BADGE_CLASSES[tag.color]`)
@@ -232,3 +233,4 @@ flowchart TD
 | `0.3.31` | 2026-11-16 | Antigravity | Fixed manual check confirmation in `ItemDetailsModal`, `LocalJsonRepository`, and `GoogleSheetsRepository` so clicking **Save Changes** with an unchanged `current_price` still updates `last_checked` and records a `MANUAL` snapshot in `Price_History`, clearing stale row/tab indicators (`REQ-SCRAPE-03`, `REQ-GRID-03`). |
 | `0.3.32` | 2026-11-16 | Antigravity | Auto-focused the Product URL input (or Bulk URL textarea) whenever `AddItemModal` opens so users can paste immediately without an extra click (`REQ-MODAL-02`). |
 | `0.3.33` | 2026-11-16 | Antigravity | Disabled **Save & Start Tracking** until required Single URL fields are entered, enforced `16px` input/select/textarea font size `< 640px` to prevent iOS Safari focus zoom & horizontal scroll, and moved modal scroll containers inside non-scrolling `overflow-hidden` dialog frames so blocking loading overlays always cover the visible mobile viewport even when scrolled (`REQ-NAV-04`, `REQ-MODAL-02`, `REQ-NFR-01`). |
+| `0.3.34` | 2026-11-16 | Antigravity | Un-fixed the global top `<header>` on mobile (`< 768px`, `md:sticky md:top-0`) to reclaim vertical working space and added a scroll-triggered collapsible sticky filtration ribbon (`#grid-panel__sticky-ribbon`) and expandable panel (`#grid-panel__sticky-panel`) to `PositionsGrid` (`REQ-NAV-01`, `REQ-GRID-09`). |

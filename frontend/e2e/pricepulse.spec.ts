@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.33");
+    expect(menuVersion).toBe("v0.3.34");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -589,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.33");
+    expect(healthVersion).toBe("v0.3.34");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -607,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.33"',
+      '"app_version": "0.3.34"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1339,6 +1339,62 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     releasePost();
     await expect(addDialog).toBeHidden();
     await page.unroute("**/api/items");
+  });
+
+  test("un-fixes header on mobile and transforms scrolled dashboard filtration header into collapsible sticky ribbon", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/dashboard");
+    await expect(page.locator("#grid-panel")).toBeVisible();
+
+    const header = page.locator("header").first();
+    await expect(header).toBeVisible();
+
+    // Scroll past the in-flow filtration header (#grid-panel__tag-bar)
+    await page.evaluate(() => {
+      const tagBar = document.getElementById("grid-panel__tag-bar");
+      if (tagBar) {
+        const rect = tagBar.getBoundingClientRect();
+        window.scrollTo(0, window.scrollY + rect.bottom + 80);
+      }
+    });
+
+    // Mobile header should scroll out of view (not sticky)
+    const headerBox = await header.boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(headerBox!.y).toBeLessThan(0);
+
+    // Narrow sticky ribbon should appear pinned at top: 0
+    const ribbon = page.locator("#grid-panel__sticky-ribbon");
+    await expect(ribbon).toBeVisible();
+    await expect(ribbon).toContainText("Active Positions");
+    await expect(ribbon).toContainText("Show All");
+    const ribbonBox = await ribbon.boundingBox();
+    expect(ribbonBox).not.toBeNull();
+    expect(ribbonBox!.y).toBe(0);
+
+    // Click ribbon to expand full filtration panel
+    await ribbon.getByRole("button").click();
+    const stickyPanel = page.locator("#grid-panel__sticky-panel");
+    await expect(stickyPanel).toBeVisible();
+    await expect(ribbon).toBeHidden();
+
+    // Select Group By: Tag inside the expanded sticky panel (keeps Active Positions scrollable)
+    await stickyPanel.getByLabel("Group By").selectOption("tag");
+
+    // Scroll again >= 24px -> expanded panel transforms back into narrow sticky ribbon
+    await page.evaluate(() => window.scrollBy(0, 60));
+    await expect(stickyPanel).toBeHidden();
+    await expect(ribbon).toBeVisible();
+    await expect(ribbon).toContainText("Active Positions");
+
+    // Re-open and dismiss with Escape (RULE-OVERLAY-DISMISS)
+    await ribbon.getByRole("button").click();
+    await expect(stickyPanel).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(stickyPanel).toBeHidden();
+    await expect(ribbon).toBeVisible();
   });
 });
 

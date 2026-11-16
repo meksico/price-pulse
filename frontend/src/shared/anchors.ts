@@ -17,6 +17,8 @@ export const ANCHORS = {
   gridPanel: "grid-panel",
   gridPanelToolbar: "grid-panel__toolbar",
   gridPanelTagBar: "grid-panel__tag-bar",
+  gridPanelStickyRibbon: "grid-panel__sticky-ribbon",
+  gridPanelStickyPanel: "grid-panel__sticky-panel",
   modalAddItem: "modal-add-item",
   modalAddItemModeTabs: "modal-add-item__mode-tabs",
   modalAddItemLoadingOverlay: "modal-add-item__loading-overlay",
