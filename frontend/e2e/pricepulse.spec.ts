@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.29");
+    expect(menuVersion).toBe("v0.3.30");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.29");
+    expect(healthVersion).toBe("v0.3.30");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.29"',
+      '"app_version": "0.3.30"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1255,11 +1255,19 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     });
 
     await page.goto("/?tab=manual");
+    const manualTab = page.getByRole("tab", { name: /Manual check/i });
+    await expect(
+      manualTab.locator('[data-manual-indicator="red"]'),
+    ).toBeVisible();
     const yellowRow = page.getByRole("row", { name: /Yellow 3d Item/i });
     const redRow = page.getByRole("row", { name: /Red 7d Item/i });
     await expect(yellowRow).toHaveClass(/bg-amber-50/);
+    await expect(
+      yellowRow.locator('[data-manual-warning="amber"]'),
+    ).toBeVisible();
     await expect(yellowRow).toContainText(daysAgoIso(3).slice(0, 10));
     await expect(redRow).toHaveClass(/bg-red-50/);
+    await expect(redRow.locator('[data-manual-warning="red"]')).toBeVisible();
     await expect(redRow).toContainText(daysAgoIso(7).slice(0, 10));
   });
 });

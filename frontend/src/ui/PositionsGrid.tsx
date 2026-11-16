@@ -53,6 +53,34 @@ function getManualCheckCardClass(days: number): string {
   return "border-gray-200 bg-white";
 }
 
+function WarningTriangleIcon({ days }: { days: number }) {
+  const colorClass = days >= 6 ? "text-red-500" : "text-amber-500";
+  const label = `Last checked ${days} day${days === 1 ? "" : "s"} ago`;
+  return (
+    <span
+      title={label}
+      data-manual-warning={days >= 6 ? "red" : "amber"}
+      className={`inline-flex shrink-0 items-center ${colorClass}`}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    </span>
+  );
+}
+
 interface PositionsGridProps {
   items: TrackedItem[];
   boughtItems: BoughtItem[];
@@ -136,6 +164,15 @@ export function PositionsGrid({
         ),
       ),
     [items, tagById],
+  );
+
+  const maxManualAgeDays = useMemo(
+    () =>
+      manualCheckItemsAll.reduce(
+        (max, item) => Math.max(max, getDaysSinceLastCheck(item.last_checked)),
+        0,
+      ),
+    [manualCheckItemsAll],
   );
 
   const filteredActive = useMemo(() => {
@@ -262,6 +299,9 @@ export function PositionsGrid({
       >
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
+          {isManualTab && daysSince >= 1 && (
+            <WarningTriangleIcon days={daysSince} />
+          )}
           {item.image_url ? (
             <img
               src={item.image_url}
@@ -396,8 +436,11 @@ export function PositionsGrid({
         data-manual-age-days={isManualTab ? daysSince : undefined}
         className={`border-b border-gray-100 transition-colors last:border-b-0 ${rowTone}`}
       >
-        <td className="py-3 pr-3">
+        <td className={`py-3 pr-3 ${isManualTab ? "pl-2.5" : ""}`}>
           <div className="flex items-center gap-3">
+            {isManualTab && daysSince >= 1 && (
+              <WarningTriangleIcon days={daysSince} />
+            )}
             {item.image_url ? (
               <img
                 src={item.image_url}
@@ -498,13 +541,24 @@ export function PositionsGrid({
               setPage(1);
               onTabChange("manual");
             }}
-            className={`tabular-nums min-h-11 min-w-0 truncate rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:min-h-8 ${
+            className={`tabular-nums relative min-h-11 min-w-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:min-h-8 ${
               activeTab === "manual"
                 ? "bg-zinc-950 text-white"
                 : "bg-gray-100 text-zinc-900 hover:bg-gray-200"
             }`}
           >
-            Manual check ({manualCheckItemsAll.length})
+            <span className="block truncate">
+              Manual check ({manualCheckItemsAll.length})
+            </span>
+            {manualCheckItemsAll.length > 0 && maxManualAgeDays >= 1 && (
+              <span
+                aria-hidden="true"
+                data-manual-indicator={maxManualAgeDays >= 6 ? "red" : "amber"}
+                className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${
+                  maxManualAgeDays >= 6 ? "bg-red-500" : "bg-amber-400"
+                }`}
+              />
+            )}
           </button>
           <button
             type="button"
