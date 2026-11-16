@@ -33,7 +33,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.3.30"
+    assert body["app_version"] == "0.3.31"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
@@ -277,6 +277,16 @@ def test_captcha_blocked_preview_returns_422_and_manual_price_update(
     assert patch_resp.json()["current_price"] == 123.45
     snaps = [s for s in repo.load_state().price_history if s.item_id == item.item_id]
     assert any(s.event_type == "MANUAL" and s.price == 123.45 for s in snaps)
+
+    # Saving the exact same current_price still records a MANUAL snapshot
+    prev_count = len([s for s in repo.load_state().price_history if s.item_id == item.item_id])
+    same_resp = client.patch(
+        f"/api/items/{item.item_id}",
+        json={"current_price": 123.45},
+    )
+    assert same_resp.status_code == 200
+    new_count = len([s for s in repo.load_state().price_history if s.item_id == item.item_id])
+    assert new_count == prev_count + 1
 
 
 def test_daily_captcha_report_sent_once_per_day(

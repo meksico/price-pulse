@@ -381,7 +381,7 @@ class LocalJsonRepository:
             item.name = name.strip()
         if target_price is not None:
             item.target_price = target_price
-        if current_price is not None and current_price != item.current_price:
+        if current_price is not None:
             now = utc_now_iso()
             item.current_price = current_price
             item.lowest_price = min(item.lowest_price, current_price)

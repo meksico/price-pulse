@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.30`
+- **Document Version / App Target Baseline:** `0.3.31`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -229,3 +229,4 @@ flowchart TD
 | `0.3.28` | 2026-11-16 | Antigravity | Generalized blocking loading overlays across all remaining async modal server mutations (`Save & Start Tracking` in `AddItemModal`; `Save Changes`, `Add/Remove Tag`, `Confirm Buy`, `Resume Tracking`, and `Confirm Delete` via `runBlockingAction` in `ItemDetailsModal`) (`REQ-NAV-04`, `REQ-MODAL-06`). |
 | `0.3.29` | 2026-11-16 | Antigravity | Added programmatic `"manual check"` tag assignment on CAPTCHA/403 detection (`AddItemModal` + `_execute_batch_check`) and a dedicated **`Manual check`** section (`?tab=manual`) in `PositionsGrid` with the **`Last check`** date column and `1–5` day yellow / `6+` day red row highlighting (`REQ-GRID-03`). |
 | `0.3.30` | 2026-11-16 | Antigravity | Added left-side yellow/red warning triangle icons on `Manual check` rows/cards and a top-right staleness indicator dot on the **`Manual check (N)`** tab pill reflecting the most outdated item (`REQ-GRID-03`). |
+| `0.3.31` | 2026-11-16 | Antigravity | Fixed manual check confirmation in `ItemDetailsModal`, `LocalJsonRepository`, and `GoogleSheetsRepository` so clicking **Save Changes** with an unchanged `current_price` still updates `last_checked` and records a `MANUAL` snapshot in `Price_History`, clearing stale row/tab indicators (`REQ-SCRAPE-03`, `REQ-GRID-03`). |

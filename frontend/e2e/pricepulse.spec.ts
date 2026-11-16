@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.30");
+    expect(menuVersion).toBe("v0.3.31");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.30");
+    expect(healthVersion).toBe("v0.3.31");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.30"',
+      '"app_version": "0.3.31"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1269,6 +1269,24 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(redRow).toHaveClass(/bg-red-50/);
     await expect(redRow.locator('[data-manual-warning="red"]')).toBeVisible();
     await expect(redRow).toContainText(daysAgoIso(7).slice(0, 10));
+
+    // Verify clicking Save Changes with unchanged price still sends current_price in PATCH
+    await page.unroute("**/api/state");
+    await page.goto("/?tab=manual");
+    let patchBody: Record<string, unknown> | null = null;
+    await page.route("**/api/items/*", async (route) => {
+      if (route.request().method() === "PATCH") {
+        patchBody = route.request().postDataJSON() as Record<string, unknown>;
+      }
+      await route.continue();
+    });
+    await page.getByRole("button", { name: "Manual Tab Today" }).first().click();
+    const detailsDialog = page.locator("#modal-item-details");
+    await expect(detailsDialog).toBeVisible();
+    await detailsDialog.getByRole("button", { name: "Save Changes" }).click();
+    await expect(detailsDialog).toBeHidden();
+    expect(patchBody).not.toBeNull();
+    expect(patchBody?.["current_price"]).toBe(1000);
   });
 });
 

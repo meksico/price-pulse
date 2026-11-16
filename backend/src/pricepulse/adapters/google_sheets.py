@@ -491,7 +491,7 @@ class GoogleSheetsRepository:
             item.name = name.strip()
         if target_price is not None:
             item.target_price = target_price
-        price_updated = current_price is not None and current_price != item.current_price
+        price_updated = current_price is not None
         now = utc_now_iso()
         if price_updated and current_price is not None:
             item.current_price = current_price

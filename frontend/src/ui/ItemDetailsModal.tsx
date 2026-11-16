@@ -157,9 +157,7 @@ export function ItemDetailsModal({
       await onUpdateItem(activeItem.item_id, {
         name: title.trim() || activeItem.name,
         target_price: Number(targetPrice) || activeItem.target_price,
-        ...(Number.isFinite(parsedCurrent) &&
-        parsedCurrent > 0 &&
-        parsedCurrent !== activeItem.current_price
+        ...(Number.isFinite(parsedCurrent) && parsedCurrent > 0
           ? { current_price: parsedCurrent }
           : {}),
       });
