@@ -568,9 +568,44 @@ def create_app(
         env_email = os.getenv("ALLOWED_OWNER_EMAIL", "").split(",")[0].strip()
         recipient = auth_email or cfg_recipient or env_email
         digest_sent = resolved_notifier.send_discount_digest(recipient, alert_items)
+
+        items_by_id = {item.item_id: item for item in updated_state.items}
+        captcha_blocked_items: list[tuple[TrackedItem, str]] = []
+        for outcome in outcomes:
+            err = outcome.error or ""
+            if not outcome.success and ("CAPTCHA_BLOCKED" in err or "HTTP 403" in err):
+                matched_item = items_by_id.get(outcome.item_id)
+                if matched_item is not None:
+                    captcha_blocked_items.append((matched_item, err))
+
+        today_utc = utc_now_iso()[:10]
+        last_captcha_date = next(
+            (
+                c.value.strip()
+                for c in updated_state.config
+                if c.key == "last_captcha_report_date"
+            ),
+            "",
+        )
+        captcha_report_sent = False
+        if captcha_blocked_items and recipient and last_captcha_date != today_utc:
+            app_base_url = os.getenv(
+                "FRONTEND_BASE_URL", "https://meksico.github.io/price-pulse"
+            ).strip()
+            captcha_report_sent = resolved_notifier.send_captcha_report(
+                recipient,
+                captcha_blocked_items,
+                app_base_url,
+            )
+            if captcha_report_sent:
+                resolved_repo.save_config(
+                    [ConfigEntry(key="last_captcha_report_date", value=today_utc)]
+                )
+
         logger.info(
             f"Batch run {telemetry.run_id}: {telemetry.breakdown} "
-            f"({duration_ms}ms, alerts={len(alert_items)}, digest_sent={digest_sent})"
+            f"({duration_ms}ms, alerts={len(alert_items)}, digest_sent={digest_sent}, "
+            f"captcha_report_sent={captcha_report_sent})"
         )
         if errors:
             logger.warn(f"Batch run {telemetry.run_id} errors: {errors}")
@@ -579,6 +614,7 @@ def create_app(
             "telemetry": {**asdict(telemetry), "status": telemetry.status.value},
             "alerts_triggered": len(alert_items),
             "digest_sent": digest_sent,
+            "captcha_report_sent": captcha_report_sent,
         }
 
     @app.post("/api/scrape/run-check")

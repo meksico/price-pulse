@@ -68,3 +68,48 @@ class GmailDigestNotifier:
             body={"raw": raw_bytes},
         ).execute()
         return True
+
+    def send_captcha_report(
+        self,
+        recipient: str,
+        blocked_items: list[tuple[TrackedItem, str]],
+        app_base_url: str,
+    ) -> bool:
+        """Send a daily manual-check report for CAPTCHA/anti-bot blocked items."""
+        if not recipient.strip() or not blocked_items:
+            return False
+
+        base = app_base_url.rstrip("/")
+        lines = [
+            "PricePulse Daily Manual-Check Report (Anti-Bot / CAPTCHA Protected)",
+            "",
+            f"{len(blocked_items)} tracked item(s) could not be fetched automatically "
+            "due to anti-bot / CAPTCHA protection:",
+            "",
+        ]
+        for item, reason in blocked_items:
+            item_modal_url = f"{base}/items/{item.item_id}"
+            lines.extend(
+                [
+                    f"- {item.name} (Last: {item.currency}{item.current_price:.2f}, "
+                    f"Target: {item.currency}{item.target_price:.2f})",
+                    f"  Reason: {reason}",
+                    f"  Page to monitor: {item.url}",
+                    f"  Update in PricePulse: {item_modal_url}",
+                    "",
+                ]
+            )
+
+        msg = EmailMessage()
+        msg["To"] = recipient.strip()
+        msg["Subject"] = (
+            f"[PricePulse] {len(blocked_items)} Item(s) Need Manual Price Check (CAPTCHA)"
+        )
+        msg.set_content("\n".join(lines))
+
+        raw_bytes = base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
+        self._service.users().messages().send(
+            userId=self._sender,
+            body={"raw": raw_bytes},
+        ).execute()
+        return True

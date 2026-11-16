@@ -6,7 +6,6 @@ import type {
   Tag,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
-import { getBasePath } from "../shared/routes";
 import type { AddModalMode, AddModalPrefill } from "../shared/routes";
 import { useBottomSheetSwipeDismiss } from "../shared/useBottomSheetSwipeDismiss";
 import { TagAdderControl } from "./TagAdderControl";
@@ -471,25 +470,6 @@ export function AddItemModal({
     );
   };
 
-  const handleCopyBookmarklet = async () => {
-    const targetBase = `${window.location.origin}${getBasePath()}/items/new`;
-    const snippet = `javascript:(()=>{try{const q=s=>document.querySelector(s);let t=q('meta[property="og:title"]')?.content||q('h1')?.textContent||document.title||'';let img=q('meta[property="og:image"]')?.content||'';let p='',c='';for(const el of document.querySelectorAll('script[type="application/ld+json"]')){try{const j=JSON.parse(el.textContent||'{}');const arr=Array.isArray(j)?j:j['@graph']||[j];for(const n of arr){const o=n.offers?(Array.isArray(n.offers)?n.offers[0]:n.offers):n;if(o&&o.price){p=String(o.price);c=String(o.priceCurrency||'');if(n.name&&!t)t=n.name;if(n.image&&!img)img=Array.isArray(n.image)?n.image[0]:n.image;break;}}}catch{}}if(!p)p=q('meta[property="product:price:amount"]')?.content||'';if(!c)c=q('meta[property="product:price:currency"]')?.content||'';const u=new URL(${JSON.stringify(targetBase)});u.searchParams.set('url',location.href);if(t)u.searchParams.set('title',t.trim());if(p)u.searchParams.set('price',p.replace(/[^0-9.]/g,''));if(c)u.searchParams.set('currency',c.trim());if(img)u.searchParams.set('image',img);window.open(u.toString(),'_blank','noopener');}catch(e){alert('PricePulse bookmarklet error: '+e);}})();`;
-    try {
-      await navigator.clipboard.writeText(snippet);
-      onNotify?.(
-        "success",
-        "Bookmarklet copied",
-        "Create a browser bookmark with this URL, then click it on any open product page to send details to PricePulse.",
-      );
-    } catch {
-      onNotify?.(
-        "error",
-        "Clipboard blocked",
-        "Allow clipboard access to copy the browser bookmarklet.",
-      );
-    }
-  };
-
   const handleFetch = async () => {
     if (!url.trim()) {
       onNotify?.(
@@ -528,12 +508,12 @@ export function AddItemModal({
           : "Could not extract product metadata.";
       if (/CAPTCHA_BLOCKED|HTTP 403/i.test(msg)) {
         setCaptchaBlockedMsg(
-          "This retailer requires human verification (CAPTCHA / anti-bot gate), so PricePulse's server cannot fetch it automatically. Since you can view the page in your browser, copy our Bookmarklet to send details from your open tab, or enter Title and Baseline Price manually below.",
+          "This retailer uses anti-bot / CAPTCHA protection, so PricePulse cannot fetch it automatically. Enter the Product Title and Baseline Price manually below and save — PricePulse will include this item in your once-daily manual-check email with direct links to check and update it.",
         );
         onNotify?.(
           "warning",
-          "Human verification required",
-          "Retailer blocked automated preview (CAPTCHA/403). Use the Browser Bookmarklet or enter details manually.",
+          "Anti-bot protection detected",
+          "Enter Product Title and Baseline Price manually below. Daily manual-check reminders will include direct update links.",
         );
       } else {
         onNotify?.("error", "Preview failed", msg);
@@ -959,21 +939,14 @@ export function AddItemModal({
                 {captchaBlockedMsg && (
                   <div
                     role="status"
-                    className="mt-2 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-950"
+                    className="mt-2 space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-950"
                   >
                     <p className="font-semibold">
-                      Human Verification Required (CAPTCHA / Anti-Bot Gate)
+                      Anti-Bot / CAPTCHA Protection Detected
                     </p>
                     <p className="leading-relaxed text-amber-900">
                       {captchaBlockedMsg}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => void handleCopyBookmarklet()}
-                      className="min-h-9 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-amber-950 hover:bg-amber-100"
-                    >
-                      Copy Browser Bookmarklet
-                    </button>
                   </div>
                 )}
               </div>

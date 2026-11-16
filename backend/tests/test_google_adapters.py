@@ -203,3 +203,35 @@ def test_google_sheets_add_items_batch_uses_single_append_per_tab() -> None:
     assert len(appends[2]["body"]["values"]) == 3  # 2 tags on item 1 + 1 on item 2
     assert len(appends[3]["body"]["values"]) == 2  # 2 INITIAL snapshots
 
+
+def test_gmail_captcha_report_contains_retailer_and_modal_links() -> None:
+    """Verify daily CAPTCHA report includes both retailer URL and PricePulse item link."""
+    import base64
+
+    svc = _FakeGmailService()
+    notifier = GmailDigestNotifier(svc)
+    item = TrackedItem(
+        item_id="item-cap-1",
+        name="Imprese Faucet",
+        url="https://kaplya.com.ua/p",
+        image_url="",
+        currency="₴",
+        initial_price=3499.0,
+        current_price=3499.0,
+        target_price=2999.0,
+        lowest_price=3499.0,
+        last_checked="2026-11-16T00:00:00Z",
+    )
+    assert (
+        notifier.send_captcha_report(
+            "user@example.com",
+            [(item, "CAPTCHA_BLOCKED (HTTP 403)")],
+            "https://meksico.github.io/price-pulse",
+        )
+        is True
+    )
+    assert len(svc.sent) == 1
+    decoded = base64.urlsafe_b64decode(svc.sent[0]["body"]["raw"]).decode("utf-8")
+    assert "https://kaplya.com.ua/p" in decoded
+    assert "https://meksico.github.io/price-pulse/items/item-cap-1" in decoded
+

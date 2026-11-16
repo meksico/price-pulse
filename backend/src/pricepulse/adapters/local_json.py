@@ -693,6 +693,7 @@ class InMemoryNotificationAdapter:
 
     def __init__(self) -> None:
         self.sent_digests: list[tuple[str, list[str]]] = []
+        self.sent_captcha_reports: list[tuple[str, list[str], str]] = []
 
     def send_discount_digest(
         self,
@@ -703,5 +704,19 @@ class InMemoryNotificationAdapter:
         if not recipient or not discounted_items:
             return False
         self.sent_digests.append((recipient, [i.item_id for i in discounted_items]))
+        return True
+
+    def send_captcha_report(
+        self,
+        recipient: str,
+        blocked_items: list[tuple[TrackedItem, str]],
+        app_base_url: str,
+    ) -> bool:
+        """Record daily CAPTCHA report dispatch in memory for testing."""
+        if not recipient or not blocked_items:
+            return False
+        self.sent_captcha_reports.append(
+            (recipient, [item.item_id for item, _ in blocked_items], app_base_url)
+        )
         return True
 

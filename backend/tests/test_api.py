@@ -33,7 +33,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.3.25"
+    assert body["app_version"] == "0.3.26"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
@@ -277,4 +277,48 @@ def test_captcha_blocked_preview_returns_422_and_manual_price_update(
     assert patch_resp.json()["current_price"] == 123.45
     snaps = [s for s in repo.load_state().price_history if s.item_id == item.item_id]
     assert any(s.event_type == "MANUAL" and s.price == 123.45 for s in snaps)
+
+
+def test_daily_captcha_report_sent_once_per_day(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify run-check dispatches CAPTCHA report once per day with deduplication."""
+    from pricepulse.domain.models import ConfigEntry, ScrapeOutcome
+
+    monkeypatch.setenv("ALLOWED_OWNER_EMAIL", "owner@example.com")
+    monkeypatch.setenv("FRONTEND_BASE_URL", "https://meksico.github.io/price-pulse")
+
+    class CaptchaCheckScraper:
+        async def preview_url(self, url: str) -> Any:
+            raise ValueError("unused")
+
+        async def preview_urls(self, urls: list[str]) -> list[Any]:
+            return []
+
+        async def check_items(self, items: list[Any]) -> list[ScrapeOutcome]:
+            return [
+                ScrapeOutcome(
+                    item_id=items[0].item_id,
+                    success=False,
+                    error=f"CAPTCHA_BLOCKED (HTTP 403): {items[0].url}",
+                )
+            ]
+
+    repo = LocalJsonRepository(tmp_path / "state.json")
+    repo.save_config([ConfigEntry(key="gmail_alert_recipient", value="owner@example.com")])
+    notifier = InMemoryNotificationAdapter()
+    app = create_app(repo=repo, scraper=CaptchaCheckScraper(), notifier=notifier)
+    client = TestClient(app)
+
+    first = client.post("/api/scrape/run-check")
+    assert first.status_code == 200
+    assert first.json()["captcha_report_sent"] is True
+    assert len(notifier.sent_captcha_reports) == 1
+    assert notifier.sent_captcha_reports[0][2] == "https://meksico.github.io/price-pulse"
+
+    second = client.post("/api/scrape/run-check")
+    assert second.status_code == 200
+    assert second.json()["captcha_report_sent"] is False
+    assert len(notifier.sent_captcha_reports) == 1
 

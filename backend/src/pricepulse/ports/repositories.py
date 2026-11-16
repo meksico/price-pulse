@@ -127,3 +127,12 @@ class NotificationPort(Protocol):
         """Send a consolidated digest email; return True if dispatched."""
         ...
 
+    def send_captcha_report(
+        self,
+        recipient: str,
+        blocked_items: list[tuple[TrackedItem, str]],
+        app_base_url: str,
+    ) -> bool:
+        """Send a daily manual-check report for CAPTCHA-blocked items."""
+        ...
+

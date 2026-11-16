@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.25");
+    expect(menuVersion).toBe("v0.3.26");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.25");
+    expect(healthVersion).toBe("v0.3.26");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.25"',
+      '"app_version": "0.3.26"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1018,7 +1018,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     );
   });
 
-  test("handles CAPTCHA-blocked preview with clear guidance, deep-link prefill, and manual price updates", async ({
+  test("handles CAPTCHA-blocked preview with manual-entry guidance and quick-update item modal", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -1040,28 +1040,19 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await addDialog.getByRole("button", { name: "Fetch Preview" }).click();
 
     await expect(
-      addDialog.getByText(/Human Verification Required \(CAPTCHA \/ Anti-Bot Gate\)/i),
+      addDialog.getByText(/Anti-Bot \/ CAPTCHA Protection Detected/i),
     ).toBeVisible();
     await expect(
       addDialog.getByRole("button", { name: "Copy Browser Bookmarklet" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
 
-    // Cold-load browser-session prefill URL
-    await page.goto(
-      "/items/new?url=https%3A%2F%2Fkaplya.com.ua%2Fp&title=Imprese+Praha+Faucet&price=3499&currency=%E2%82%B4",
-    );
-    await expect(addDialog).toBeVisible();
-    await expect(
-      addDialog.getByText(/Loaded product details from your browser session/i),
-    ).toBeVisible();
-    await expect(addDialog.getByLabel("Product Title")).toHaveValue(
-      "Imprese Praha Faucet",
-    );
-    await expect(addDialog.getByLabel("Baseline Price")).toHaveValue("3499");
+    await addDialog.getByLabel("Product Title").fill("Imprese Praha Faucet");
+    await addDialog.getByLabel("Baseline Price").fill("3499");
+    await addDialog.getByLabel("Target Alert Price").fill("2999");
     await addDialog.getByRole("button", { name: /Save & Start Tracking/i }).click();
     await expect(addDialog).toBeHidden();
 
-    // Update current tracked price manually in ItemDetailsModal
+    // Open item modal and update current tracked price manually
     await page
       .getByRole("button", { name: "Imprese Praha Faucet" })
       .first()
