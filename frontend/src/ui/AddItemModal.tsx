@@ -206,6 +206,8 @@ export function AddItemModal({
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const swipeHandleRef = useRef<HTMLDivElement>(null);
+  const urlInputRef = useRef<HTMLInputElement>(null);
+  const bulkTextareaRef = useRef<HTMLTextAreaElement>(null);
   const carouselViewportRef = useRef<HTMLDivElement>(null);
   const carouselTrackRef = useRef<HTMLDivElement>(null);
   const activeCardIndexRef = useRef(activeCardIndex);
@@ -437,6 +439,18 @@ export function AddItemModal({
     setCaptchaBlockedMsg(null);
     setPrefillNotice(true);
   }, [open, prefill]);
+
+  useEffect(() => {
+    if (!open) return;
+    const frameId = window.requestAnimationFrame(() => {
+      if (activeMode === "single") {
+        urlInputRef.current?.focus();
+      } else if (bulkStep === "input") {
+        bulkTextareaRef.current?.focus();
+      }
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [open, activeMode, bulkStep]);
 
   if (!open) return null;
 
@@ -945,6 +959,7 @@ export function AddItemModal({
                 </label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
+                    ref={urlInputRef}
                     id="add-item-url"
                     type="url"
                     required
@@ -1105,6 +1120,7 @@ export function AddItemModal({
                   Product URLs (up to 20)
                 </label>
                 <textarea
+                  ref={bulkTextareaRef}
                   id="bulk-url-input"
                   rows={5}
                   value={bulkUrlsText}

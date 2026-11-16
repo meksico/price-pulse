@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.31`
+- **Document Version / App Target Baseline:** `0.3.32`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -230,3 +230,4 @@ flowchart TD
 | `0.3.29` | 2026-11-16 | Antigravity | Added programmatic `"manual check"` tag assignment on CAPTCHA/403 detection (`AddItemModal` + `_execute_batch_check`) and a dedicated **`Manual check`** section (`?tab=manual`) in `PositionsGrid` with the **`Last check`** date column and `1–5` day yellow / `6+` day red row highlighting (`REQ-GRID-03`). |
 | `0.3.30` | 2026-11-16 | Antigravity | Added left-side yellow/red warning triangle icons on `Manual check` rows/cards and a top-right staleness indicator dot on the **`Manual check (N)`** tab pill reflecting the most outdated item (`REQ-GRID-03`). |
 | `0.3.31` | 2026-11-16 | Antigravity | Fixed manual check confirmation in `ItemDetailsModal`, `LocalJsonRepository`, and `GoogleSheetsRepository` so clicking **Save Changes** with an unchanged `current_price` still updates `last_checked` and records a `MANUAL` snapshot in `Price_History`, clearing stale row/tab indicators (`REQ-SCRAPE-03`, `REQ-GRID-03`). |
+| `0.3.32` | 2026-11-16 | Antigravity | Auto-focused the Product URL input (or Bulk URL textarea) whenever `AddItemModal` opens so users can paste immediately without an extra click (`REQ-MODAL-02`). |
