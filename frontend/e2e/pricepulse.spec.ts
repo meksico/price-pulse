@@ -1396,9 +1396,13 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(stickyPanel).toBeHidden();
     await expect(ribbon).toBeVisible();
 
-    // Mobile item tile has no "Item Card" button and is fully clickable
+    // Mobile item tile has no "Item Card" button, constrains photo 140-160px, and is fully clickable
     const firstTile = page.locator("#grid-panel article button").first();
     await expect(firstTile).toBeVisible();
+    const photoBox = await firstTile.locator("div").first().boundingBox();
+    expect(photoBox).not.toBeNull();
+    expect(photoBox!.height).toBeGreaterThanOrEqual(140);
+    expect(photoBox!.height).toBeLessThanOrEqual(160);
     await expect(
       page.locator("#grid-panel article").getByRole("button", {
         name: /Item Card/i,

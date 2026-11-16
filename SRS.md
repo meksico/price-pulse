@@ -138,7 +138,7 @@ flowchart TD
   5. `Target Alert` (`target_price`, sortable, `tabular-nums`)
   6. `Trend Dynamic` (inline Cobalt Blue `#2563EB` SVG sparkline)
   7. `Drop %` (sortable; `-X%` badge or `NORMAL`, `tabular-nums`)
-  8. `Actions` (outlined `Item Card →` button on desktop `>= 768px`; on mobile `< 768px`, the entire item tile is a single clickable `<button>` with a full-height left thumbnail, top status badge + compact `10px` tag pills, 2-line title, and compact 2-column `Baseline` / `Current` price strip without an `Item Card` button).
+  8. `Actions` (outlined `Item Card →` button on desktop `>= 768px`; on mobile `< 768px`, the entire item tile is a single clickable `<button>` with a left thumbnail constrained to `min-height: 140px` / `max-height: 160px` (`object-cover object-center`), top status badge + compact `10px` tag pills, 2-line title, and compact 2-column `Baseline` / `Current` price strip without an `Item Card` button).
 - **`REQ-GRID-05` (Clickable Tag Chips in Grid):** Every tag chip rendered in the `Tags` column (in both Active Positions and Bought Items) MUST be an interactive `<button>` that filters the grid by that tag (and syncs the Chart); clicking the already-active tag chip clears the filter back to `ALL`.
 - **`REQ-GRID-06` (Collapsible Group By Tag Mode):** When `Group By: Tag` is selected, items are partitioned under collapsible group header rows (`<TagName>`, item count, average drop `%`); pagination is hidden in grouped mode.
 - **`REQ-GRID-07` (Pagination):** In `Flat List (None)` mode, paginate at **15 items per page** with `← Prev`, numbered page buttons, and `Next →` plus range indicator (`Showing X–Y of Z active positions`).

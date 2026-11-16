@@ -395,12 +395,12 @@ export function PositionsGrid({
           onClick={() => onOpenItem(item.item_id)}
           className={`flex w-full min-w-0 items-stretch gap-3 rounded-xl border p-2.5 text-left transition-colors hover:border-zinc-300 ${cardTone}`}
         >
-          <div className="w-24 shrink-0 self-stretch overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+          <div className="min-h-[140px] max-h-[160px] w-24 shrink-0 self-stretch overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
             {item.image_url ? (
               <img
                 src={item.image_url}
                 alt=""
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover object-center"
               />
             ) : (
               <div className="h-full w-full bg-gray-100" aria-hidden="true" />
