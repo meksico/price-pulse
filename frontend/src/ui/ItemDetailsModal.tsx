@@ -226,7 +226,7 @@ export function ItemDetailsModal({
         aria-modal="true"
         aria-busy={isBusy}
         aria-labelledby="item-details-title"
-        className="relative max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
+        className="relative max-h-[92dvh] w-full max-w-2xl overflow-hidden rounded-t-[20px] border border-gray-200 bg-white text-zinc-950 shadow-xl sm:rounded-2xl"
       >
         {isBusy && (
           <div
@@ -246,6 +246,7 @@ export function ItemDetailsModal({
             </div>
           </div>
         )}
+        <div className="max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
         <div
           ref={swipeHandleRef}
           data-swipe-handle="true"
@@ -771,6 +772,7 @@ export function ItemDetailsModal({
               </button>
             )}
           </div>
+        </div>
         </div>
       </div>
     </div>

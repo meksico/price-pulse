@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.32");
+    expect(menuVersion).toBe("v0.3.33");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -265,6 +265,9 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const dialog = page.getByRole("dialog", { name: /Track New Product URL/i });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Product URL")).toBeFocused();
+    await expect(
+      dialog.getByRole("button", { name: /Save & Start Tracking/i }),
+    ).toBeDisabled();
     await page.mouse.click(10, 10);
     await expect(dialog).toBeHidden();
     await page.getByRole("button", { name: "+ Track New URL" }).click();
@@ -586,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.32");
+    expect(healthVersion).toBe("v0.3.33");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -604,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.32"',
+      '"app_version": "0.3.33"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1288,6 +1291,54 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(detailsDialog).toBeHidden();
     expect(patchBody).not.toBeNull();
     expect(patchBody?.["current_price"]).toBe(1000);
+  });
+
+  test("enforces 16px mobile input font-size and keeps blocking overlays pinned in mobile scrolled modals", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/items/new");
+    const addDialog = page.getByRole("dialog", { name: /Track New Product URL/i });
+    await expect(addDialog).toBeVisible();
+
+    const urlFontSize = await addDialog
+      .getByLabel("Product URL")
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(urlFontSize).toBeGreaterThanOrEqual(16);
+
+    // Scroll to bottom of AddItemModal on mobile, trigger Save, and verify overlay stays in viewport
+    await addDialog
+      .getByLabel("Product URL")
+      .fill("https://example.com/mobile-overlay");
+    await addDialog.getByLabel("Product Title").fill("Mobile Overlay Item");
+    await addDialog.getByLabel("Baseline Price").fill("200");
+    await addDialog.getByLabel("Target Alert Price").fill("150");
+
+    let releasePost!: () => void;
+    const postGate = new Promise<void>((resolve) => {
+      releasePost = resolve;
+    });
+    await page.route("**/api/items", async (route) => {
+      if (route.request().method() === "POST") {
+        await postGate;
+      }
+      await route.continue();
+    });
+    const saveBtn = addDialog.getByRole("button", {
+      name: /Save & Start Tracking/i,
+    });
+    await saveBtn.scrollIntoViewIfNeeded();
+    await saveBtn.click();
+
+    const addOverlay = addDialog.locator("#modal-add-item__loading-overlay");
+    await expect(addOverlay).toBeVisible();
+    const box = await addOverlay.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.height).toBeGreaterThan(200);
+    releasePost();
+    await expect(addDialog).toBeHidden();
+    await page.unroute("**/api/items");
   });
 });
 

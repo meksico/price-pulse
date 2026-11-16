@@ -842,6 +842,13 @@ export function AddItemModal({
     onClose();
   };
 
+  const canSaveSingle = Boolean(
+    url.trim() &&
+      title.trim() &&
+      Number(initialPrice) > 0 &&
+      Number(targetPrice) > 0,
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
       <div
@@ -851,7 +858,7 @@ export function AddItemModal({
         aria-modal="true"
         aria-busy={fetching}
         aria-labelledby="add-item-modal-title"
-        className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
+        className="relative max-h-[92dvh] w-full max-w-lg overflow-hidden rounded-t-[20px] border border-gray-200 bg-white text-zinc-950 shadow-xl sm:rounded-2xl"
       >
         {fetching && (
           <div
@@ -872,8 +879,9 @@ export function AddItemModal({
           </div>
         )}
 
-        <div
-          ref={swipeHandleRef}
+        <div className="max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
+          <div
+            ref={swipeHandleRef}
           data-swipe-handle="true"
           className="touch-none sm:touch-auto"
         >
@@ -1099,7 +1107,8 @@ export function AddItemModal({
                 </button>
                 <button
                   type="submit"
-                  className="min-h-11 rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 sm:min-h-10"
+                  disabled={fetching || !canSaveSingle}
+                  className="min-h-11 rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-10"
                 >
                   Save &amp; Start Tracking
                 </button>
@@ -1578,6 +1587,7 @@ export function AddItemModal({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
