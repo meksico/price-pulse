@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.34");
+    expect(menuVersion).toBe("v0.3.35");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -589,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.34");
+    expect(healthVersion).toBe("v0.3.35");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -607,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.34"',
+      '"app_version": "0.3.35"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -730,7 +730,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.goto("/");
 
     // 1. Item Details bottom sheet: track mid-drag, snap back below threshold, dismiss past threshold
-    await page.getByRole("button", { name: /Item Card/i }).first().click();
+    await page.locator("#grid-panel article button").first().click();
     const itemDialog = page.getByRole("dialog");
     await expect(itemDialog).toBeVisible();
     const itemHandle = itemDialog.locator('[data-swipe-handle="true"]');
@@ -1395,6 +1395,17 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.keyboard.press("Escape");
     await expect(stickyPanel).toBeHidden();
     await expect(ribbon).toBeVisible();
+
+    // Mobile item tile has no "Item Card" button and is fully clickable
+    const firstTile = page.locator("#grid-panel article button").first();
+    await expect(firstTile).toBeVisible();
+    await expect(
+      page.locator("#grid-panel article").getByRole("button", {
+        name: /Item Card/i,
+      }),
+    ).toHaveCount(0);
+    await firstTile.click();
+    await expect(page.locator("#modal-item-details")).toBeVisible();
   });
 });
 

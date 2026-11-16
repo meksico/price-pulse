@@ -356,6 +356,28 @@ export function PositionsGrid({
     </div>
   );
 
+  const renderCompactTagBadges = (tagIds: string[]) => (
+    <>
+      {tagIds.map((tid) => {
+        const tag = tagById.get(tid);
+        if (!tag) return null;
+        const active = activeTagFilter === tid;
+        return (
+          <span
+            key={tid}
+            className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-tight ${
+              active
+                ? TAG_ACTIVE_BADGE_CLASSES[tag.color]
+                : TAG_BADGE_CLASSES[tag.color]
+            }`}
+          >
+            {tag.name}
+          </span>
+        );
+      })}
+    </>
+  );
+
   const renderMobileActiveCard = (item: TrackedItem) => {
     const isManualTab = activeTab === "manual";
     const daysSince = isManualTab ? getDaysSinceLastCheck(item.last_checked) : 0;
@@ -366,131 +388,122 @@ export function PositionsGrid({
       <article
         key={item.item_id}
         data-manual-age-days={isManualTab ? daysSince : undefined}
-        className={`min-w-0 space-y-2.5 rounded-xl border p-3.5 ${cardTone}`}
+        className="min-w-0"
       >
-      <div className="flex items-start justify-between gap-2.5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          {isManualTab && daysSince >= 1 && (
-            <WarningTriangleIcon days={daysSince} />
-          )}
-          {item.image_url ? (
-            <img
-              src={item.image_url}
-              alt=""
-              className="h-11 w-11 shrink-0 rounded-lg border border-gray-200 bg-gray-100 object-cover"
-            />
-          ) : (
-            <div className="h-11 w-11 shrink-0 rounded-lg border border-gray-200 bg-gray-100" />
-          )}
-          <button
-            type="button"
-            onClick={() => onOpenItem(item.item_id)}
-            title={item.name}
-            className="line-clamp-2 text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
-          >
-            {item.name}
-          </button>
-        </div>
-        {item.status === "DISCOUNT" ? (
-          <span className="tabular-nums shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
-            -{item.drop_pct}%
-          </span>
-        ) : (
-          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
-            NORMAL
-          </span>
-        )}
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-2.5 text-xs">
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium text-zinc-500">Baseline</div>
-          <div className="tabular-nums truncate text-zinc-600">
-            {formatMoney(item.currency, item.initial_price)}
-          </div>
-        </div>
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium text-zinc-500">Current</div>
-          <div className="tabular-nums truncate font-semibold text-zinc-950">
-            {formatMoney(item.currency, item.current_price)}
-          </div>
-        </div>
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium text-zinc-500">Target</div>
-          <div className="tabular-nums truncate text-zinc-600">
-            {formatMoney(item.currency, item.target_price)}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          {renderTagChips(item.tag_ids)}
-          {isManualTab && (
-            <div className="tabular-nums mt-1 text-[11px] text-zinc-600">
-              Last check: {getLastCheckDateStr(item.last_checked)}
-            </div>
-          )}
-        </div>
         <button
           type="button"
           onClick={() => onOpenItem(item.item_id)}
-          className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:min-h-9"
+          className={`flex w-full min-w-0 items-stretch gap-3 rounded-xl border p-2.5 text-left transition-colors hover:border-zinc-300 ${cardTone}`}
         >
-          Item Card &rarr;
+          <div className="w-24 shrink-0 self-stretch overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+            {item.image_url ? (
+              <img
+                src={item.image_url}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="h-full w-full bg-gray-100" aria-hidden="true" />
+            )}
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-1.5">
+            <div className="flex flex-wrap items-center gap-1">
+              {isManualTab && daysSince >= 1 && (
+                <WarningTriangleIcon days={daysSince} />
+              )}
+              {item.status === "DISCOUNT" ? (
+                <span className="tabular-nums shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
+                  -{item.drop_pct}%
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+                  NORMAL
+                </span>
+              )}
+              {renderCompactTagBadges(item.tag_ids)}
+            </div>
+
+            <div
+              title={item.name}
+              className="line-clamp-2 text-[13px] font-semibold leading-snug text-zinc-950"
+            >
+              {item.name}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs">
+              <div className="min-w-0">
+                <div className="text-[10px] font-medium leading-tight text-zinc-500">
+                  Baseline
+                </div>
+                <div className="tabular-nums truncate text-xs text-zinc-600">
+                  {formatMoney(item.currency, item.initial_price)}
+                </div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-medium leading-tight text-zinc-500">
+                  Current
+                </div>
+                <div className="tabular-nums truncate text-xs font-semibold text-zinc-950">
+                  {formatMoney(item.currency, item.current_price)}
+                </div>
+              </div>
+            </div>
+
+            {isManualTab && (
+              <div className="tabular-nums text-[10px] text-zinc-600">
+                Last check: {getLastCheckDateStr(item.last_checked)}
+              </div>
+            )}
+          </div>
         </button>
-      </div>
-    </article>
+      </article>
     );
   };
 
   const renderMobileBoughtCard = (item: BoughtItem) => (
-    <article
-      key={item.item_id}
-      className="min-w-0 space-y-2.5 rounded-xl border border-gray-200 bg-white p-3.5"
-    >
-      <div className="flex min-w-0 items-start justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => onOpenItem(item.item_id)}
-          className="min-w-0 text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
-        >
+    <article key={item.item_id} className="min-w-0">
+      <button
+        type="button"
+        onClick={() => onOpenItem(item.item_id)}
+        className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-gray-200 bg-white p-2.5 text-left transition-colors hover:border-zinc-300"
+      >
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="tabular-nums shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-950">
+            +{formatMoney(item.currency, item.saved_cost)}
+          </span>
+          {renderCompactTagBadges(item.tag_ids)}
+        </div>
+        <div className="line-clamp-2 text-[13px] font-semibold leading-snug text-zinc-950">
           {item.name}
-        </button>
-        <span className="tabular-nums shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-950">
-          +{formatMoney(item.currency, item.saved_cost)}
-        </span>
-      </div>
-      <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-2.5 text-xs">
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium text-zinc-500">Baseline</div>
-          <div className="tabular-nums truncate text-zinc-600">
-            {formatMoney(item.currency, item.initial_price)}
+        </div>
+        <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs">
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium leading-tight text-zinc-500">
+              Baseline
+            </div>
+            <div className="tabular-nums truncate text-xs text-zinc-600">
+              {formatMoney(item.currency, item.initial_price)}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium leading-tight text-zinc-500">
+              Bought
+            </div>
+            <div className="tabular-nums truncate text-xs font-semibold text-zinc-950">
+              {formatMoney(item.currency, item.purchased_price)}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium leading-tight text-zinc-500">
+              Date
+            </div>
+            <div className="tabular-nums truncate text-xs text-zinc-600">
+              {item.purchased_date}
+            </div>
           </div>
         </div>
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium text-zinc-500">Bought</div>
-          <div className="tabular-nums truncate font-semibold text-zinc-950">
-            {formatMoney(item.currency, item.purchased_price)}
-          </div>
-        </div>
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium text-zinc-500">Date</div>
-          <div className="tabular-nums truncate text-zinc-600">
-            {item.purchased_date}
-          </div>
-        </div>
-      </div>
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">{renderTagChips(item.tag_ids)}</div>
-        <button
-          type="button"
-          onClick={() => onOpenItem(item.item_id)}
-          className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:min-h-9"
-        >
-          View Card
-        </button>
-      </div>
+      </button>
     </article>
   );
 

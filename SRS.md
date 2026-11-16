@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.34`
+- **Document Version / App Target Baseline:** `0.3.35`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -138,7 +138,7 @@ flowchart TD
   5. `Target Alert` (`target_price`, sortable, `tabular-nums`)
   6. `Trend Dynamic` (inline Cobalt Blue `#2563EB` SVG sparkline)
   7. `Drop %` (sortable; `-X%` badge or `NORMAL`, `tabular-nums`)
-  8. `Actions` (outlined `Item Card →` button)
+  8. `Actions` (outlined `Item Card →` button on desktop `>= 768px`; on mobile `< 768px`, the entire item tile is a single clickable `<button>` with a full-height left thumbnail, top status badge + compact `10px` tag pills, 2-line title, and compact 2-column `Baseline` / `Current` price strip without an `Item Card` button).
 - **`REQ-GRID-05` (Clickable Tag Chips in Grid):** Every tag chip rendered in the `Tags` column (in both Active Positions and Bought Items) MUST be an interactive `<button>` that filters the grid by that tag (and syncs the Chart); clicking the already-active tag chip clears the filter back to `ALL`.
 - **`REQ-GRID-06` (Collapsible Group By Tag Mode):** When `Group By: Tag` is selected, items are partitioned under collapsible group header rows (`<TagName>`, item count, average drop `%`); pagination is hidden in grouped mode.
 - **`REQ-GRID-07` (Pagination):** In `Flat List (None)` mode, paginate at **15 items per page** with `← Prev`, numbered page buttons, and `Next →` plus range indicator (`Showing X–Y of Z active positions`).
@@ -234,3 +234,4 @@ flowchart TD
 | `0.3.32` | 2026-11-16 | Antigravity | Auto-focused the Product URL input (or Bulk URL textarea) whenever `AddItemModal` opens so users can paste immediately without an extra click (`REQ-MODAL-02`). |
 | `0.3.33` | 2026-11-16 | Antigravity | Disabled **Save & Start Tracking** until required Single URL fields are entered, enforced `16px` input/select/textarea font size `< 640px` to prevent iOS Safari focus zoom & horizontal scroll, and moved modal scroll containers inside non-scrolling `overflow-hidden` dialog frames so blocking loading overlays always cover the visible mobile viewport even when scrolled (`REQ-NAV-04`, `REQ-MODAL-02`, `REQ-NFR-01`). |
 | `0.3.34` | 2026-11-16 | Antigravity | Un-fixed the global top `<header>` on mobile (`< 768px`, `md:sticky md:top-0`) to reclaim vertical working space and added a scroll-triggered collapsible sticky filtration ribbon (`#grid-panel__sticky-ribbon`) and expandable panel (`#grid-panel__sticky-panel`) to `PositionsGrid` (`REQ-NAV-01`, `REQ-GRID-09`). |
+| `0.3.35` | 2026-11-16 | Antigravity | Redesigned mobile (`< 768px`) item tiles in `PositionsGrid` as fully clickable `<button>` cards with a full-height left photo, compact `10px` tag pills next to the status badge, a 2-column `Baseline` / `Current` price strip, and removed the redundant `Item Card` / `View Card` buttons (`REQ-GRID-04`). |
