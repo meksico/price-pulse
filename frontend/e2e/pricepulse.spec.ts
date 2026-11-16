@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.27");
+    expect(menuVersion).toBe("v0.3.28");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.27");
+    expect(healthVersion).toBe("v0.3.28");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.27"',
+      '"app_version": "0.3.28"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1099,6 +1099,83 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       page.getByRole("status").filter({ hasText: "Preview failed" }),
     ).toBeVisible();
     expect(previewAttempts).toBe(3);
+  });
+
+  test("displays blocking loading overlays on Single URL Save and Item Details Save Changes", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/items/new");
+
+    const addDialog = page.getByRole("dialog", { name: /Track New Product URL/i });
+    await expect(addDialog).toBeVisible();
+    await addDialog
+      .getByLabel("Product URL")
+      .fill("https://example.com/products/save-overlay-test");
+    await addDialog.getByLabel("Product Title").fill("Overlay Save Item");
+    await addDialog.getByLabel("Baseline Price").fill("150");
+    await addDialog.getByLabel("Target Alert Price").fill("120");
+
+    let releaseCreate!: () => void;
+    const createGate = new Promise<void>((resolve) => {
+      releaseCreate = resolve;
+    });
+    await page.route("**/api/items", async (route) => {
+      if (route.request().method() === "POST") {
+        await createGate;
+      }
+      await route.continue();
+    });
+
+    await addDialog.getByRole("button", { name: /Save & Start Tracking/i }).click();
+    const addOverlay = addDialog.locator("#modal-add-item__loading-overlay");
+    await expect(addOverlay).toBeVisible();
+    await expect(addOverlay).toContainText("Saving tracked item...");
+    await expect(addDialog).toHaveAttribute("aria-busy", "true");
+    await page.keyboard.press("Escape");
+    await page.mouse.click(10, 10);
+    await expect(addDialog).toBeVisible();
+
+    releaseCreate();
+    await expect(addDialog).toBeHidden();
+    await page.unroute("**/api/items");
+
+    // Verify blocking overlay on Save Changes in ItemDetailsModal
+    await page
+      .getByRole("button", { name: "Overlay Save Item" })
+      .first()
+      .click();
+    const detailsDialog = page.locator("#modal-item-details");
+    await expect(detailsDialog).toBeVisible();
+
+    let releasePatch!: () => void;
+    const patchGate = new Promise<void>((resolve) => {
+      releasePatch = resolve;
+    });
+    await page.route("**/api/items/*", async (route) => {
+      if (route.request().method() === "PATCH") {
+        await patchGate;
+      }
+      await route.continue();
+    });
+
+    await detailsDialog.getByLabel("Alert Target Price").fill("110");
+    await detailsDialog.getByRole("button", { name: "Save Changes" }).click();
+    const detailsOverlay = detailsDialog.locator(
+      "#modal-item-details__loading-overlay",
+    );
+    await expect(detailsOverlay).toBeVisible();
+    await expect(detailsOverlay).toContainText("Saving changes...");
+    await expect(detailsDialog).toHaveAttribute("aria-busy", "true");
+    await expect(
+      detailsDialog.getByRole("button", { name: "Save Changes" }),
+    ).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await page.mouse.click(10, 10);
+    await expect(detailsDialog).toBeVisible();
+
+    releasePatch();
+    await expect(detailsDialog).toBeHidden();
   });
 });
 

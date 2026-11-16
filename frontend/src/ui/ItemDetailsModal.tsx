@@ -49,7 +49,10 @@ export function ItemDetailsModal({
     activeItem ? String(activeItem.current_price) : "",
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [pendingActionLabel, setPendingActionLabel] = useState<string | null>(
+    null,
+  );
+  const isBusy = pendingActionLabel !== null;
   const [hoveredSnap, setHoveredSnap] = useState<{
     historyId: string;
     priceText: string;
@@ -68,7 +71,7 @@ export function ItemDetailsModal({
     setTargetPrice(activeItem ? String(activeItem.target_price) : "");
     setBuyPrice(activeItem ? String(activeItem.current_price) : "");
     setConfirmDelete(false);
-    setDeleting(false);
+    setPendingActionLabel(null);
     setHoveredSnap(null);
   }, [item?.item_id, item?.name, activeItem]);
 
@@ -81,19 +84,19 @@ export function ItemDetailsModal({
     handleRef: swipeHandleRef,
     isOpen,
     onClose,
-    disabled: deleting,
+    disabled: isBusy,
   });
 
   useEffect(() => {
     if (!isOpen) return;
     const handlePointerDown = (e: MouseEvent) => {
-      if (deleting) return;
+      if (isBusy) return;
       if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (deleting) return;
+      if (isBusy) return;
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("mousedown", handlePointerDown);
@@ -102,7 +105,7 @@ export function ItemDetailsModal({
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose, deleting]);
+  }, [isOpen, onClose, isBusy]);
 
   if (!item) return null;
 
@@ -110,6 +113,19 @@ export function ItemDetailsModal({
   const currentTagNames = item.tag_ids
     .map((id) => tagById.get(id)?.name)
     .filter((n): n is string => Boolean(n));
+
+  const runBlockingAction = async (
+    label: string,
+    action: () => Promise<void>,
+  ) => {
+    if (isBusy) return;
+    setPendingActionLabel(label);
+    try {
+      await action();
+    } finally {
+      setPendingActionLabel(null);
+    }
+  };
 
   const handleAddTag = async (tagName: string) => {
     const clean = tagName.trim();
@@ -120,29 +136,35 @@ export function ItemDetailsModal({
       return;
     }
     const nextNames = [...currentTagNames, clean];
-    await onUpdateItem(activeItem.item_id, { tag_names: nextNames });
+    await runBlockingAction("Updating tags...", () =>
+      onUpdateItem(activeItem.item_id, { tag_names: nextNames }),
+    );
   };
 
   const handleRemoveTag = async (tagName: string) => {
     if (!activeItem) return;
-    await onUpdateItem(activeItem.item_id, {
-      tag_names: currentTagNames.filter((n) => n !== tagName),
-    });
+    await runBlockingAction("Updating tags...", () =>
+      onUpdateItem(activeItem.item_id, {
+        tag_names: currentTagNames.filter((n) => n !== tagName),
+      }),
+    );
   };
 
   const handleSaveDetails = async () => {
     if (!activeItem) return;
     const parsedCurrent = Number(currentPrice);
-    await onUpdateItem(activeItem.item_id, {
-      name: title.trim() || activeItem.name,
-      target_price: Number(targetPrice) || activeItem.target_price,
-      ...(Number.isFinite(parsedCurrent) &&
-      parsedCurrent > 0 &&
-      parsedCurrent !== activeItem.current_price
-        ? { current_price: parsedCurrent }
-        : {}),
+    await runBlockingAction("Saving changes...", async () => {
+      await onUpdateItem(activeItem.item_id, {
+        name: title.trim() || activeItem.name,
+        target_price: Number(targetPrice) || activeItem.target_price,
+        ...(Number.isFinite(parsedCurrent) &&
+        parsedCurrent > 0 &&
+        parsedCurrent !== activeItem.current_price
+          ? { current_price: parsedCurrent }
+          : {}),
+      });
+      onClose();
     });
-    onClose();
   };
 
   const sortedSnaps = [...snapshots].sort((a, b) =>
@@ -204,11 +226,11 @@ export function ItemDetailsModal({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-busy={deleting}
+        aria-busy={isBusy}
         aria-labelledby="item-details-title"
         className="relative max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
       >
-        {deleting && (
+        {isBusy && (
           <div
             id={ANCHORS.modalItemDetailsLoadingOverlay}
             aria-live="polite"
@@ -219,7 +241,7 @@ export function ItemDetailsModal({
               className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-950"
             />
             <div className="text-xs font-semibold text-zinc-950">
-              Deleting position...
+              {pendingActionLabel}
             </div>
             <div className="text-[11px] text-zinc-500">
               Waiting for server response
@@ -292,7 +314,7 @@ export function ItemDetailsModal({
             </div>
             <button
               type="button"
-              disabled={deleting}
+              disabled={isBusy}
               aria-label="Close Item Details modal"
               onClick={onClose}
               className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:min-w-9"
@@ -663,14 +685,17 @@ export function ItemDetailsModal({
                 </div>
                 <button
                   type="button"
-                  onClick={async () => {
-                    await onBuyItem(
-                      activeItem.item_id,
-                      Number(buyPrice) || activeItem.current_price,
-                    );
-                    onClose();
-                  }}
-                  className="min-h-11 rounded-lg border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-gray-50 sm:min-h-9"
+                  disabled={isBusy}
+                  onClick={() =>
+                    void runBlockingAction("Archiving as bought...", async () => {
+                      await onBuyItem(
+                        activeItem.item_id,
+                        Number(buyPrice) || activeItem.current_price,
+                      );
+                      onClose();
+                    })
+                  }
+                  className="min-h-11 rounded-lg border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
                 >
                   Confirm Buy
                 </button>
@@ -684,6 +709,7 @@ export function ItemDetailsModal({
             {!confirmDelete ? (
               <button
                 type="button"
+                disabled={isBusy}
                 onClick={() => {
                   setConfirmDelete(true);
                   onNotify?.(
@@ -692,23 +718,20 @@ export function ItemDetailsModal({
                     "Click Confirm Delete to permanently remove this position.",
                   );
                 }}
-                className="min-h-11 rounded-lg bg-red-50 px-3 py-1.5 font-medium text-red-600 hover:bg-red-100 hover:text-red-700 sm:min-h-9"
+                className="min-h-11 rounded-lg bg-red-50 px-3 py-1.5 font-medium text-red-600 hover:bg-red-100 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
                 Delete Position
               </button>
             ) : (
               <button
                 type="button"
-                disabled={deleting}
-                onClick={async () => {
-                  setDeleting(true);
-                  try {
+                disabled={isBusy}
+                onClick={() =>
+                  void runBlockingAction("Deleting position...", async () => {
                     await onDeleteItem(item.item_id);
                     onClose();
-                  } finally {
-                    setDeleting(false);
-                  }
-                }}
+                  })
+                }
                 className="min-h-11 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
                 Confirm Delete
@@ -719,7 +742,7 @@ export function ItemDetailsModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={deleting}
+              disabled={isBusy}
               onClick={onClose}
               className="min-h-11 rounded-lg bg-gray-100 px-4 py-1.5 font-medium text-zinc-950 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
             >
@@ -728,7 +751,7 @@ export function ItemDetailsModal({
             {activeItem ? (
               <button
                 type="button"
-                disabled={deleting}
+                disabled={isBusy}
                 onClick={() => void handleSaveDetails()}
                 className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
@@ -737,11 +760,13 @@ export function ItemDetailsModal({
             ) : (
               <button
                 type="button"
-                disabled={deleting}
-                onClick={async () => {
-                  await onResumeItem(item.item_id);
-                  onClose();
-                }}
+                disabled={isBusy}
+                onClick={() =>
+                  void runBlockingAction("Resuming tracking...", async () => {
+                    await onResumeItem(item.item_id);
+                    onClose();
+                  })
+                }
                 className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
                 Resume Tracking

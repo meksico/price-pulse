@@ -554,6 +554,8 @@ export function AddItemModal({
       );
       return;
     }
+    setLoadingTitle("Saving tracked item...");
+    setFetching(true);
     try {
       await onSaveItem({
         name: title.trim(),
@@ -592,6 +594,8 @@ export function AddItemModal({
         "Failed to add item",
         err instanceof Error ? err.message : "Could not save tracked item.",
       );
+    } finally {
+      setFetching(false);
     }
   };
 
