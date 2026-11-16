@@ -371,8 +371,9 @@ class LocalJsonRepository:
         name: str | None = None,
         target_price: float | None = None,
         tag_names: list[str] | None = None,
+        current_price: float | None = None,
     ) -> TrackedItem:
-        """Update an active tracked item's title, target_price, or tags."""
+        """Update an active tracked item's title, target_price, current_price, or tags."""
         item = next((i for i in self._state.items if i.item_id == item_id), None)
         if item is None:
             raise KeyError(f"Active item not found: {item_id}")
@@ -380,6 +381,21 @@ class LocalJsonRepository:
             item.name = name.strip()
         if target_price is not None:
             item.target_price = target_price
+        if current_price is not None and current_price != item.current_price:
+            now = utc_now_iso()
+            item.current_price = current_price
+            item.lowest_price = min(item.lowest_price, current_price)
+            item.last_checked = now
+            self._state.price_history.append(
+                PriceSnapshot(
+                    history_id=f"hist-{uuid.uuid4().hex[:8]}",
+                    item_id=item.item_id,
+                    recorded_at=now,
+                    price=current_price,
+                    delta_pct=compute_delta_pct(item.initial_price, current_price),
+                    event_type=PriceEventType.MANUAL,
+                )
+            )
         if tag_names is not None:
             item.tag_ids = self._ensure_tags(tag_names)
             self._sync_item_tags(item_id, item.tag_ids)

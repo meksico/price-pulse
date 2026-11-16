@@ -39,6 +39,9 @@ export function ItemDetailsModal({
 }: ItemDetailsModalProps) {
   const item = activeItem ?? boughtItem;
   const [title, setTitle] = useState(item?.name ?? "");
+  const [currentPrice, setCurrentPrice] = useState(
+    activeItem ? String(activeItem.current_price) : "",
+  );
   const [targetPrice, setTargetPrice] = useState(
     activeItem ? String(activeItem.target_price) : "",
   );
@@ -61,6 +64,7 @@ export function ItemDetailsModal({
 
   useEffect(() => {
     setTitle(item?.name ?? "");
+    setCurrentPrice(activeItem ? String(activeItem.current_price) : "");
     setTargetPrice(activeItem ? String(activeItem.target_price) : "");
     setBuyPrice(activeItem ? String(activeItem.current_price) : "");
     setConfirmDelete(false);
@@ -128,9 +132,15 @@ export function ItemDetailsModal({
 
   const handleSaveDetails = async () => {
     if (!activeItem) return;
+    const parsedCurrent = Number(currentPrice);
     await onUpdateItem(activeItem.item_id, {
       name: title.trim() || activeItem.name,
       target_price: Number(targetPrice) || activeItem.target_price,
+      ...(Number.isFinite(parsedCurrent) &&
+      parsedCurrent > 0 &&
+      parsedCurrent !== activeItem.current_price
+        ? { current_price: parsedCurrent }
+        : {}),
     });
     onClose();
   };
@@ -188,59 +198,59 @@ export function ItemDetailsModal({
   };
 
   return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
-        <div
-          id={ANCHORS.modalItemDetails}
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-busy={deleting}
-          aria-labelledby="item-details-title"
-          className="relative max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
-        >
-          {deleting && (
-            <div
-              id={ANCHORS.modalItemDetailsLoadingOverlay}
-              aria-live="polite"
-              className="pointer-events-auto absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 rounded-t-[20px] bg-white/80 p-6 text-center backdrop-blur-[2px] sm:rounded-2xl"
-            >
-              <div
-                aria-hidden="true"
-                className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-950"
-              />
-              <div className="text-xs font-semibold text-zinc-950">
-                Deleting position...
-              </div>
-              <div className="text-[11px] text-zinc-500">
-                Waiting for server response
-              </div>
-            </div>
-          )}
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
+      <div
+        id={ANCHORS.modalItemDetails}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-busy={deleting}
+        aria-labelledby="item-details-title"
+        className="relative max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[20px] border border-gray-200 bg-white p-4 text-zinc-950 shadow-xl sm:rounded-2xl sm:p-6"
+      >
+        {deleting && (
           <div
-            ref={swipeHandleRef}
-            data-swipe-handle="true"
-            className="touch-none sm:touch-auto"
+            id={ANCHORS.modalItemDetailsLoadingOverlay}
+            aria-live="polite"
+            className="pointer-events-auto absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 rounded-t-[20px] bg-white/80 p-6 text-center backdrop-blur-[2px] sm:rounded-2xl"
           >
             <div
               aria-hidden="true"
-              className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
+              className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-950"
             />
+            <div className="text-xs font-semibold text-zinc-950">
+              Deleting position...
+            </div>
+            <div className="text-[11px] text-zinc-500">
+              Waiting for server response
+            </div>
+          </div>
+        )}
+        <div
+          ref={swipeHandleRef}
+          data-swipe-handle="true"
+          className="touch-none sm:touch-auto"
+        >
+          <div
+            aria-hidden="true"
+            className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
+          />
 
-            <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-3.5">
-                  {item.image_url ? (
-                    <img
-                      src={item.image_url}
-                      alt=""
-                      className="h-14 w-14 shrink-0 rounded-xl border border-gray-200 bg-gray-100 object-cover"
-                    />
-                  ) : (
+          <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3.5">
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt=""
+                  className="h-14 w-14 shrink-0 rounded-xl border border-gray-200 bg-gray-100 object-cover"
+                />
+              ) : (
                 <div className="h-14 w-14 shrink-0 rounded-xl border border-gray-200 bg-gray-100" />
-                  )}
-                  <div className="min-w-0">
-                      <div className="mb-1 flex flex-wrap items-center gap-2">
-                        {activeItem ? (
-                          activeItem.status === "DISCOUNT" ? (
+              )}
+              <div className="min-w-0">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  {activeItem ? (
+                    activeItem.status === "DISCOUNT" ? (
                       <span className="tabular-nums rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700">
                         -{activeItem.drop_pct}% DISCOUNT
                       </span>
@@ -290,20 +300,20 @@ export function ItemDetailsModal({
               &times;
             </button>
           </div>
-          </div>
+        </div>
 
-                    <div className="space-y-4 text-xs">
-                          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white p-3.5">
-                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                  <span className="inline-flex items-center gap-1.5 font-medium text-zinc-700">
-                                    <span
-                                      aria-hidden="true"
-                                      className="inline-block w-3 border-t-2 border-blue-600"
-                                    />
-                                    Price Dynamics
-                                  </span>
-                                  {numericTarget !== null && (
+        <div className="space-y-4 text-xs">
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white p-3.5">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="inline-flex items-center gap-1.5 font-medium text-zinc-700">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block w-3 border-t-2 border-blue-600"
+                  />
+                  Price Dynamics
+                </span>
+                {numericTarget !== null && (
                   <span className="inline-flex items-center gap-1.5 text-zinc-500">
                     <span
                       aria-hidden="true"
@@ -373,15 +383,15 @@ export function ItemDetailsModal({
                       const trueDeltaPct =
                         item.initial_price > 0
                           ? Math.round(
-                              ((s.price - item.initial_price) / item.initial_price) *
-                                1000,
-                            ) / 10
+                            ((s.price - item.initial_price) / item.initial_price) *
+                            1000,
+                          ) / 10
                           : s.delta_pct;
                       return {
                         x:
                           sortedSnaps.length > 1
                             ? padX +
-                              (idx / (sortedSnaps.length - 1)) * (chartW - padX * 2)
+                            (idx / (sortedSnaps.length - 1)) * (chartW - padX * 2)
                             : chartW - padX,
                         y: toY(s.price),
                         id: s.history_id,
@@ -464,11 +474,11 @@ export function ItemDetailsModal({
                     left: `clamp(8px, calc(${(hoveredSnap.x / chartW) * 100}% - 95px), calc(100% - 198px))`,
                     ...(hoveredSnap.y < 60
                       ? {
-                          top: `calc(${(hoveredSnap.y / chartH) * 100}% + 10px)`,
-                        }
+                        top: `calc(${(hoveredSnap.y / chartH) * 100}% + 10px)`,
+                      }
                       : {
-                          bottom: `calc(${((chartH - hoveredSnap.y) / chartH) * 100}% + 10px)`,
-                        }),
+                        bottom: `calc(${((chartH - hoveredSnap.y) / chartH) * 100}% + 10px)`,
+                      }),
                   }}
                   className="pointer-events-none absolute z-10 w-[min(190px,calc(100%-16px))] rounded-lg border border-gray-200 bg-white/95 px-2.5 py-1.5 text-[11px] leading-snug shadow-md"
                 >
@@ -539,11 +549,24 @@ export function ItemDetailsModal({
                       </div>
                     </div>
                     <div className="min-w-0">
-                      <div className="mb-1 text-[10px] font-medium text-zinc-500">
+                      <label
+                        htmlFor="detail-current-price"
+                        className="mb-1 block text-[10px] font-medium text-zinc-500"
+                      >
                         Current Tracked Price
-                      </div>
-                      <div className="tabular-nums flex min-h-11 items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 text-xs font-semibold text-zinc-950 sm:min-h-9">
-                        {formatMoney(activeItem.currency, activeItem.current_price)}
+                      </label>
+                      <div className="flex min-h-11 items-center rounded-lg border border-gray-200 bg-white px-2.5 focus-within:ring-2 focus-within:ring-zinc-950 sm:min-h-9">
+                        <span className="mr-1 text-zinc-400">
+                          {activeItem.currency}
+                        </span>
+                        <input
+                          id="detail-current-price"
+                          type="number"
+                          step="0.01"
+                          value={currentPrice}
+                          onChange={(e) => setCurrentPrice(e.target.value)}
+                          className="tabular-nums min-w-0 w-full bg-transparent py-1.5 text-xs font-semibold text-zinc-950 focus:outline-none"
+                        />
                       </div>
                     </div>
                     <div className="min-w-0">

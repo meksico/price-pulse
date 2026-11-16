@@ -31,7 +31,10 @@ from pricepulse.adapters.local_json import (
     InMemoryNotificationAdapter,
     LocalJsonRepository,
 )
-from pricepulse.adapters.playwright_scraper import PlaywrightScraperAdapter
+from pricepulse.adapters.playwright_scraper import (
+    CaptchaBlockedError,
+    PlaywrightScraperAdapter,
+)
 from pricepulse.diagnostics import StructuredLogger, collect_runtime_diagnostics
 from pricepulse.domain.models import (
     APP_VERSION,
@@ -68,6 +71,7 @@ class UpdateItemRequest(BaseModel):
     name: str | None = None
     target_price: float | None = Field(default=None, gt=0)
     tag_names: list[str] | None = None
+    current_price: float | None = Field(default=None, gt=0)
 
 
 class MarkBoughtRequest(BaseModel):
@@ -364,6 +368,7 @@ def create_app(
                 name=payload.name,
                 target_price=payload.target_price,
                 tag_names=payload.tag_names,
+                current_price=payload.current_price,
             )
             return _serialize_item(item)
         except KeyError as exc:
@@ -480,6 +485,9 @@ def create_app(
         try:
             preview = await resolved_scraper.preview_url(payload.url)
             return asdict(preview)
+        except CaptchaBlockedError as exc:
+            logger.warn(f"Preview blocked by CAPTCHA for {payload.url}: {exc}")
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             logger.error(f"Preview scrape failed for {payload.url}", exc=exc)
             raise HTTPException(status_code=502, detail=str(exc)) from exc

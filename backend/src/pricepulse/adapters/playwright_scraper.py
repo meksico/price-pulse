@@ -25,6 +25,29 @@ DEFAULT_CONCURRENCY: int = 4
 DEFAULT_TIMEOUT_MS: int = 20_000
 MAX_RETRIES: int = 1
 
+_CAPTCHA_MARKERS: tuple[str, ...] = (
+    "zhcaptcha",
+    "ddos protection page",
+    "cf-chl-",
+    "just a moment...",
+    "g-recaptcha",
+    "h-captcha",
+    "hcaptcha",
+    "i'm not a robot",
+)
+
+
+class CaptchaBlockedError(ValueError):
+    """Raised when a retailer responds with an interactive CAPTCHA or anti-bot gate."""
+
+
+def detect_captcha_challenge(status: int, html: str) -> bool:
+    """Return True when HTTP status + HTML indicate an interactive anti-bot gate."""
+    if status not in (403, 429, 503):
+        return False
+    lowered = html.lower()
+    return any(marker in lowered for marker in _CAPTCHA_MARKERS)
+
 _CURRENCY_MAP: dict[str, str] = {
     "USD": "$",
     "EUR": "€",
@@ -321,6 +344,14 @@ class PlaywrightScraperAdapter:
             page = await context.new_page()
             resp = await page.goto(url, wait_until="domcontentloaded", timeout=self._timeout_ms)
             if resp is not None and resp.status >= 400:
+                try:
+                    err_html = await page.content()
+                except Exception:
+                    err_html = ""
+                if detect_captcha_challenge(resp.status, err_html):
+                    raise CaptchaBlockedError(
+                        f"CAPTCHA_BLOCKED (HTTP {resp.status}): {url} requires human verification."
+                    )
                 raise ValueError(f"HTTP {resp.status} for URL: {url}")
             return await page.content()
         finally:

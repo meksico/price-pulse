@@ -49,6 +49,7 @@ class StateRepositoryPort(Protocol):
         name: str | None = None,
         target_price: float | None = None,
         tag_names: list[str] | None = None,
+        current_price: float | None = None,
     ) -> TrackedItem:
         """Update editable fields and tags on an active tracked item."""
         ...

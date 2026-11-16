@@ -7,6 +7,7 @@ import pytest
 from pricepulse.adapters.playwright_scraper import (
     PlaywrightScraperAdapter,
     check_items_pooled,
+    detect_captcha_challenge,
     extract_preview_from_html,
     parse_proxy_config,
     parse_proxy_pool,
@@ -221,4 +222,12 @@ async def test_preview_urls_pooled_handles_mixed_success_and_failure() -> None:
     assert outcomes[0].preview.price == 199.0
     assert outcomes[1].success is False
     assert "HTTP 403" in (outcomes[1].error or "")
+
+
+def test_detect_captcha_challenge() -> None:
+    """Verify zhCAPTCHA / Cloudflare / reCAPTCHA detection on 403/429 responses."""
+    zh_html = "<html><head><title>DDOS protection page</title></head><body>zhCAPTCHA</body></html>"
+    assert detect_captcha_challenge(403, zh_html) is True
+    assert detect_captcha_challenge(200, zh_html) is False
+    assert detect_captcha_challenge(403, "<html><body>Forbidden</body></html>") is False
 

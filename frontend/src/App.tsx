@@ -801,6 +801,7 @@ export function App() {
       <AddItemModal
         open={addModalOpen}
         mode={route.addModalMode}
+        prefill={route.addPrefill}
         onModeChange={(nextMode) => navigate({ addModalMode: nextMode })}
         existingUrls={state?.items.map((item) => item.url) ?? []}
         availableTags={state?.tags ?? []}

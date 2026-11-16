@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -32,7 +33,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.3.24"
+    assert body["app_version"] == "0.3.25"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
@@ -241,4 +242,39 @@ def test_default_cors_allows_github_pages_origin(
     health_resp = client.get("/api/health", headers={"Origin": origin})
     assert health_resp.status_code == 200
     assert health_resp.headers.get("access-control-allow-origin") == origin
+
+
+def test_captcha_blocked_preview_returns_422_and_manual_price_update(
+    tmp_path: Path,
+) -> None:
+    """Verify CaptchaBlockedError maps to HTTP 422 and PATCH supports current_price."""
+    from pricepulse.adapters.playwright_scraper import CaptchaBlockedError
+
+    class CaptchaScraper:
+        async def preview_url(self, url: str) -> Any:
+            raise CaptchaBlockedError(f"CAPTCHA_BLOCKED (HTTP 403): {url}")
+
+        async def preview_urls(self, urls: list[str]) -> list[Any]:
+            return []
+
+        async def run_check(self, items: list[Any]) -> list[Any]:
+            return []
+
+    repo = LocalJsonRepository(tmp_path / "state.json")
+    app = create_app(repo=repo, scraper=CaptchaScraper(), notifier=InMemoryNotificationAdapter())
+    client = TestClient(app)
+
+    resp = client.post("/api/scrape/preview", json={"url": "https://kaplya.com.ua/p"})
+    assert resp.status_code == 422
+    assert "CAPTCHA_BLOCKED" in resp.json()["detail"]
+
+    item = repo.load_state().items[0]
+    patch_resp = client.patch(
+        f"/api/items/{item.item_id}",
+        json={"current_price": 123.45},
+    )
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["current_price"] == 123.45
+    snaps = [s for s in repo.load_state().price_history if s.item_id == item.item_id]
+    assert any(s.event_type == "MANUAL" and s.price == 123.45 for s in snaps)
 

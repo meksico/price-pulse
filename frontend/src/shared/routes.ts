@@ -3,6 +3,14 @@ import type { AppView } from "../ui/Header";
 export type GridTab = "active" | "bought";
 export type AddModalMode = "single" | "bulk";
 
+export interface AddModalPrefill {
+  url?: string;
+  title?: string;
+  price?: string;
+  currency?: string;
+  image?: string;
+}
+
 export interface AppRoute {
   view: AppView;
   gridTab: GridTab;
@@ -10,6 +18,7 @@ export interface AppRoute {
   itemId: string | null;
   addModalOpen: boolean;
   addModalMode: AddModalMode;
+  addPrefill?: AddModalPrefill | null;
 }
 
 /**
@@ -39,6 +48,21 @@ export function parseRoute(pathname: string, search: string): AppRoute {
   const modalParam = params.get("modal");
   const addModalMode: AddModalMode =
     params.get("mode") === "bulk" ? "bulk" : "single";
+  const prefillUrl = params.get("url")?.trim() ?? "";
+  const prefillTitle = params.get("title")?.trim() ?? "";
+  const prefillPrice = params.get("price")?.trim() ?? "";
+  const prefillCurrency = params.get("currency")?.trim() ?? "";
+  const prefillImage = params.get("image")?.trim() ?? "";
+  const addPrefill: AddModalPrefill | null =
+    prefillUrl || prefillTitle || prefillPrice || prefillCurrency || prefillImage
+      ? {
+          url: prefillUrl || undefined,
+          title: prefillTitle || undefined,
+          price: prefillPrice || undefined,
+          currency: prefillCurrency || undefined,
+          image: prefillImage || undefined,
+        }
+      : null;
 
   const base = getBasePath();
   const withoutBase =
@@ -79,6 +103,7 @@ export function parseRoute(pathname: string, search: string): AppRoute {
       itemId: null,
       addModalOpen: true,
       addModalMode,
+      addPrefill,
     };
   }
   if (cleanPath.startsWith(ROUTES.itemDetailsPrefix)) {

@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.3.24";
+export const APP_VERSION = "0.3.25";
 
 export type TagColor =
   | "purple"
@@ -177,6 +177,7 @@ export interface UpdateItemPayload {
   name?: string;
   target_price?: number;
   tag_names?: string[];
+  current_price?: number;
 }
 
 export function formatMoney(currency: string, amount: number): string {

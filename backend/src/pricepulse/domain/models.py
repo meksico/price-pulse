@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
-APP_VERSION: str = "0.3.24"
+APP_VERSION: str = "0.3.25"
 
 TAG_COLORS: tuple[str, ...] = (
     "purple",
@@ -31,6 +31,7 @@ class PriceEventType(StrEnum):
 
     INITIAL = "INITIAL"
     CHECK = "CHECK"
+    MANUAL = "MANUAL"
     BOUGHT = "BOUGHT"
     RESUMED = "RESUMED"
 

@@ -479,6 +479,7 @@ class GoogleSheetsRepository:
         name: str | None = None,
         target_price: float | None = None,
         tag_names: list[str] | None = None,
+        current_price: float | None = None,
     ) -> TrackedItem:
         """Update item fields in Items and sync Item_Tags."""
         state = self.load_state()
@@ -490,6 +491,12 @@ class GoogleSheetsRepository:
             item.name = name.strip()
         if target_price is not None:
             item.target_price = target_price
+        price_updated = current_price is not None and current_price != item.current_price
+        now = utc_now_iso()
+        if price_updated and current_price is not None:
+            item.current_price = current_price
+            item.lowest_price = min(item.lowest_price, current_price)
+            item.last_checked = now
         row_num = idx + 2
         self._service.spreadsheets().values().batchUpdate(
             spreadsheetId=self._spreadsheet_id,
@@ -497,17 +504,42 @@ class GoogleSheetsRepository:
                 "valueInputOption": "USER_ENTERED",
                 "data": [
                     {"range": f"Items!B{row_num}", "values": [[item.name]]},
-                    {"range": f"Items!H{row_num}", "values": [[item.target_price]]},
+                    {
+                        "range": f"Items!G{row_num}:L{row_num}",
+                        "values": [
+                            [
+                                item.current_price,
+                                item.target_price,
+                                item.lowest_price,
+                                item.status,
+                                item.drop_pct,
+                                item.last_checked,
+                            ]
+                        ],
+                    },
                 ],
             },
         ).execute()
+        if price_updated and current_price is not None:
+            self._append_rows(
+                "Price_History",
+                [
+                    [
+                        f"hist-{uuid.uuid4().hex[:8]}",
+                        item.item_id,
+                        now,
+                        current_price,
+                        compute_delta_pct(item.initial_price, current_price),
+                        PriceEventType.MANUAL.value,
+                    ]
+                ],
+            )
         if tag_names is not None:
             del_indices = [
                 i + 1 for i, link in enumerate(state.item_tags) if link.item_id == item_id
             ]
             self._delete_rows("Item_Tags", del_indices)
             item.tag_ids = self._ensure_tags(tag_names, state.tags)
-            now = utc_now_iso()
             self._append_rows("Item_Tags", [[item_id, tid, now] for tid in item.tag_ids])
         return item
 
