@@ -33,7 +33,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.3.28"
+    assert body["app_version"] == "0.3.29"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
@@ -316,6 +316,10 @@ def test_daily_captcha_report_sent_once_per_day(
     assert first.json()["captcha_report_sent"] is True
     assert len(notifier.sent_captcha_reports) == 1
     assert notifier.sent_captcha_reports[0][2] == "https://meksico.github.io/price-pulse"
+    updated = repo.load_state()
+    manual_tag = next((t for t in updated.tags if t.name.lower() == "manual check"), None)
+    assert manual_tag is not None
+    assert manual_tag.tag_id in updated.items[0].tag_ids
 
     second = client.post("/api/scrape/run-check")
     assert second.status_code == 200

@@ -570,12 +570,23 @@ def create_app(
         digest_sent = resolved_notifier.send_discount_digest(recipient, alert_items)
 
         items_by_id = {item.item_id: item for item in updated_state.items}
+        tag_name_by_id = {t.tag_id: t.name for t in updated_state.tags}
         captcha_blocked_items: list[tuple[TrackedItem, str]] = []
         for outcome in outcomes:
             err = outcome.error or ""
             if not outcome.success and ("CAPTCHA_BLOCKED" in err or "HTTP 403" in err):
                 matched_item = items_by_id.get(outcome.item_id)
                 if matched_item is not None:
+                    existing_names = [
+                        tag_name_by_id[tid]
+                        for tid in matched_item.tag_ids
+                        if tid in tag_name_by_id
+                    ]
+                    if not any(n.lower() == "manual check" for n in existing_names):
+                        matched_item = resolved_repo.update_item(
+                            matched_item.item_id,
+                            tag_names=[*existing_names, "manual check"],
+                        )
                     captcha_blocked_items.append((matched_item, err))
 
         today_utc = utc_now_iso()[:10]

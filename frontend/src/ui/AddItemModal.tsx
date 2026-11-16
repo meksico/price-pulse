@@ -13,6 +13,7 @@ import { TagAdderControl } from "./TagAdderControl";
 import type { PushToastFn } from "./ToastViewport";
 
 const MAX_BULK_URLS = 20;
+const MANUAL_CHECK_TAG = "manual check";
 const SWIPE_ACTIVATION_PX = 8;
 const SWIPE_COMMIT_PX = 48;
 
@@ -525,6 +526,11 @@ export function AddItemModal({
           ? err.message
           : "Could not extract product metadata.";
       if (/CAPTCHA_BLOCKED|HTTP 403/i.test(msg)) {
+        setSelectedTagNames((prev) =>
+          prev.some((t) => t.toLowerCase() === MANUAL_CHECK_TAG)
+            ? prev
+            : [...prev, MANUAL_CHECK_TAG],
+        );
         setCaptchaBlockedMsg(
           "This retailer uses anti-bot / CAPTCHA protection, so PricePulse cannot fetch it automatically. Enter the Product Title and Baseline Price manually below and save — PricePulse will include this item in your once-daily manual-check email with direct links to check and update it.",
         );
@@ -796,14 +802,20 @@ export function AddItemModal({
     }
   };
 
-  const handleConfigureManually = (failedUrl: string) => {
+  const handleConfigureManually = (failedUrl: string, failedError = "") => {
     setUrl(failedUrl);
     setTitle("");
     setImageUrl("");
     setCurrency(defaultCurrency);
     setInitialPrice("");
     setTargetPrice("");
-    setSelectedTagNames([...bulkTagNames]);
+    const needsManualCheck = /CAPTCHA_BLOCKED|HTTP 403/i.test(failedError);
+    setSelectedTagNames(
+      needsManualCheck &&
+        !bulkTagNames.some((t) => t.toLowerCase() === MANUAL_CHECK_TAG)
+        ? [...bulkTagNames, MANUAL_CHECK_TAG]
+        : [...bulkTagNames],
+    );
     switchMode("single");
   };
 
@@ -1505,7 +1517,7 @@ export function AddItemModal({
                     <button
                       type="button"
                       aria-label={`Configure manually ${failed.url}`}
-                      onClick={() => handleConfigureManually(failed.url)}
+                      onClick={() => handleConfigureManually(failed.url, failed.error)}
                       className="min-h-9 shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-950 hover:bg-gray-50"
                     >
                       Configure Manually &rarr;

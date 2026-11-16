@@ -1,6 +1,6 @@
 import type { AppView } from "../ui/Header";
 
-export type GridTab = "active" | "bought";
+export type GridTab = "active" | "manual" | "bought";
 export type AddModalMode = "single" | "bulk";
 
 export interface AddModalPrefill {
@@ -42,7 +42,9 @@ export function getBasePath(): string {
 
 export function parseRoute(pathname: string, search: string): AppRoute {
   const params = new URLSearchParams(search);
-  const gridTab: GridTab = params.get("tab") === "bought" ? "bought" : "active";
+  const rawTab = params.get("tab");
+  const gridTab: GridTab =
+    rawTab === "bought" ? "bought" : rawTab === "manual" ? "manual" : "active";
   const tagParam = params.get("tag")?.trim() ?? "";
   const tagFilter = tagParam.length > 0 ? tagParam : "ALL";
   const modalParam = params.get("modal");
@@ -146,8 +148,8 @@ export function buildRouteUrl(route: AppRoute): string {
 
   const params = new URLSearchParams();
   if (route.view === "dashboard") {
-    if (route.gridTab === "bought") {
-      params.set("tab", "bought");
+    if (route.gridTab === "bought" || route.gridTab === "manual") {
+      params.set("tab", route.gridTab);
     }
     if (route.tagFilter && route.tagFilter !== "ALL") {
       params.set("tag", route.tagFilter);

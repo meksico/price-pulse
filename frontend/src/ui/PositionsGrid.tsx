@@ -12,12 +12,46 @@ import {
   formatMoney,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import type { GridTab } from "../shared/routes";
 
-type GridTab = "active" | "bought";
 type GroupMode = "none" | "tag";
 type SortField = "name" | "initial_price" | "current_price" | "target_price" | "drop_pct";
 
 const PAGE_SIZE = 15;
+const MANUAL_CHECK_TAG = "manual check";
+
+function getLastCheckDateStr(lastCheckedIso: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(lastCheckedIso.trim());
+  if (match) return match[1];
+  const ms = Date.parse(lastCheckedIso);
+  if (Number.isNaN(ms)) return lastCheckedIso;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function getDaysSinceLastCheck(lastCheckedIso: string, now = new Date()): number {
+  const dateStr = getLastCheckDateStr(lastCheckedIso);
+  const parts = dateStr.split("-").map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return 0;
+  const checkedUtcMs = Date.UTC(parts[0], parts[1] - 1, parts[2]);
+  const todayUtcMs = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  return Math.max(0, Math.floor((todayUtcMs - checkedUtcMs) / 86_400_000));
+}
+
+function getManualCheckRowClass(days: number): string {
+  if (days >= 6) return "bg-red-50 hover:bg-red-100/70";
+  if (days >= 1) return "bg-amber-50 hover:bg-amber-100/70";
+  return "hover:bg-gray-50/70";
+}
+
+function getManualCheckCardClass(days: number): string {
+  if (days >= 6) return "border-red-200 bg-red-50";
+  if (days >= 1) return "border-amber-200 bg-amber-50";
+  return "border-gray-200 bg-white";
+}
 
 interface PositionsGridProps {
   items: TrackedItem[];
@@ -93,9 +127,22 @@ export function PositionsGrid({
     onTagFilterChange(activeTagFilter === tagId ? "ALL" : tagId);
   };
 
+  const manualCheckItemsAll = useMemo(
+    () =>
+      items.filter((item) =>
+        item.tag_ids.some(
+          (id) =>
+            tagById.get(id)?.name.trim().toLowerCase() === MANUAL_CHECK_TAG,
+        ),
+      ),
+    [items, tagById],
+  );
+
   const filteredActive = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const list = items.filter((item) => {
+    const sourceItems =
+      activeTab === "manual" ? manualCheckItemsAll : items;
+    const list = sourceItems.filter((item) => {
       if (activeTagFilter !== "ALL" && !item.tag_ids.includes(activeTagFilter)) {
         return false;
       }
@@ -115,7 +162,16 @@ export function PositionsGrid({
           : Number(av) - Number(bv);
       return sortAsc ? cmp : -cmp;
     });
-  }, [items, activeTagFilter, searchQuery, sortField, sortAsc, tagById]);
+  }, [
+    activeTab,
+    items,
+    manualCheckItemsAll,
+    activeTagFilter,
+    searchQuery,
+    sortField,
+    sortAsc,
+    tagById,
+  ]);
 
   const filteredBought = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -192,11 +248,18 @@ export function PositionsGrid({
     </div>
   );
 
-  const renderMobileActiveCard = (item: TrackedItem) => (
-    <article
-      key={item.item_id}
-      className="min-w-0 space-y-2.5 rounded-xl border border-gray-200 bg-white p-3.5"
-    >
+  const renderMobileActiveCard = (item: TrackedItem) => {
+    const isManualTab = activeTab === "manual";
+    const daysSince = isManualTab ? getDaysSinceLastCheck(item.last_checked) : 0;
+    const cardTone = isManualTab
+      ? getManualCheckCardClass(daysSince)
+      : "border-gray-200 bg-white";
+    return (
+      <article
+        key={item.item_id}
+        data-manual-age-days={isManualTab ? daysSince : undefined}
+        className={`min-w-0 space-y-2.5 rounded-xl border p-3.5 ${cardTone}`}
+      >
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
           {item.image_url ? (
@@ -250,7 +313,14 @@ export function PositionsGrid({
       </div>
 
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">{renderTagChips(item.tag_ids)}</div>
+        <div className="min-w-0 flex-1">
+          {renderTagChips(item.tag_ids)}
+          {isManualTab && (
+            <div className="tabular-nums mt-1 text-[11px] text-zinc-600">
+              Last check: {getLastCheckDateStr(item.last_checked)}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => onOpenItem(item.item_id)}
@@ -260,7 +330,8 @@ export function PositionsGrid({
         </button>
       </div>
     </article>
-  );
+    );
+  };
 
   const renderMobileBoughtCard = (item: BoughtItem) => (
     <article
@@ -314,10 +385,16 @@ export function PositionsGrid({
 
   const renderActiveRow = (item: TrackedItem) => {
     const snaps = priceHistory.filter((s) => s.item_id === item.item_id);
+    const isManualTab = activeTab === "manual";
+    const daysSince = isManualTab ? getDaysSinceLastCheck(item.last_checked) : 0;
+    const rowTone = isManualTab
+      ? getManualCheckRowClass(daysSince)
+      : "hover:bg-gray-50/70";
     return (
       <tr
         key={item.item_id}
-        className="border-b border-gray-100 transition-colors last:border-b-0 hover:bg-gray-50/70"
+        data-manual-age-days={isManualTab ? daysSince : undefined}
+        className={`border-b border-gray-100 transition-colors last:border-b-0 ${rowTone}`}
       >
         <td className="py-3 pr-3">
           <div className="flex items-center gap-3">
@@ -364,6 +441,11 @@ export function PositionsGrid({
             </span>
           )}
         </td>
+        {isManualTab && (
+          <td className="tabular-nums whitespace-nowrap px-2 py-3 text-right text-xs text-zinc-700">
+            {getLastCheckDateStr(item.last_checked)}
+          </td>
+        )}
         <td className="py-3 pl-3 text-right">
           <button
             type="button"
@@ -390,13 +472,16 @@ export function PositionsGrid({
         <div
           role="tablist"
           aria-label="Grid dataset view"
-          className="grid min-w-0 grid-cols-2 gap-1.5 sm:flex sm:items-center sm:gap-2"
+          className="grid min-w-0 grid-cols-1 gap-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2"
         >
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === "active"}
-            onClick={() => onTabChange("active")}
+            onClick={() => {
+              setPage(1);
+              onTabChange("active");
+            }}
             className={`tabular-nums min-h-11 min-w-0 truncate rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:min-h-8 ${
               activeTab === "active"
                 ? "bg-zinc-950 text-white"
@@ -404,6 +489,22 @@ export function PositionsGrid({
             }`}
           >
             Active Positions ({items.length})
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "manual"}
+            onClick={() => {
+              setPage(1);
+              onTabChange("manual");
+            }}
+            className={`tabular-nums min-h-11 min-w-0 truncate rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:min-h-8 ${
+              activeTab === "manual"
+                ? "bg-zinc-950 text-white"
+                : "bg-gray-100 text-zinc-900 hover:bg-gray-200"
+            }`}
+          >
+            Manual check ({manualCheckItemsAll.length})
           </button>
           <button
             type="button"
@@ -505,7 +606,7 @@ export function PositionsGrid({
 
       {/* Mobile-first stacked cards (< 768px) */}
       <div className="min-w-0 space-y-2.5 md:hidden">
-        {activeTab === "active"
+        {activeTab === "active" || activeTab === "manual"
           ? groupBy === "none"
             ? pagedActive.map(renderMobileActiveCard)
             : groupedActive.map(([gid, group]) => {
@@ -542,7 +643,7 @@ export function PositionsGrid({
         data-scroll-container="true"
         className="hidden overflow-x-auto md:block"
       >
-        {activeTab === "active" ? (
+        {activeTab === "active" || activeTab === "manual" ? (
           <table className="w-full border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-gray-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
@@ -593,6 +694,9 @@ export function PositionsGrid({
                     Drop %
                   </button>
                 </th>
+                {activeTab === "manual" && (
+                  <th className="px-2 py-2 text-right">Last check</th>
+                )}
                 <th className="py-2 pl-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -684,15 +788,19 @@ export function PositionsGrid({
         )}
       </div>
 
-      {activeTab === "active" && groupBy === "none" && (
-        <div className="tabular-nums mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
-          <span>
-            Showing{" "}
-            {filteredActive.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}
-            &ndash;
-            {Math.min(safePage * PAGE_SIZE, filteredActive.length)} of{" "}
-            {filteredActive.length} active positions
-          </span>
+      {(activeTab === "active" || activeTab === "manual") &&
+        groupBy === "none" && (
+          <div className="tabular-nums mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+            <span>
+              Showing{" "}
+              {filteredActive.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}
+              &ndash;
+              {Math.min(safePage * PAGE_SIZE, filteredActive.length)} of{" "}
+              {filteredActive.length}{" "}
+              {activeTab === "manual"
+                ? "manual check positions"
+                : "active positions"}
+            </span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"

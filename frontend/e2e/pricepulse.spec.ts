@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.28");
+    expect(menuVersion).toBe("v0.3.29");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.28");
+    expect(healthVersion).toBe("v0.3.29");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.28"',
+      '"app_version": "0.3.29"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1176,6 +1176,91 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
 
     releasePatch();
     await expect(detailsDialog).toBeHidden();
+  });
+
+  test("auto-tags CAPTCHA items with 'manual check' and renders Manual check section with Last check age highlighting", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.route("**/api/scrape/preview", async (route) => {
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail:
+            "CAPTCHA_BLOCKED (HTTP 403): https://kaplya.com.ua/manual-tab requires human verification.",
+        }),
+      });
+    });
+
+    await page.goto("/items/new");
+    const addDialog = page.getByRole("dialog", { name: /Track New Product URL/i });
+    await expect(addDialog).toBeVisible();
+    await addDialog
+      .getByLabel("Product URL")
+      .fill("https://kaplya.com.ua/manual-tab");
+    await addDialog.getByRole("button", { name: "Fetch Preview" }).click();
+
+    await expect(
+      addDialog.getByRole("button", { name: "Remove tag manual check" }),
+    ).toBeVisible();
+    await addDialog.getByLabel("Product Title").fill("Manual Tab Today");
+    await addDialog.getByLabel("Baseline Price").fill("1000");
+    await addDialog.getByLabel("Target Alert Price").fill("850");
+    await addDialog.getByRole("button", { name: /Save & Start Tracking/i }).click();
+    await expect(addDialog).toBeHidden();
+
+    // Remains visible in Active Positions AND aggregated in Manual check tab
+    await expect(
+      page.getByRole("row", { name: /Manual Tab Today/i }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: /Manual check/i }).click();
+    await expect(page).toHaveURL(/tab=manual/);
+    await expect(
+      page.getByRole("columnheader", { name: "Last check" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("row", { name: /Manual Tab Today/i }),
+    ).toBeVisible();
+
+    // Verify 1-5 days yellow and 6+ days red highlighting via mocked /api/state dates
+    const daysAgoIso = (days: number) => {
+      const d = new Date(Date.now() - days * 86_400_000);
+      return d.toISOString();
+    };
+    await page.route("**/api/state", async (route) => {
+      const resp = await route.fetch();
+      const json = (await resp.json()) as {
+        tags: Array<{ tag_id: string; name: string }>;
+        items: Array<{
+          item_id: string;
+          name: string;
+          tag_ids: string[];
+          last_checked: string;
+        }>;
+      };
+      const manualTag = json.tags.find(
+        (t) => t.name.toLowerCase() === "manual check",
+      );
+      if (manualTag && json.items.length >= 2) {
+        json.items[0].name = "Yellow 3d Item";
+        json.items[0].tag_ids = [manualTag.tag_id];
+        json.items[0].last_checked = daysAgoIso(3);
+
+        json.items[1].name = "Red 7d Item";
+        json.items[1].tag_ids = [manualTag.tag_id];
+        json.items[1].last_checked = daysAgoIso(7);
+      }
+      await route.fulfill({ json });
+    });
+
+    await page.goto("/?tab=manual");
+    const yellowRow = page.getByRole("row", { name: /Yellow 3d Item/i });
+    const redRow = page.getByRole("row", { name: /Red 7d Item/i });
+    await expect(yellowRow).toHaveClass(/bg-amber-50/);
+    await expect(yellowRow).toContainText(daysAgoIso(3).slice(0, 10));
+    await expect(redRow).toHaveClass(/bg-red-50/);
+    await expect(redRow).toContainText(daysAgoIso(7).slice(0, 10));
   });
 });
 
