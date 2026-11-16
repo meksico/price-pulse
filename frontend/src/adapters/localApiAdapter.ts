@@ -13,7 +13,7 @@ import type {
   UpdateItemPayload,
   WorkspaceState,
 } from "../domain/models";
-import type { DataStorePort } from "../ports/dataStore";
+import type { DataStorePort, RequestRetryCallback } from "../ports/dataStore";
 import { waitForDocumentVisible } from "../shared/auth";
 
 const RETRY_DELAYS_MS = [350, 800] as const;
@@ -43,7 +43,11 @@ export class LocalApiDataAdapter implements DataStorePort {
     this.getAuthToken = getAuthToken;
   }
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private async request<T>(
+    path: string,
+    init?: RequestInit,
+    onRetry?: RequestRetryCallback,
+  ): Promise<T> {
     const token = this.getAuthToken?.();
     const headers: Record<string, string> = {
       ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
@@ -71,6 +75,12 @@ export class LocalApiDataAdapter implements DataStorePort {
           RETRYABLE_STATUSES.has(resp.status) &&
           attempt < maxAttempts - 1
         ) {
+          onRetry?.({
+            nextAttempt: attempt + 2,
+            maxAttempts,
+            status: resp.status,
+            reason: `HTTP ${resp.status}`,
+          });
           await delayMs(RETRY_DELAYS_MS[attempt] ?? 800);
           continue;
         }
@@ -79,6 +89,11 @@ export class LocalApiDataAdapter implements DataStorePort {
       } catch (err) {
         lastError = err;
         if (isTransientNetworkError(err) && attempt < maxAttempts - 1) {
+          onRetry?.({
+            nextAttempt: attempt + 2,
+            maxAttempts,
+            reason: err instanceof Error ? err.message : "Network error",
+          });
           await delayMs(RETRY_DELAYS_MS[attempt] ?? 800);
           continue;
         }
@@ -99,20 +114,31 @@ export class LocalApiDataAdapter implements DataStorePort {
     return this.request<RuntimeDiagnostics>("/api/health");
   }
 
-  previewUrl(url: string): Promise<ScrapePreview> {
-    return this.request<ScrapePreview>("/api/scrape/preview", {
-      method: "POST",
-      body: JSON.stringify({ url }),
-    });
+  previewUrl(
+    url: string,
+    onRetry?: RequestRetryCallback,
+  ): Promise<ScrapePreview> {
+    return this.request<ScrapePreview>(
+      "/api/scrape/preview",
+      {
+        method: "POST",
+        body: JSON.stringify({ url }),
+      },
+      onRetry,
+    );
   }
 
-  async previewUrlsBatch(urls: string[]): Promise<BatchPreviewItemResult[]> {
+  async previewUrlsBatch(
+    urls: string[],
+    onRetry?: RequestRetryCallback,
+  ): Promise<BatchPreviewItemResult[]> {
     const res = await this.request<BatchPreviewResponse>(
       "/api/scrape/preview-batch",
       {
         method: "POST",
         body: JSON.stringify({ urls }),
       },
+      onRetry,
     );
     return res.results;
   }

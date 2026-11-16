@@ -13,11 +13,26 @@ import type {
   WorkspaceState,
 } from "../domain/models";
 
+export interface RetryAttemptInfo {
+  nextAttempt: number;
+  maxAttempts: number;
+  status?: number;
+  reason: string;
+}
+
+export type RequestRetryCallback = (info: RetryAttemptInfo) => void;
+
 export interface DataStorePort {
   loadState(): Promise<WorkspaceState>;
   getHealth(): Promise<RuntimeDiagnostics>;
-  previewUrl(url: string): Promise<ScrapePreview>;
-  previewUrlsBatch(urls: string[]): Promise<BatchPreviewItemResult[]>;
+  previewUrl(
+    url: string,
+    onRetry?: RequestRetryCallback,
+  ): Promise<ScrapePreview>;
+  previewUrlsBatch(
+    urls: string[],
+    onRetry?: RequestRetryCallback,
+  ): Promise<BatchPreviewItemResult[]>;
   addItem(payload: AddItemPayload): Promise<TrackedItem>;
   addItemsBatch(items: AddItemPayload[]): Promise<TrackedItem[]>;
   updateItem(itemId: string, payload: UpdateItemPayload): Promise<TrackedItem>;

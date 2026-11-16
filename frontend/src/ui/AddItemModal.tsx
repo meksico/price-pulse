@@ -6,6 +6,7 @@ import type {
   Tag,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import type { RequestRetryCallback } from "../ports/dataStore";
 import type { AddModalMode, AddModalPrefill } from "../shared/routes";
 import { useBottomSheetSwipeDismiss } from "../shared/useBottomSheetSwipeDismiss";
 import { TagAdderControl } from "./TagAdderControl";
@@ -24,8 +25,14 @@ interface AddItemModalProps {
   availableTags?: Tag[];
   defaultCurrency?: string;
   onClose: () => void;
-  onPreviewUrl: (url: string) => Promise<ScrapePreview>;
-  onPreviewUrlsBatch?: (urls: string[]) => Promise<BatchPreviewItemResult[]>;
+  onPreviewUrl: (
+    url: string,
+    onRetry?: RequestRetryCallback,
+  ) => Promise<ScrapePreview>;
+  onPreviewUrlsBatch?: (
+    urls: string[],
+    onRetry?: RequestRetryCallback,
+  ) => Promise<BatchPreviewItemResult[]>;
   onSaveItem: (payload: AddItemPayload) => Promise<void>;
   onSaveItemsBatch?: (payloads: AddItemPayload[]) => Promise<void>;
   onNotify?: PushToastFn;
@@ -470,6 +477,17 @@ export function AddItemModal({
     );
   };
 
+  const notifyRetryAttempt: RequestRetryCallback = (info) => {
+    setLoadingTitle(
+      `Retrying (Attempt ${info.nextAttempt}/${info.maxAttempts})...`,
+    );
+    onNotify?.(
+      "warning",
+      `Bad result. Attempt #${info.nextAttempt}`,
+      `${info.reason} — retrying request (${info.nextAttempt}/${info.maxAttempts})...`,
+    );
+  };
+
   const handleFetch = async () => {
     if (!url.trim()) {
       onNotify?.(
@@ -483,7 +501,7 @@ export function AddItemModal({
     setLoadingTitle("Fetching product metadata...");
     setFetching(true);
     try {
-      const preview = await onPreviewUrl(url.trim());
+      const preview = await onPreviewUrl(url.trim(), notifyRetryAttempt);
       setTitle(preview.title);
       setImageUrl(preview.image_url);
       setCurrency(preview.currency);
@@ -599,7 +617,10 @@ export function AddItemModal({
     try {
       let results: BatchPreviewItemResult[];
       if (onPreviewUrlsBatch) {
-        results = await onPreviewUrlsBatch(parsedBulk.validUrls);
+        results = await onPreviewUrlsBatch(
+          parsedBulk.validUrls,
+          notifyRetryAttempt,
+        );
       } else {
         results = await Promise.all(
           parsedBulk.validUrls.map(async (itemUrl) => {

@@ -809,8 +809,10 @@ export function App() {
         onClose={() =>
           navigate({ addModalOpen: false, addModalMode: "single" })
         }
-        onPreviewUrl={(url) => store.previewUrl(url)}
-        onPreviewUrlsBatch={(urls) => store.previewUrlsBatch(urls)}
+        onPreviewUrl={(url, onRetry) => store.previewUrl(url, onRetry)}
+        onPreviewUrlsBatch={(urls, onRetry) =>
+          store.previewUrlsBatch(urls, onRetry)
+        }
         onSaveItem={handleAddItem}
         onSaveItemsBatch={handleAddItemsBatch}
         onNotify={pushToast}

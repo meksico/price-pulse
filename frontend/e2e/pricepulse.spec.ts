@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.26");
+    expect(menuVersion).toBe("v0.3.27");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -585,7 +585,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.26");
+    expect(healthVersion).toBe("v0.3.27");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -603,7 +603,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.26"',
+      '"app_version": "0.3.27"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1065,6 +1065,40 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       page.getByRole("row", { name: /Imprese Praha Faucet/i }),
     ).toContainText("2,999.00");
+  });
+
+  test("emits live retry attempt toasts (Attempt #2, Attempt #3) and final toast on 502 retries", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    let previewAttempts = 0;
+    await page.route("**/api/scrape/preview", async (route) => {
+      previewAttempts += 1;
+      await route.fulfill({
+        status: 502,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Upstream timeout" }),
+      });
+    });
+
+    await page.goto("/items/new");
+    const addDialog = page.getByRole("dialog", { name: /Track New Product URL/i });
+    await expect(addDialog).toBeVisible();
+    await addDialog
+      .getByLabel("Product URL")
+      .fill("https://sanok.com.ua/ru/slow-item");
+    await addDialog.getByRole("button", { name: "Fetch Preview" }).click();
+
+    await expect(
+      page.getByRole("status").filter({ hasText: "Bad result. Attempt #2" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Bad result. Attempt #3" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Preview failed" }),
+    ).toBeVisible();
+    expect(previewAttempts).toBe(3);
   });
 });
 
