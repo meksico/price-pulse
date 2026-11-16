@@ -981,7 +981,7 @@ export function AddItemModal({
                     onClick={() => void handleFetch()}
                     disabled={fetching}
                     aria-busy={fetching}
-                    className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-50 disabled:opacity-40 sm:min-h-10"
+                    className="min-h-11 shrink-0 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1 disabled:opacity-40 sm:min-h-10"
                   >
                     {fetching ? "Fetching..." : "Fetch Preview"}
                   </button>
