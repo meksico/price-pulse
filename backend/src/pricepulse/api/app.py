@@ -500,6 +500,41 @@ def create_app(
     def _is_captcha_or_forbidden(err: str) -> bool:
         return "CAPTCHA_BLOCKED" in err or "HTTP 403" in err
 
+    async def _try_gemini_preview_fallback(url: str) -> ScrapePreview | None:
+        if not resolved_gemini.is_enabled:
+            return None
+        current_month = utc_now_iso()[:7]
+        state = resolved_repo.load_state()
+        used = _read_gemini_usage(state.config, current_month)
+        if used >= resolved_gemini.monthly_cap:
+            return None
+        try:
+            gemini_res = await resolved_gemini.extract_price(url)
+        except Exception as gemini_exc:
+            logger.warn(f"Gemini fallback failed for preview {url}: {gemini_exc}")
+            return None
+        if gemini_res is None:
+            return None
+        resolved_repo.save_config(
+            [
+                ConfigEntry(
+                    key="gemini_grounding_usage",
+                    value=format_monthly_usage(
+                        current_month,
+                        used + gemini_res.queries_used,
+                    ),
+                )
+            ]
+        )
+        return ScrapePreview(
+            url=url,
+            title=gemini_res.title,
+            price=gemini_res.price,
+            currency=gemini_res.currency,
+            image_url="",
+            extraction_tier="gemini_search",
+        )
+
     @app.post("/api/scrape/preview")
     async def preview_url(
         payload: PreviewUrlRequest,
@@ -509,44 +544,17 @@ def create_app(
         try:
             preview = await resolved_scraper.preview_url(payload.url)
             return asdict(preview)
-        except CaptchaBlockedError as exc:
-            if resolved_gemini.is_enabled:
-                current_month = utc_now_iso()[:7]
-                state = resolved_repo.load_state()
-                used = _read_gemini_usage(state.config, current_month)
-                if used < resolved_gemini.monthly_cap:
-                    try:
-                        gemini_res = await resolved_gemini.extract_price(payload.url)
-                    except Exception as gemini_exc:
-                        logger.warn(
-                            f"Gemini fallback failed for preview {payload.url}: {gemini_exc}"
-                        )
-                        gemini_res = None
-                    if gemini_res is not None:
-                        resolved_repo.save_config(
-                            [
-                                ConfigEntry(
-                                    key="gemini_grounding_usage",
-                                    value=format_monthly_usage(
-                                        current_month,
-                                        used + gemini_res.queries_used,
-                                    ),
-                                )
-                            ]
-                        )
-                        return asdict(
-                            ScrapePreview(
-                                url=payload.url,
-                                title=gemini_res.title,
-                                price=gemini_res.price,
-                                currency=gemini_res.currency,
-                                image_url="",
-                                extraction_tier="gemini_search",
-                            )
-                        )
-            logger.warn(f"Preview blocked by CAPTCHA for {payload.url}: {exc}")
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
+            if isinstance(exc, CaptchaBlockedError) or _is_captcha_or_forbidden(
+                str(exc)
+            ):
+                fallback_preview = await _try_gemini_preview_fallback(payload.url)
+                if fallback_preview is not None:
+                    return asdict(fallback_preview)
+                logger.warn(
+                    f"Preview blocked by CAPTCHA/WAF for {payload.url}: {exc}"
+                )
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
             logger.error(f"Preview scrape failed for {payload.url}", exc=exc)
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -562,21 +570,28 @@ def create_app(
         if len(clean_urls) > 20:
             raise HTTPException(status_code=400, detail="Maximum 20 URLs per batch")
         outcomes = await resolved_scraper.preview_urls(clean_urls)
-        return {
-            "results": [
+        results: list[dict[str, Any]] = []
+        for outcome in outcomes:
+            preview_obj = outcome.preview
+            success = outcome.success
+            error = outcome.error
+            if not success and _is_captcha_or_forbidden(error or ""):
+                fallback_preview = await _try_gemini_preview_fallback(outcome.url)
+                if fallback_preview is not None:
+                    preview_obj = fallback_preview
+                    success = True
+                    error = None
+            results.append(
                 {
                     "url": outcome.url,
-                    "success": outcome.success,
+                    "success": success,
                     "preview": (
-                        asdict(outcome.preview)
-                        if outcome.preview is not None
-                        else None
+                        asdict(preview_obj) if preview_obj is not None else None
                     ),
-                    "error": outcome.error,
+                    "error": error,
                 }
-                for outcome in outcomes
-            ]
-        }
+            )
+        return {"results": results}
 
     async def _execute_batch_check(user_email: str = "") -> dict[str, Any]:
         """Run pooled batch price check, update state, and send digest."""

@@ -490,3 +490,77 @@ def test_gemini_fallback_batch_respects_cooldown_and_monthly_cap(
     assert gemini.calls == 1
 
 
+def test_http_403_preview_triggers_gemini_fallback_and_maps_to_422_without_key(
+    tmp_path: Path,
+) -> None:
+    """Verify generic HTTP 403 triggers Gemini fallback (or 422 instead of 502)."""
+    import httpx
+
+    from pricepulse.adapters.gemini_search_fallback import GeminiSearchFallbackClient
+
+    class Forbidden403Scraper:
+        async def preview_url(self, url: str) -> Any:
+            raise ValueError(f"HTTP 403 for URL: {url}")
+
+        async def preview_urls(self, urls: list[str]) -> list[Any]:
+            return []
+
+        async def check_items(self, items: list[Any]) -> list[Any]:
+            return []
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        '{"price": 900, "currency": "PLN", '
+                                        '"title": "Trullo Flap Bag"}'
+                                    )
+                                }
+                            ]
+                        },
+                    }
+                ]
+            },
+        )
+
+    repo = LocalJsonRepository(tmp_path / "state.json")
+    gemini = GeminiSearchFallbackClient(
+        api_key="test-key",
+        transport=httpx.MockTransport(handler),
+    )
+    app = create_app(
+        repo=repo,
+        scraper=Forbidden403Scraper(),
+        notifier=InMemoryNotificationAdapter(),
+        gemini_fallback=gemini,
+    )
+    client = TestClient(app)
+
+    ok_resp = client.post(
+        "/api/scrape/preview",
+        json={"url": "https://www.cos.com/pl-pl/product/trullo-flap-bag-1349970001"},
+    )
+    assert ok_resp.status_code == 200
+    assert ok_resp.json()["price"] == 900.0
+    assert ok_resp.json()["currency"] == "zł"
+
+    # Without Gemini enabled, HTTP 403 returns 422 (never 502 retry storm)
+    app_no_key = create_app(
+        repo=repo,
+        scraper=Forbidden403Scraper(),
+        notifier=InMemoryNotificationAdapter(),
+        gemini_fallback=GeminiSearchFallbackClient(api_key=""),
+    )
+    resp_422 = TestClient(app_no_key).post(
+        "/api/scrape/preview",
+        json={"url": "https://www.cos.com/pl-pl/product/trullo-flap-bag-1349970001"},
+    )
+    assert resp_422.status_code == 422
+
+

@@ -143,6 +143,17 @@ def is_cooldown_elapsed(
     return (ref - checked_dt) >= timedelta(hours=cooldown_hours)
 
 
+def _extract_search_hints(url: str) -> tuple[str, str]:
+    """Extract clean domain and human-readable product keywords from a URL."""
+    parsed = urlparse(url)
+    host = parsed.netloc.lower().removeprefix("www.")
+    segments = [seg for seg in parsed.path.split("/") if seg]
+    slug = segments[-1] if segments else ""
+    slug = re.sub(r"\.(html?|php|aspx?)$", "", slug, flags=re.IGNORECASE)
+    keywords = re.sub(r"[-_]+", " ", slug).strip()
+    return host, keywords
+
+
 def _infer_region_hint(url: str) -> str:
     """Infer country/currency context from URL path or TLD."""
     parsed = urlparse(url)
@@ -226,8 +237,10 @@ class GeminiSearchFallbackClient:
             return None
 
         region_hint = _infer_region_hint(url)
+        host, keywords = _extract_search_hints(url)
+        target_desc = f"{keywords} on {host}" if keywords else url
         prompt_lines = [
-            "Run at most ONE Google Search query to find the current product price.",
+            f"Use Google Search (at most ONE query) to find the current price for {target_desc}.",
             f"Product URL: {url}",
             f"Expected store locale: {region_hint}",
         ]

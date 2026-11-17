@@ -9,6 +9,7 @@ import pytest
 
 from pricepulse.adapters.gemini_search_fallback import (
     GeminiSearchFallbackClient,
+    _extract_search_hints,
     format_monthly_usage,
     is_cooldown_elapsed,
     normalize_currency,
@@ -88,3 +89,13 @@ async def test_gemini_client_extracts_price_with_mock_transport() -> None:
     assert res.currency == "zł"
     assert res.title == "Relaxed Knit Jumper"
     assert res.queries_used == 1
+
+
+def test_extract_search_hints_from_product_url() -> None:
+    """Verify domain and product slug keywords are extracted for Gemini search."""
+    host, keywords = _extract_search_hints(
+        "https://www.cos.com/pl-pl/women/accessories/bags/handbags/product/"
+        "trullo-flap-bag-leather-black-1349970001"
+    )
+    assert host == "cos.com"
+    assert keywords == "trullo flap bag leather black 1349970001"
