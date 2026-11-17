@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.37`
+- **Document Version / App Target Baseline:** `0.3.38`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -237,3 +237,4 @@ flowchart TD
 | `0.3.35` | 2026-11-16 | Antigravity | Redesigned mobile (`< 768px`) item tiles in `PositionsGrid` as fully clickable `<button>` cards with a full-height left photo, compact `10px` tag pills next to the status badge, a 2-column `Baseline` / `Current` price strip, and removed the redundant `Item Card` / `View Card` buttons (`REQ-GRID-04`). |
 | `0.3.36` | 2026-11-17 | Antigravity | Fixed comma-decimal and mixed-separator price parsing (`50,48 грн`, `1.250,50 €`) in `_parse_float` / Tier 3 RegEx and enabled `json.loads(..., strict=False)` for Tier 1 JSON-LD blocks containing unescaped control characters (`REQ-SCRAPE-01`). |
 | `0.3.37` | 2026-11-17 | Antigravity | Changed `PositionsGrid` default sort order (`sortField = "added"`) to display the latest added items first across Active Positions, Manual check, and Bought Items Sheet (`REQ-GRID-01`). |
+| `0.3.38` | 2026-11-17 | Antigravity | Updated **Cancel** in `AddItemModal` (`handleResetAndClose`) to wipe all Single URL and Bulk URL List fields and state before closing (`REQ-MODAL-02`). |

@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.37");
+    expect(menuVersion).toBe("v0.3.38");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -589,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.37");
+    expect(healthVersion).toBe("v0.3.38");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -607,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.37"',
+      '"app_version": "0.3.38"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1443,6 +1443,32 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(page.locator("#grid-panel tbody tr").first()).not.toContainText(
       uniqueTitle,
     );
+  });
+
+  test("Cancel button in AddItemModal wipes all fields on reopen", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+
+    await page.getByRole("button", { name: /\+ Track New URL/i }).click();
+    const addModal = page.locator("#modal-add-item");
+    await expect(addModal).toBeVisible();
+
+    await addModal.getByLabel("Product URL").fill("https://example.com/draft");
+    await addModal.getByLabel("Product Title").fill("Draft Product");
+    await addModal.getByLabel("Baseline Price").fill("999");
+    await addModal.getByLabel("Target Alert Price").fill("799");
+    await addModal.getByRole("button", { name: "Cancel" }).click();
+    await expect(addModal).toBeHidden();
+
+    // Re-open AddItemModal and verify all fields were wiped
+    await page.getByRole("button", { name: /\+ Track New URL/i }).click();
+    await expect(addModal).toBeVisible();
+    await expect(addModal.getByLabel("Product URL")).toHaveValue("");
+    await expect(addModal.getByLabel("Product Title")).toHaveValue("");
+    await expect(addModal.getByLabel("Baseline Price")).toHaveValue("");
+    await expect(addModal.getByLabel("Target Alert Price")).toHaveValue("");
   });
 });
 

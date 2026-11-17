@@ -834,10 +834,23 @@ export function AddItemModal({
   };
 
   const handleResetAndClose = () => {
+    setUrl("");
+    setTitle("");
+    setImageUrl("");
+    setCurrency(defaultCurrency);
+    setInitialPrice("");
+    setTargetPrice("");
+    setSelectedTagNames([]);
+    setCaptchaBlockedMsg(null);
+    setPrefillNotice(false);
     setBulkUrlsText("");
+    setBulkDiscountPct("15");
+    setBulkTagNames([]);
     setDraftCards([]);
+    setActiveCardIndex(0);
     setFailedOutcomes([]);
     setSavedSummaries([]);
+    setFailedImages({});
     setBulkStep("input");
     onClose();
   };
@@ -1100,7 +1113,7 @@ export function AddItemModal({
               <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleResetAndClose}
                   className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
                 >
                   Cancel
@@ -1209,7 +1222,7 @@ export function AddItemModal({
               <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleResetAndClose}
                   className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
                 >
                   Cancel
