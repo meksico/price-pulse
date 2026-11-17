@@ -600,20 +600,31 @@ def create_app(
     async def _execute_batch_check(
         user_email: str = "",
         respect_cooldown: bool = True,
+        target_item_id: str | None = None,
     ) -> dict[str, Any]:
-        """Run pooled batch price check, update state, and send digest."""
+        """Run pooled price check (all items or single item), update state, and send digest."""
         started_at = utc_now_iso()
         start_ms = time.perf_counter()
         state = resolved_repo.load_state()
+        target_items = state.items
+        if target_item_id is not None:
+            target_items = [
+                item for item in state.items if item.item_id == target_item_id
+            ]
+            if not target_items:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Unknown item_id: {target_item_id}",
+                )
         prev_by_id = {
-            item.item_id: (item.status, item.lowest_price) for item in state.items
+            item.item_id: (item.status, item.lowest_price) for item in target_items
         }
-        outcomes = await resolved_scraper.check_items(state.items)
+        outcomes = await resolved_scraper.check_items(target_items)
         if resolved_gemini.is_enabled:
             current_month = utc_now_iso()[:7]
             initial_used = _read_gemini_usage(state.config, current_month)
             used = initial_used
-            state_items_by_id = {item.item_id: item for item in state.items}
+            state_items_by_id = {item.item_id: item for item in target_items}
             remaining_budget = max(0, resolved_gemini.monthly_cap - used)
             eligible: list[tuple[int, TrackedItem]] = []
             for idx, outcome in enumerate(outcomes):
@@ -783,6 +794,36 @@ def create_app(
             "alerts_triggered": len(alert_items),
             "digest_sent": digest_sent,
             "captcha_report_sent": captcha_report_sent,
+        }
+
+    @app.post("/api/items/{item_id}/recheck")
+    async def recheck_item(
+        item_id: str,
+        _user: str = Depends(_verify_auth),
+    ) -> dict[str, Any]:
+        """Trigger an immediate single-item price check from the Item Card."""
+        result = await _execute_batch_check(
+            user_email=_user,
+            respect_cooldown=False,
+            target_item_id=item_id,
+        )
+        telemetry = result["telemetry"]
+        if telemetry["status"] == RunStatus.ERROR.value:
+            errors = telemetry.get("errors") or []
+            err_msg = str(errors[0]) if errors else f"Failed to re-check {item_id}"
+            status_code = 422 if _is_captcha_or_forbidden(err_msg) else 502
+            raise HTTPException(status_code=status_code, detail=err_msg)
+        updated_state = resolved_repo.load_state()
+        updated = next(
+            (item for item in updated_state.items if item.item_id == item_id),
+            None,
+        )
+        if updated is None:
+            raise HTTPException(status_code=404, detail=f"Unknown item_id: {item_id}")
+        return {
+            "item": _serialize_item(updated),
+            "telemetry": telemetry,
+            "alerts_triggered": result["alerts_triggered"],
         }
 
     @app.post("/api/scrape/run-check")

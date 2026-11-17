@@ -5,15 +5,23 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from pricepulse.adapters.gemini_search_fallback import GeminiSearchFallbackClient
 from pricepulse.adapters.local_json import (
     DeterministicScraperAdapter,
     InMemoryNotificationAdapter,
     LocalJsonRepository,
 )
 from pricepulse.api.app import create_app
+from pricepulse.domain.models import (
+    BatchPreviewOutcome,
+    ScrapeOutcome,
+    ScrapePreview,
+    TrackedItem,
+)
 
 
 def _make_client(tmp_path: Path) -> TestClient:
@@ -33,7 +41,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.3.41"
+    assert body["app_version"] == "0.3.42"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
@@ -562,5 +570,78 @@ def test_http_403_preview_triggers_gemini_fallback_and_maps_to_422_without_key(
         json={"url": "https://www.cos.com/pl-pl/product/trullo-flap-bag-1349970001"},
     )
     assert resp_422.status_code == 422
+
+
+def test_single_item_recheck_updates_price_and_bypasses_cooldown(tmp_path: Path) -> None:
+    """Verify POST /api/items/{item_id}/recheck checks one item and bypasses 48h cooldown."""
+
+    class Forbidden403Scraper:
+        async def preview_url(self, url: str) -> ScrapePreview:
+            raise ValueError(f"HTTP 403 for URL: {url}")
+
+        async def preview_urls(self, urls: list[str]) -> list[BatchPreviewOutcome]:
+            return []
+
+        async def check_items(self, items: list[TrackedItem]) -> list[ScrapeOutcome]:
+            return [
+                ScrapeOutcome(
+                    item_id=item.item_id,
+                    success=False,
+                    error=f"{item.item_id} ({item.url}): HTTP 403",
+                )
+                for item in items
+            ]
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        '{"price": 800, "currency": "PLN", '
+                                        '"title": "Cashmere Crew-Neck Jumper"}'
+                                    )
+                                }
+                            ]
+                        },
+                    }
+                ]
+            },
+        )
+
+    repo = LocalJsonRepository(tmp_path / "state.json")
+    created = repo.add_item(
+        url="https://www.cos.com/pl-pl/product/cashmere-1288193001",
+        name="Cashmere Crew-Neck Jumper",
+        initial_price=1150.0,
+        target_price=900.0,
+        currency="zł",
+        image_url="",
+        tag_names=["Knitwear"],
+    )
+    gemini = GeminiSearchFallbackClient(
+        api_key="test-key",
+        cooldown_hours=48,
+        transport=httpx.MockTransport(handler),
+    )
+    app = create_app(
+        repo=repo,
+        scraper=Forbidden403Scraper(),
+        notifier=InMemoryNotificationAdapter(),
+        gemini_fallback=gemini,
+    )
+    client = TestClient(app)
+
+    resp = client.post(f"/api/items/{created.item_id}/recheck")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["item"]["current_price"] == 800.0
+    assert body["item"]["status"] == "DISCOUNT"
+    assert body["telemetry"]["items_checked"] == 1
+    assert client.post("/api/items/item-missing/recheck").status_code == 404
 
 

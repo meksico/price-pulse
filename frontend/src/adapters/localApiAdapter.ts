@@ -168,6 +168,17 @@ export class LocalApiDataAdapter implements DataStorePort {
     });
   }
 
+  async recheckItem(itemId: string): Promise<TrackedItem> {
+    // Non-idempotent live scrape / Gemini grounding: never auto-retry on 504.
+    const res = await this.request<{ item: TrackedItem }>(
+      `/api/items/${encodeURIComponent(itemId)}/recheck`,
+      { method: "POST" },
+      undefined,
+      1,
+    );
+    return res.item;
+  }
+
   markBought(itemId: string, purchasedPrice: number): Promise<BoughtItem> {
     return this.request<BoughtItem>(`/api/items/${itemId}/buy`, {
       method: "POST",

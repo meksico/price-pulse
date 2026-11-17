@@ -7,7 +7,7 @@ import type {
   UpdateItemPayload,
   WorkspaceState,
 } from "./domain/models";
-import { formatSavingsByCurrency } from "./domain/models";
+import { formatMoney, formatSavingsByCurrency } from "./domain/models";
 import { ANCHORS } from "./shared/anchors";
 import {
   clearStoredAuthToken,
@@ -315,6 +315,25 @@ export function App() {
         "Update failed",
         err instanceof Error ? err.message : String(err),
       );
+    }
+  };
+
+  const handleRecheckItem = async (itemId: string) => {
+    try {
+      const updated = await store.recheckItem(itemId);
+      await refreshAll();
+      pushToast(
+        "success",
+        "Price re-checked",
+        `"${updated.name}" is currently ${formatMoney(updated.currency, updated.current_price)}.`,
+      );
+    } catch (err) {
+      pushToast(
+        "error",
+        "Re-check failed",
+        err instanceof Error ? err.message : "Failed to re-check item price.",
+      );
+      throw err;
     }
   };
 
@@ -825,6 +844,7 @@ export function App() {
         snapshots={selectedSnapshots}
         onClose={() => navigate({ itemId: null })}
         onUpdateItem={handleUpdateItem}
+        onRecheckItem={handleRecheckItem}
         onBuyItem={handleBuyItem}
         onResumeItem={handleResumeItem}
         onDeleteItem={handleDeleteItem}

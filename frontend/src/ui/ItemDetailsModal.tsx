@@ -19,6 +19,7 @@ interface ItemDetailsModalProps {
   snapshots: PriceSnapshot[];
   onClose: () => void;
   onUpdateItem: (itemId: string, payload: UpdateItemPayload) => Promise<void>;
+  onRecheckItem?: (itemId: string) => Promise<void>;
   onBuyItem: (itemId: string, purchasedPrice: number) => Promise<void>;
   onResumeItem: (itemId: string) => Promise<void>;
   onDeleteItem: (itemId: string) => Promise<void>;
@@ -32,6 +33,7 @@ export function ItemDetailsModal({
   snapshots,
   onClose,
   onUpdateItem,
+  onRecheckItem,
   onBuyItem,
   onResumeItem,
   onDeleteItem,
@@ -311,15 +313,31 @@ export function ItemDetailsModal({
                 </a>
               </div>
             </div>
-            <button
-              type="button"
-              disabled={isBusy}
-              aria-label="Close Item Details modal"
-              onClick={onClose}
-              className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:min-w-9"
-            >
-              &times;
-            </button>
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <button
+                type="button"
+                disabled={isBusy}
+                aria-label="Close Item Details modal"
+                onClick={onClose}
+                className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:min-w-9"
+              >
+                &times;
+              </button>
+              {activeItem && onRecheckItem && (
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() =>
+                    void runBlockingAction("Re-checking price...", () =>
+                      onRecheckItem(activeItem.item_id),
+                    ).catch(() => undefined)
+                  }
+                  className="min-h-11 shrink-0 whitespace-nowrap rounded-xl bg-gray-100 px-3.5 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
+                >
+                  Re-check
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

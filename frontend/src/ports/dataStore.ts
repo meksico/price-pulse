@@ -36,6 +36,7 @@ export interface DataStorePort {
   addItem(payload: AddItemPayload): Promise<TrackedItem>;
   addItemsBatch(items: AddItemPayload[]): Promise<TrackedItem[]>;
   updateItem(itemId: string, payload: UpdateItemPayload): Promise<TrackedItem>;
+  recheckItem(itemId: string): Promise<TrackedItem>;
   markBought(itemId: string, purchasedPrice: number): Promise<BoughtItem>;
   resumeTracking(itemId: string): Promise<TrackedItem>;
   deleteItem(itemId: string): Promise<void>;
