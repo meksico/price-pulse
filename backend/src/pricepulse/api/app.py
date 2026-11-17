@@ -674,6 +674,7 @@ def create_app(
                             success=True,
                             price=gemini_res.price,
                             currency=gemini_res.currency,
+                            extraction_tier="gemini_search",
                             error=None,
                         )
             if used > initial_used:

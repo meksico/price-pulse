@@ -9,6 +9,7 @@ import pytest
 
 from pricepulse.adapters.gemini_search_fallback import (
     GeminiSearchFallbackClient,
+    _extract_product_id,
     _extract_search_hints,
     format_monthly_usage,
     is_cooldown_elapsed,
@@ -94,10 +95,76 @@ async def test_gemini_client_extracts_price_with_mock_transport() -> None:
 
 
 def test_extract_search_hints_from_product_url() -> None:
-    """Verify domain and product slug keywords are extracted for Gemini search."""
-    host, keywords = _extract_search_hints(
+    """Verify domain, product slug keywords, and trailing SKU ID are extracted."""
+    url = (
         "https://www.cos.com/pl-pl/women/accessories/bags/handbags/product/"
         "trullo-flap-bag-leather-black-1349970001"
     )
+    host, keywords = _extract_search_hints(url)
     assert host == "cos.com"
     assert keywords == "trullo flap bag leather black 1349970001"
+    assert _extract_product_id(url) == "1349970001"
+    assert (
+        _extract_product_id(
+            "https://www.stories.com/pl-pl/product/boucl-wool-car-coat-dark-grey-1338952001/"
+        )
+        == "1338952001"
+    )
+
+
+@pytest.mark.asyncio
+async def test_gemini_prompt_anchors_exact_url_and_sku() -> None:
+    """Verify Gemini request prompt includes exact URL, SKU ID, and temperature=0.0."""
+    captured_payload: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json
+
+        captured_payload.update(json.loads(request.content.decode("utf-8")))
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        '{"price": 800, "currency": "PLN", '
+                                        '"title": "Cashmere Crew-Neck Jumper", '
+                                        '"image_url": ""}'
+                                    )
+                                }
+                            ]
+                        },
+                        "groundingMetadata": {
+                            "webSearchQueries": ["cos.com 1288193001"],
+                        },
+                    }
+                ]
+            },
+        )
+
+    target_url = (
+        "https://www.cos.com/pl-pl/women/womenswear/knitwear/jumpers/cashmere/product/"
+        "cashmere-crew-neck-jumper-dark-grey-mlange-1288193001"
+    )
+    client = GeminiSearchFallbackClient(
+        api_key="test-key",
+        transport=httpx.MockTransport(handler),
+    )
+    res = await client.extract_price(target_url)
+    assert res is not None
+    assert res.price == 800.0
+    assert res.currency == "zł"
+
+    gen_cfg = captured_payload["generationConfig"]
+    assert isinstance(gen_cfg, dict)
+    assert gen_cfg["temperature"] == 0.0
+
+    contents = captured_payload["contents"]
+    assert isinstance(contents, list)
+    prompt_text = contents[0]["parts"][0]["text"]
+    assert f"Exact product URL: {target_url}" in prompt_text
+    assert "Exact product/article ID: 1288193001" in prompt_text
+    assert "Poland / PLN (zł)" in prompt_text

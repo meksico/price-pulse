@@ -54,15 +54,19 @@ _CURRENCY_MAP: dict[str, str] = {
     "UAH": "₴",
     "ГРН": "₴",
     "GBP": "£",
+    "PLN": "zł",
+    "ZŁ": "zł",
+    "ZL": "zł",
     "$": "$",
     "€": "€",
     "₴": "₴",
     "£": "£",
+    "zł": "zł",
 }
 
 _PRICE_REGEX = re.compile(r"([$€₴£])\s*([0-9]+(?:[.,\s\u00a0][0-9]+)*)")
 _SUFFIX_PRICE_REGEX = re.compile(
-    r"([0-9]+(?:[.,\s\u00a0][0-9]+)*)\s*(грн|UAH|USD|EUR|GBP|[$€₴£])",
+    r"([0-9]+(?:[.,\s\u00a0][0-9]+)*)\s*(грн|UAH|USD|EUR|GBP|PLN|zł|zl|[$€₴£])",
     re.IGNORECASE,
 )
 _NON_VISIBLE_HTML_RE = re.compile(

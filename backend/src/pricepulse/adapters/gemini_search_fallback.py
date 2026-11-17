@@ -144,6 +144,21 @@ def is_cooldown_elapsed(
     return (ref - checked_dt) >= timedelta(hours=cooldown_hours)
 
 
+def _extract_product_id(url: str) -> str:
+    """Extract a trailing numeric/alphanumeric SKU or article ID from a product URL."""
+    parsed = urlparse(url)
+    segments = [seg for seg in parsed.path.split("/") if seg]
+    if not segments:
+        return ""
+    slug = re.sub(r"\.(html?|php|aspx?)$", "", segments[-1], flags=re.IGNORECASE)
+    match = re.search(r"(?:^|[-_])(\d{6,})$", slug)
+    if match:
+        return match.group(1)
+    if slug.isdigit() and len(slug) >= 5:
+        return slug
+    return ""
+
+
 def _extract_search_hints(url: str) -> tuple[str, str]:
     """Extract clean domain and human-readable product keywords from a URL."""
     parsed = urlparse(url)
@@ -239,12 +254,24 @@ class GeminiSearchFallbackClient:
 
         region_hint = _infer_region_hint(url)
         host, keywords = _extract_search_hints(url)
+        product_id = _extract_product_id(url)
         target_desc = f"{keywords} on {host}" if keywords else url
         prompt_lines = [
             "Search Google for the current price, currency, product title, and direct product "
             f"image URL (from {host} or its CDN) for {target_desc}.",
+            f"Exact product URL: {url}",
             f"Expected store locale: {region_hint}",
         ]
+        if product_id:
+            prompt_lines.append(
+                f"Exact product/article ID: {product_id}. You MUST match this exact product "
+                f"ID ({product_id}) and exact store locale ({region_hint})."
+            )
+        prompt_lines.append(
+            "Do NOT use prices from similar or related products, different models, or other "
+            "country stores. If the exact product's current price in the expected locale cannot "
+            "be verified from search results, return null for price."
+        )
         if title.strip():
             prompt_lines.append(f"Known product title: {title.strip()}")
         if currency_hint.strip():
@@ -255,6 +282,7 @@ class GeminiSearchFallbackClient:
             "contents": [{"parts": [{"text": "\n".join(prompt_lines)}]}],
             "tools": [{"google_search": {}}],
             "generationConfig": {
+                "temperature": 0.0,
                 "responseMimeType": "application/json",
                 "responseSchema": {
                     "type": "OBJECT",
