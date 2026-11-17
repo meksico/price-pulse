@@ -333,9 +333,14 @@ export function TrajectoryChart({
           .filter(Boolean)
           .join(", ") || "Untagged";
       const baselineText = formatMoney(item.currency, item.initial_price);
+      const maxHalfSpread = 2;
+      const lineStep =
+        visibleItems.length > 1
+          ? Math.min(1.25, (maxHalfSpread * 2) / (visibleItems.length - 1))
+          : 0;
       const lineOffset =
         visibleItems.length > 1
-          ? (seriesIdx - (visibleItems.length - 1) / 2) * 1.25
+          ? (seriesIdx - (visibleItems.length - 1) / 2) * lineStep
           : 0;
 
       const points: ChartBulletPoint[] = snaps.map((snap, sIdx) => {
@@ -374,52 +379,38 @@ export function TrajectoryChart({
 
     const minX = padX + 4;
     const maxX = padX + plotWidth - 4;
-    const minGap = 8;
-    const bands = new Map<number, ChartBulletPoint[]>();
+    const idealGap = 6;
+    const maxClusterHalfSpread = 8;
+    const clusters = new Map<string, ChartBulletPoint[]>();
     for (const pt of bullets) {
-      const bucket = Math.round(pt.rawY / 6);
-      const arr = bands.get(bucket);
+      const key = `${Math.round(pt.rawX / 6)}:${Math.round(pt.rawY / 6)}`;
+      const arr = clusters.get(key);
       if (arr) arr.push(pt);
-      else bands.set(bucket, [pt]);
+      else clusters.set(key, [pt]);
     }
 
-    for (const band of bands.values()) {
-      if (band.length <= 1) {
-        if (band.length === 1) {
-          band[0].cx = Math.max(minX, Math.min(maxX, band[0].rawX));
-        }
+    for (const cluster of clusters.values()) {
+      if (cluster.length === 1) {
+        cluster[0].cx = Math.max(minX, Math.min(maxX, cluster[0].rawX));
         continue;
       }
-      band.sort(
+      cluster.sort(
         (a, b) => a.rawX - b.rawX || a.seriesIdx - b.seriesIdx || a.sIdx - b.sIdx,
       );
-      const n = band.length;
-      const effGap = Math.min(minGap, (maxX - minX) / Math.max(1, n - 1));
-      const xs = band.map((pt) => Math.max(minX, Math.min(maxX, pt.rawX)));
-
-      for (let i = 1; i < n; i++) {
-        if (xs[i] < xs[i - 1] + effGap) {
-          xs[i] = xs[i - 1] + effGap;
-        }
-      }
-      if (xs[n - 1] > maxX) {
-        xs[n - 1] = maxX;
-      }
-      for (let i = n - 2; i >= 0; i--) {
-        if (xs[i] > xs[i + 1] - effGap) {
-          xs[i] = xs[i + 1] - effGap;
-        }
-      }
-      if (xs[0] < minX) {
-        xs[0] = minX;
-        for (let i = 1; i < n; i++) {
-          if (xs[i] < xs[i - 1] + effGap) {
-            xs[i] = xs[i - 1] + effGap;
-          }
-        }
-      }
+      const n = cluster.length;
+      const meanRawX =
+        cluster.reduce((sum, pt) => sum + pt.rawX, 0) / n;
+      const halfSpread = Math.min(
+        maxClusterHalfSpread,
+        ((n - 1) * idealGap) / 2,
+      );
+      const centerX = Math.max(
+        minX + halfSpread,
+        Math.min(maxX - halfSpread, meanRawX),
+      );
       for (let i = 0; i < n; i++) {
-        band[i].cx = xs[i];
+        cluster[i].cx =
+          centerX - halfSpread + (i / (n - 1)) * (halfSpread * 2);
       }
     }
 
@@ -555,7 +546,7 @@ export function TrajectoryChart({
                                   const isPrimary = item.item_id === primaryItemId;
                                   const isDimmed = hoveredItemId !== null && !isPrimary;
                                   const polyline = points
-                                    .map((p) => `${p.cx},${p.cy}`)
+                                    .map((p) => `${p.rawX},${p.lineY}`)
                                     .join(" ");
                                   const firstPt = points[0];
                                   const lastPt = points[points.length - 1];
@@ -564,16 +555,16 @@ export function TrajectoryChart({
                                     <g key={item.item_id} opacity={isDimmed ? 0.25 : 1}>
                                       {isPrimary && points.length > 1 && (
                                         <polygon
-                                          points={`${polyline} ${lastPt.cx},${plotBottomY} ${firstPt.cx},${plotBottomY}`}
+                                          points={`${polyline} ${lastPt.rawX},${plotBottomY} ${firstPt.rawX},${plotBottomY}`}
                                           fill="url(#cobaltArea)"
                                         />
                                       )}
                                       {points.length === 1 ? (
                                         <line
-                                          x1={Math.max(padX, points[0].cx - 36)}
-                                          y1={points[0].cy}
-                                          x2={points[0].cx}
-                                          y2={points[0].cy}
+                                          x1={Math.max(padX, points[0].rawX - 36)}
+                                          y1={points[0].lineY}
+                                          x2={points[0].rawX}
+                                          y2={points[0].lineY}
                                           stroke={seriesColor}
                                           strokeWidth={isPrimary ? "2.25" : "1.75"}
                                           strokeDasharray="4 3"

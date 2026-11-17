@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.39");
+    expect(menuVersion).toBe("v0.3.43");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -589,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.39");
+    expect(healthVersion).toBe("v0.3.43");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -607,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.39"',
+      '"app_version": "0.3.43"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1545,6 +1545,104 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       addModal.getByRole("button", { name: /Remove tag manual check/i }),
     ).toBeVisible();
+  });
+
+  test("TrajectoryChart keeps lines at true baseline and bullets aligned for 25 coincident items", async ({
+    page,
+  }) => {
+    const timestamps = [
+      "2026-11-10T09:00:00Z",
+      "2026-11-12T09:00:00Z",
+      "2026-11-14T09:00:00Z",
+    ];
+    const items = Array.from({ length: 25 }, (_, i) => ({
+      item_id: `coincident-${i + 1}`,
+      name: `Coincident Item ${i + 1}`,
+      url: `https://example.com/item-${i + 1}`,
+      image_url: "",
+      currency: "$",
+      initial_price: 100,
+      current_price: 100,
+      target_price: 90,
+      lowest_price: 100,
+      drop_pct: 0,
+      status: "ACTIVE",
+      tag_ids: [],
+      last_checked: timestamps[2],
+      added_at: timestamps[0],
+    }));
+    const price_history = items.flatMap((item, idx) =>
+      timestamps.map((ts, tIdx) => ({
+        history_id: `hist-${idx}-${tIdx}`,
+        item_id: item.item_id,
+        price: 100,
+        delta_pct: 0,
+        recorded_at: ts,
+        event_type: tIdx === 0 ? "INITIAL" : "SCHEDULED",
+      })),
+    );
+
+    await page.route("**/api/state", async (route) => {
+      const resp = await route.fetch();
+      const json = (await resp.json()) as Record<string, unknown>;
+      json.items = items;
+      json.price_history = price_history;
+      await route.fulfill({ json });
+    });
+
+    await page.goto("/");
+    const chartSvg = page.locator("#chart-panel svg");
+    await expect(chartSvg).toBeVisible();
+
+    const metrics = await page.evaluate(() => {
+      const svg = document.querySelector("#chart-panel svg");
+      if (!svg) return null;
+      // Find the 0% dashed baseline line
+      const baseline = Array.from(svg.querySelectorAll("line")).find(
+        (el) => el.getAttribute("stroke-dasharray") === "4 4",
+      );
+      const baselineY = Number(baseline?.getAttribute("y1") ?? NaN);
+      const polylines = Array.from(svg.querySelectorAll("polyline"));
+      const polyYs: number[] = [];
+      const polyXs = new Set<number>();
+      for (const pl of polylines) {
+        const pts = (pl.getAttribute("points") ?? "").trim().split(/\s+/);
+        for (const pt of pts) {
+          const [xStr, yStr] = pt.split(",");
+          const x = Number(xStr);
+          const y = Number(yStr);
+          if (!Number.isNaN(x)) polyXs.add(Math.round(x));
+          if (!Number.isNaN(y)) polyYs.push(y);
+        }
+      }
+      const bullets = Array.from(
+        svg.querySelectorAll<SVGCircleElement>('circle[data-chart-bullet="true"]'),
+      ).map((c) => ({
+        cx: Number(c.getAttribute("cx")),
+        cy: Number(c.getAttribute("cy")),
+      }));
+      return {
+        baselineY,
+        polyCount: polylines.length,
+        maxPolyYDrift: Math.max(...polyYs.map((y) => Math.abs(y - baselineY))),
+        uniquePolyXs: Array.from(polyXs),
+        bulletCount: bullets.length,
+        maxBulletYDrift: Math.max(...bullets.map((b) => Math.abs(b.cy - baselineY))),
+        maxBulletXDrift: Math.max(
+          ...bullets.map((b) =>
+            Math.min(...Array.from(polyXs).map((px) => Math.abs(b.cx - px))),
+          ),
+        ),
+      };
+    });
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.polyCount).toBe(25);
+    expect(metrics!.bulletCount).toBe(75);
+    expect(metrics!.uniquePolyXs.length).toBe(3);
+    expect(metrics!.maxPolyYDrift).toBeLessThanOrEqual(2.5);
+    expect(metrics!.maxBulletYDrift).toBeLessThanOrEqual(2.5);
+    expect(metrics!.maxBulletXDrift).toBeLessThanOrEqual(20);
   });
 });
 
