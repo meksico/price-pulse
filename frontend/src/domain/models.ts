@@ -186,10 +186,13 @@ const CURRENCY_SYMBOL_MAP: Record<string, string> = {
   UAH: "₴",
   ГРН: "₴",
   GBP: "£",
+  PLN: "zł",
+  ZŁ: "zł",
   $: "$",
   "€": "€",
   "₴": "₴",
   "£": "£",
+  zł: "zł",
 };
 
 /**

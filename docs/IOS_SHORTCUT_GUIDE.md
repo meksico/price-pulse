@@ -14,6 +14,7 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
 ```javascript
 (() => {
   const BASE = "https://meksico.github.io/price-pulse/items/new";
+  const cleanText = (v) => String(v || "").replace(/\s+/g, " ").trim();
   const absUrl = (u) => {
     const s = String(u || "").trim();
     if (!s || /^(data|blob):/i.test(s)) return "";
@@ -23,15 +24,58 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
       return "";
     }
   };
+  const CURRENCY_TOKENS = "₴|грн|uah|\\$|usd|€|eur|£|gbp|zł|zl|pln";
+  const PREFIX_RE = new RegExp(`(${CURRENCY_TOKENS})\\s*([\\d\\s\\u00a0.,]+)`, "i");
+  const SUFFIX_RE = new RegExp(`([\\d\\s\\u00a0.,]+)\\s*(${CURRENCY_TOKENS})`, "i");
+  const normCurr = (c) => {
+    const u = cleanText(c).toUpperCase();
+    if (u === "UAH" || u === "ГРН") return "₴";
+    if (u === "USD") return "$";
+    if (u === "EUR") return "€";
+    if (u === "GBP") return "£";
+    if (u === "PLN" || u === "ZL" || u === "ZŁ") return "zł";
+    return cleanText(c);
+  };
+  const normNum = (raw) => {
+    const s = String(raw || "").replace(/[\s\u00a0]+/g, "");
+    if (!s) return "";
+    if (s.includes(",") && s.includes(".")) {
+      return s.lastIndexOf(",") > s.lastIndexOf(".")
+        ? s.replace(/\./g, "").replace(",", ".")
+        : s.replace(/,/g, "");
+    }
+    if (s.includes(",")) {
+      const p = s.split(",");
+      return p.length === 2 && p[1].length <= 2 ? `${p[0]}.${p[1]}` : s.replace(/,/g, "");
+    }
+    return s;
+  };
+  const extractPriceFromText = (txt) => {
+    const t = cleanText(txt);
+    if (!t) return null;
+    let m = t.match(SUFFIX_RE);
+    if (m) {
+      const p = normNum(m[1]);
+      if (Number(p) > 0) return { price: p, currency: normCurr(m[2]) };
+    }
+    m = t.match(PREFIX_RE);
+    if (m) {
+      const p = normNum(m[2]);
+      if (Number(p) > 0) return { price: p, currency: normCurr(m[1]) };
+    }
+    return null;
+  };
+
   let title = "", price = "", currency = "", image = "";
-  // 1. Try JSON-LD (schema.org/Product or ProductGroup)
+
+  // 1. JSON-LD (schema.org/Product or ProductGroup)
   for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
     try {
       const data = JSON.parse(s.textContent || "{}");
       const list = Array.isArray(data) ? data : data["@graph"] || [data];
       for (const node of list) {
         if (!node || !String(node["@type"] || "").includes("Product")) continue;
-        title = title || node.name || "";
+        title = title || cleanText(node.name);
         const pickImg = (val) => {
           const item = Array.isArray(val) ? val[0] : val;
           return typeof item === "string"
@@ -44,15 +88,17 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
         }
         const offer = Array.isArray(node.offers) ? node.offers[0] : node.offers;
         if (offer) {
-          price = price || String(offer.price ?? offer.lowPrice ?? "");
-          currency = currency || String(offer.priceCurrency || "");
+          price = price || normNum(offer.price ?? offer.lowPrice ?? "");
+          currency = currency || normCurr(offer.priceCurrency || "");
         }
       }
     } catch {}
   }
-  // 2. Fallback to OpenGraph / Twitter / Schema.org Meta
+
+  // 2. OpenGraph / Twitter / Schema.org Meta + <h1> title fallback
   const meta = (sel) => document.querySelector(sel)?.getAttribute("content") || "";
-  title = title || meta('meta[property="og:title"]') || document.title || "";
+  const h1Title = cleanText(document.querySelector("h1")?.innerText);
+  title = title || h1Title || cleanText(meta('meta[property="og:title"]')) || cleanText(document.title);
   image =
     image ||
     absUrl(
@@ -66,23 +112,53 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
         document.querySelector('[itemprop="image"]')?.getAttribute("src") ||
         document.querySelector('[itemprop="image"]')?.getAttribute("href"),
     );
-  price = price || meta('meta[property="product:price:amount"]') || meta('meta[itemprop="price"]');
-  currency = currency || meta('meta[property="product:price:currency"]') || meta('meta[itemprop="priceCurrency"]');
-  // 3. Fallback price RegEx on visible text
   if (!price) {
-    const m = (document.body.innerText || "").match(/(?:₴|грн|\$|€|£|PLN|zł)\s*([\d\s.,]+)/i);
-    if (m) price = m[1].replace(/\s+/g, "").replace(",", ".");
+    price = normNum(meta('meta[property="product:price:amount"]') || meta('meta[itemprop="price"]'));
   }
-  // 4. Fallback to largest visible product <img> in DOM (for SPAs like COS/H&M)
+  if (!currency) {
+    currency = normCurr(meta('meta[property="product:price:currency"]') || meta('meta[itemprop="priceCurrency"]'));
+  }
+
+  // 3. Semantic price DOM elements, then visible body text (prefix & suffix currencies)
+  if (!price) {
+    const priceEls = document.querySelectorAll(
+      '[itemprop="price"], [data-testid*="price" i], [class*="price" i], [id*="price" i]',
+    );
+    for (const el of priceEls) {
+      if (el.closest("header, footer, nav")) continue;
+      const found = extractPriceFromText(el.innerText || el.textContent);
+      if (found) {
+        price = found.price;
+        currency = currency || found.currency;
+        break;
+      }
+    }
+  }
+  if (!price) {
+    const found = extractPriceFromText(document.body.innerText);
+    if (found) {
+      price = found.price;
+      currency = currency || found.currency;
+    }
+  }
+
+  // 4. Largest visible product <img> in DOM (supports srcset / <picture> / lazy attrs)
   if (!image) {
     let bestArea = 0;
+    const pickSrcset = (ss) => {
+      if (!ss) return "";
+      const parts = ss.split(",").map((p) => p.trim().split(/\s+/)[0]).filter(Boolean);
+      return parts[parts.length - 1] || parts[0] || "";
+    };
     for (const el of document.querySelectorAll("img")) {
       if (el.closest("header, footer, nav")) continue;
+      const picSrc = el.closest("picture")?.querySelector("source")?.getAttribute("srcset");
       const candidate = absUrl(
         el.currentSrc ||
           el.getAttribute("src") ||
           el.getAttribute("data-src") ||
-          el.getAttribute("data-lazy-src"),
+          el.getAttribute("data-lazy-src") ||
+          pickSrcset(el.getAttribute("srcset") || picSrc),
       );
       if (!candidate || /\.svg(\?|$)/i.test(candidate)) continue;
       const r = el.getBoundingClientRect();
@@ -96,12 +172,15 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
       }
     }
   }
-  const params = new URLSearchParams({ url: location.href });
-  if (title) params.set("title", title.trim());
-  if (price) params.set("price", String(price).trim());
-  if (currency) params.set("currency", currency.trim());
-  if (image) params.set("image", image.trim());
-  completion(`${BASE}?${params.toString()}`);
+
+  // Encode with %20 (not +) for iOS Shortcuts Open URLs compatibility
+  const pairs = [["url", location.href]];
+  if (title) pairs.push(["title", title]);
+  if (price) pairs.push(["price", price]);
+  if (currency) pairs.push(["currency", currency]);
+  if (image) pairs.push(["image", image]);
+  const qs = pairs.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+  completion(`${BASE}?${qs}`);
 })();
 ```
 
