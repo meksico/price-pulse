@@ -501,6 +501,9 @@ def create_app(
     def _is_captcha_or_forbidden(err: str) -> bool:
         return "CAPTCHA_BLOCKED" in err or "HTTP 403" in err
 
+    def _is_gemini_fallback_eligible(err: str) -> bool:
+        return _is_captcha_or_forbidden(err) or "ERR_HTTP2_PROTOCOL_ERROR" in err
+
     async def _try_gemini_preview_fallback(url: str) -> ScrapePreview | None:
         if not resolved_gemini.is_enabled:
             return None
@@ -594,7 +597,10 @@ def create_app(
             )
         return {"results": results}
 
-    async def _execute_batch_check(user_email: str = "") -> dict[str, Any]:
+    async def _execute_batch_check(
+        user_email: str = "",
+        respect_cooldown: bool = True,
+    ) -> dict[str, Any]:
         """Run pooled batch price check, update state, and send digest."""
         started_at = utc_now_iso()
         start_ms = time.perf_counter()
@@ -611,12 +617,14 @@ def create_app(
             remaining_budget = max(0, resolved_gemini.monthly_cap - used)
             eligible: list[tuple[int, TrackedItem]] = []
             for idx, outcome in enumerate(outcomes):
-                if outcome.success or not _is_captcha_or_forbidden(outcome.error or ""):
+                if outcome.success or not _is_gemini_fallback_eligible(
+                    outcome.error or ""
+                ):
                     continue
                 matched = state_items_by_id.get(outcome.item_id)
                 if matched is None:
                     continue
-                if not is_cooldown_elapsed(
+                if respect_cooldown and not is_cooldown_elapsed(
                     matched.last_checked, resolved_gemini.cooldown_hours
                 ):
                     continue
@@ -779,7 +787,7 @@ def create_app(
     @app.post("/api/scrape/run-check")
     async def run_check(_user: str = Depends(_verify_auth)) -> dict[str, Any]:
         """Trigger immediate batch price check from SPA."""
-        return await _execute_batch_check(user_email=_user)
+        return await _execute_batch_check(user_email=_user, respect_cooldown=False)
 
     @app.post("/api/cron/run-check")
     async def cron_run_check(
@@ -789,7 +797,7 @@ def create_app(
         expected = os.getenv("CRON_SECRET", "").strip()
         if expected and not hmac.compare_digest(x_cron_secret or "", expected):
             raise HTTPException(status_code=403, detail="Invalid cron secret")
-        return await _execute_batch_check()
+        return await _execute_batch_check(respect_cooldown=True)
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(

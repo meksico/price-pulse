@@ -479,13 +479,13 @@ def test_gemini_fallback_batch_respects_cooldown_and_monthly_cap(
     )
     client = TestClient(app)
 
-    resp = client.post("/api/scrape/run-check")
+    resp = client.post("/api/cron/run-check")
     assert resp.status_code == 200
     assert gemini.calls == 1
 
     # Second run: cap is now 1/1, so even stale items must not trigger Gemini
     repo.save_config([ConfigEntry(key="gemini_grounding_usage", value=f"{current_month}:1")])
-    resp2 = client.post("/api/scrape/run-check")
+    resp2 = client.post("/api/cron/run-check")
     assert resp2.status_code == 200
     assert gemini.calls == 1
 
