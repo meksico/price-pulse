@@ -64,7 +64,8 @@ async def test_gemini_client_extracts_price_with_mock_transport() -> None:
                                 {
                                     "text": (
                                         '{"price": "220,00", "currency": "PLN", '
-                                        '"title": "Relaxed Knit Jumper"}'
+                                        '"title": "Relaxed Knit Jumper", '
+                                        '"image_url": "https://media.stories.com/item.jpg"}'
                                     )
                                 }
                             ]
@@ -88,6 +89,7 @@ async def test_gemini_client_extracts_price_with_mock_transport() -> None:
     assert res.price == 220.0
     assert res.currency == "zł"
     assert res.title == "Relaxed Knit Jumper"
+    assert res.image_url == "https://media.stories.com/item.jpg"
     assert res.queries_used == 1
 
 

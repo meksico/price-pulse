@@ -41,6 +41,7 @@ class GeminiSearchResult:
     currency: str
     title: str
     queries_used: int
+    image_url: str = ""
 
 
 def normalize_currency(raw: str | None, fallback: str = "$") -> str:
@@ -240,7 +241,8 @@ class GeminiSearchFallbackClient:
         host, keywords = _extract_search_hints(url)
         target_desc = f"{keywords} on {host}" if keywords else url
         prompt_lines = [
-            f"Search Google for the current price, currency, and product title for {target_desc}.",
+            "Search Google for the current price, currency, product title, and direct product "
+            f"image URL (from {host} or its CDN) for {target_desc}.",
             f"Expected store locale: {region_hint}",
         ]
         if title.strip():
@@ -260,8 +262,9 @@ class GeminiSearchFallbackClient:
                         "price": {"type": "NUMBER", "nullable": True},
                         "currency": {"type": "STRING", "nullable": True},
                         "title": {"type": "STRING", "nullable": True},
+                        "image_url": {"type": "STRING", "nullable": True},
                     },
-                    "required": ["price", "currency", "title"],
+                    "required": ["price", "currency", "title", "image_url"],
                 },
             },
         }
@@ -304,9 +307,16 @@ class GeminiSearchFallbackClient:
             fallback=currency_hint or "$",
         )
         resolved_title = str(parsed.get("title") or title or url).strip()
+        raw_img = parsed.get("image_url")
+        image_url = (
+            raw_img.strip()
+            if isinstance(raw_img, str) and raw_img.strip().startswith(("http://", "https://"))
+            else ""
+        )
         return GeminiSearchResult(
             price=price,
             currency=currency,
             title=resolved_title,
             queries_used=queries_used,
+            image_url=image_url,
         )

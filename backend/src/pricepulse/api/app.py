@@ -531,7 +531,7 @@ def create_app(
             title=gemini_res.title,
             price=gemini_res.price,
             currency=gemini_res.currency,
-            image_url="",
+            image_url=gemini_res.image_url,
             extraction_tier="gemini_search",
         )
 
