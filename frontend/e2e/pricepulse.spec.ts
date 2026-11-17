@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.38");
+    expect(menuVersion).toBe("v0.3.39");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -589,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.38");
+    expect(healthVersion).toBe("v0.3.39");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -607,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.38"',
+      '"app_version": "0.3.39"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1469,6 +1469,43 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(addModal.getByLabel("Product Title")).toHaveValue("");
     await expect(addModal.getByLabel("Baseline Price")).toHaveValue("");
     await expect(addModal.getByLabel("Target Alert Price")).toHaveValue("");
+  });
+
+  test("iOS Shortcut deep-link pre-fills AddItemModal with normalized currency and price", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const params = new URLSearchParams({
+      url: "https://example-shop.com/product/iphone-case",
+      title: "Shortcut Prefill Case",
+      price: "1 299,50",
+      currency: "UAH",
+      image: "https://example-shop.com/case.jpg",
+    });
+    await page.goto(`/items/new?${params.toString()}`);
+
+    const addModal = page.getByRole("dialog", { name: /Track New Product URL/i });
+    await expect(addModal).toBeVisible();
+    await expect(
+      addModal.getByText(/Loaded product details from your browser session/i),
+    ).toBeVisible();
+    await expect(addModal.getByLabel("Product URL")).toHaveValue(
+      "https://example-shop.com/product/iphone-case",
+    );
+    await expect(addModal.getByLabel("Product Title")).toHaveValue(
+      "Shortcut Prefill Case",
+    );
+    await expect(addModal.getByLabel("Currency")).toHaveValue("₴");
+    await expect(addModal.getByLabel("Baseline Price")).toHaveValue("1299.50");
+    await expect(addModal.getByLabel("Target Alert Price")).toHaveValue(
+      "1104.58",
+    );
+
+    await addModal.getByRole("button", { name: "Save & Start Tracking" }).click();
+    await expect(addModal).toBeHidden();
+    await expect(page.locator("#grid-panel")).toContainText(
+      "Shortcut Prefill Case",
+    );
   });
 });
 

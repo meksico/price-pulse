@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type {
-  AddItemPayload,
-  BatchPreviewItemResult,
-  ScrapePreview,
-  Tag,
+import {
+  normalizeCurrencySymbol,
+  normalizePriceInput,
+  type AddItemPayload,
+  type BatchPreviewItemResult,
+  type ScrapePreview,
+  type Tag,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 import type { RequestRetryCallback } from "../ports/dataStore";
@@ -188,6 +190,7 @@ export function AddItemModal({
     null,
   );
   const [prefillNotice, setPrefillNotice] = useState(false);
+  const [prefillImageError, setPrefillImageError] = useState(false);
 
   // Bulk URL state
   const [bulkUrlsText, setBulkUrlsText] = useState("");
@@ -422,23 +425,32 @@ export function AddItemModal({
     if (!open) {
       setCaptchaBlockedMsg(null);
       setPrefillNotice(false);
+      setPrefillImageError(false);
       return;
     }
     if (!prefill) return;
     if (prefill.url) setUrl(prefill.url);
     if (prefill.title) setTitle(prefill.title);
-    if (prefill.image) setImageUrl(prefill.image);
-    if (prefill.currency) setCurrency(prefill.currency);
+    if (prefill.image) {
+      setImageUrl(prefill.image);
+      setPrefillImageError(false);
+    }
+    if (prefill.currency) {
+      setCurrency(normalizeCurrencySymbol(prefill.currency, defaultCurrency));
+    }
     if (prefill.price) {
-      const numeric = Number(prefill.price);
-      setInitialPrice(prefill.price);
-      if (Number.isFinite(numeric) && numeric > 0) {
+      const normalizedPrice = normalizePriceInput(prefill.price);
+      if (normalizedPrice) {
+        const numeric = Number(normalizedPrice);
+        setInitialPrice(normalizedPrice);
         setTargetPrice(String(Math.round(numeric * 0.85 * 100) / 100));
+      } else {
+        setInitialPrice(prefill.price);
       }
     }
     setCaptchaBlockedMsg(null);
     setPrefillNotice(true);
-  }, [open, prefill]);
+  }, [open, prefill, defaultCurrency]);
 
   useEffect(() => {
     if (!open) return;
@@ -1002,11 +1014,24 @@ export function AddItemModal({
                 {prefillNotice && (
                   <div
                     role="status"
-                    className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-[11px] text-blue-900"
+                    className="mt-2 flex items-center gap-2.5 rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-[11px] text-blue-900"
                   >
-                    Loaded product details from your browser session. Review the
-                    title and price below, then click{" "}
-                    <span className="font-semibold">Save &amp; Start Tracking</span>.
+                    {imageUrl && !prefillImageError && (
+                      <img
+                        src={imageUrl}
+                        alt={title || "Pre-filled product preview"}
+                        onError={() => setPrefillImageError(true)}
+                        className="h-10 w-10 shrink-0 rounded-md border border-blue-200 bg-white object-contain p-0.5"
+                      />
+                    )}
+                    <p className="min-w-0 leading-relaxed">
+                      Loaded product details from your browser session. Review
+                      the title and price below, then click{" "}
+                      <span className="font-semibold">
+                        Save &amp; Start Tracking
+                      </span>
+                      .
+                    </p>
                   </div>
                 )}
                 {captchaBlockedMsg && (

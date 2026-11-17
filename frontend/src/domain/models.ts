@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.3.38";
+export const APP_VERSION = "0.3.39";
 
 export type TagColor =
   | "purple"
@@ -178,6 +178,58 @@ export interface UpdateItemPayload {
   target_price?: number;
   tag_names?: string[];
   current_price?: number;
+}
+
+const CURRENCY_SYMBOL_MAP: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  UAH: "₴",
+  ГРН: "₴",
+  GBP: "£",
+  $: "$",
+  "€": "€",
+  "₴": "₴",
+  "£": "£",
+};
+
+/**
+ * Normalize ISO currency codes or symbols (e.g. "UAH", "USD") to canonical symbols.
+ */
+export function normalizeCurrencySymbol(
+  raw: string | undefined | null,
+  fallback = "$",
+): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return fallback;
+  return CURRENCY_SYMBOL_MAP[trimmed.toUpperCase()] ?? trimmed;
+}
+
+/**
+ * Normalize raw pre-filled price strings (spaces, NBSP, comma-decimals) to a clean decimal string.
+ */
+export function normalizePriceInput(raw: string | undefined | null): string {
+  const cleaned = (raw ?? "").replace(/[\s\u00a0]+/g, "").trim();
+  if (!cleaned) return "";
+  let normalized = cleaned;
+  if (cleaned.includes(",") && cleaned.includes(".")) {
+    const lastComma = cleaned.lastIndexOf(",");
+    const lastDot = cleaned.lastIndexOf(".");
+    if (lastComma > lastDot) {
+      normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = cleaned.replace(/,/g, "");
+    }
+  } else if (cleaned.includes(",")) {
+    const parts = cleaned.split(",");
+    if (parts.length === 2 && parts[1].length <= 2) {
+      normalized = `${parts[0]}.${parts[1]}`;
+    } else {
+      normalized = cleaned.replace(/,/g, "");
+    }
+  }
+  const num = Number(normalized);
+  if (!Number.isFinite(num) || num <= 0) return "";
+  return normalized;
 }
 
 export function formatMoney(currency: string, amount: number): string {
