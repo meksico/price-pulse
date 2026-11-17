@@ -1645,7 +1645,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     expect(metrics!.maxBulletXDrift).toBeLessThanOrEqual(12);
   });
 
-  test("Grid bulk actions support add/replace/remove tags, re-check, delete, and popover dismissal", async ({
+  test("Grid bulk actions use fixed bottom ribbon with Manage tags select, Remove all state, re-check, and delete", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -1666,53 +1666,44 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const bulkBar = page.locator("#grid-panel__bulk-bar");
     await expect(bulkBar).toBeVisible();
     await expect(bulkBar.getByText("2 selected")).toBeVisible();
+    await expect(bulkBar.getByRole("button", { name: "Cancel" })).toBeVisible();
 
-    // Open Manage Tags popover and verify Escape & outside-click dismissal
-    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
-    const tagPopover = page.locator("#grid-panel__bulk-tag-popover");
-    await expect(tagPopover).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(tagPopover).toBeHidden();
+    // Verify fixed bottom positioning
+    const positionStyle = await bulkBar.evaluate(
+      (el) => window.getComputedStyle(el).position,
+    );
+    expect(positionStyle).toBe("fixed");
 
-    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
-    await expect(tagPopover).toBeVisible();
-    await page.locator("#chart-panel").click({ position: { x: 10, y: 10 } });
-    await expect(tagPopover).toBeHidden();
+    const manageSelect = bulkBar.getByLabel("Manage tags");
+    await expect(manageSelect).toBeVisible();
 
-    // 1. Bulk Add new tag
-    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
-    await tagPopover.getByLabel("Add Tag").selectOption("__NEW__");
-    await tagPopover.getByLabel("New tag name").fill("BulkTagE2E");
-    await tagPopover.getByRole("button", { name: "+ Add Tag" }).click();
-    await tagPopover.getByRole("button", { name: "Add Tags" }).click();
-    await expect(tagPopover).toBeHidden();
+    // 1. Add an existing tag from the dropdown
+    const firstTagOption = await manageSelect
+      .locator("option")
+      .nth(1)
+      .getAttribute("value");
+    expect(firstTagOption).toBeTruthy();
+    await manageSelect.selectOption(firstTagOption!);
     await expect(page.locator("#toast-viewport")).toContainText(
       /Bulk tags updated/i,
     );
 
-    // 2. Bulk Remove tag
-    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
-    await tagPopover.getByRole("tab", { name: "Remove" }).click();
-    await tagPopover.getByRole("button", { name: "BulkTagE2E" }).click();
-    await tagPopover.getByRole("button", { name: "Remove Tags" }).click();
-    await expect(tagPopover).toBeHidden();
+    // 2. Remove all tags -> option should now become disabled
+    const removeAllOption = manageSelect.locator('option[value="__REMOVE_ALL__"]');
+    await expect(removeAllOption).toBeEnabled();
+    await manageSelect.selectOption("__REMOVE_ALL__");
+    await expect(page.locator("#toast-viewport")).toContainText(
+      /Updated tags for 2 items/i,
+    );
+    await expect(removeAllOption).toBeDisabled();
 
-    // 3. Bulk Replace tags
-    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
-    await tagPopover.getByRole("tab", { name: "Replace" }).click();
-    await tagPopover.getByLabel("Add Tag").selectOption("__NEW__");
-    await tagPopover.getByLabel("New tag name").fill("ReplacedTagE2E");
-    await tagPopover.getByRole("button", { name: "+ Add Tag" }).click();
-    await tagPopover.getByRole("button", { name: "Replace Tags" }).click();
-    await expect(tagPopover).toBeHidden();
-
-    // 4. Bulk Re-check
+    // 3. Bulk Re-check
     await bulkBar.getByRole("button", { name: "Re-check (2)" }).click();
     await expect(page.locator("#toast-viewport")).toContainText(
       /Bulk re-check complete/i,
     );
 
-    // 5. Bulk Delete (two-step confirmation)
+    // 4. Bulk Delete (two-step confirmation)
     await bulkBar.getByRole("button", { name: "Delete (2)" }).click();
     await bulkBar.getByRole("button", { name: "Confirm Delete (2)" }).click();
     await expect(bulkBar).toBeHidden();
@@ -1720,7 +1711,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       /Positions deleted/i,
     );
 
-    // 6. Bought Items Sheet scopes bulk bar to Delete only
+    // 5. Bought Items Sheet scopes bulk bar to Delete only
     await grid.getByRole("tab", { name: /Bought Items Sheet/i }).click();
     const boughtCheckboxes = grid.locator(
       'tbody input[type="checkbox"][aria-label^="Select "]',
@@ -1728,20 +1719,19 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     if ((await boughtCheckboxes.count()) > 0) {
       await boughtCheckboxes.first().check();
       await expect(bulkBar).toBeVisible();
-      await expect(
-        bulkBar.getByRole("button", { name: /Manage Tags/i }),
-      ).toBeHidden();
+      await expect(bulkBar.getByLabel("Manage tags")).toBeHidden();
       await expect(
         bulkBar.getByRole("button", { name: /Re-check/i }),
       ).toBeHidden();
       await expect(
         bulkBar.getByRole("button", { name: "Delete (1)" }),
       ).toBeVisible();
-      await bulkBar.getByRole("button", { name: "Clear" }).click();
+      await bulkBar.getByRole("button", { name: "Cancel" }).click();
+      await expect(bulkBar).toBeHidden();
     }
   });
 
-  test("Mobile grid multi-select and bulk bar maintain zero horizontal overflow", async ({
+  test("Mobile grid multi-select and fixed bulk ribbon overlay bottom nav with zero overflow", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 667 });
@@ -1756,6 +1746,9 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
 
     const bulkBar = page.locator("#grid-panel__bulk-bar");
     await expect(bulkBar).toBeVisible();
+    const box = await bulkBar.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y + box!.height).toBeGreaterThanOrEqual(665);
 
     const hasOverflow = await page.evaluate(
       () =>

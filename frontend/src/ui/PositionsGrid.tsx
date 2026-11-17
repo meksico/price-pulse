@@ -14,7 +14,8 @@ import {
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 import type { GridTab } from "../shared/routes";
-import { TagAdderControl } from "./TagAdderControl";
+
+const REMOVE_ALL_TAGS_VALUE = "__REMOVE_ALL__";
 
 type GroupMode = "none" | "tag";
 type SortField =
@@ -165,13 +166,9 @@ export function PositionsGrid({
     "tags" | "recheck" | "delete" | null
   >(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [isBulkTagOpen, setIsBulkTagOpen] = useState(false);
-  const [bulkTagMode, setBulkTagMode] = useState<BulkTagAction>("add");
-  const [bulkTagNames, setBulkTagNames] = useState<string[]>([]);
 
   const filtrationHeaderRef = useRef<HTMLDivElement>(null);
   const stickyPanelRef = useRef<HTMLDivElement>(null);
-  const bulkTagContainerRef = useRef<HTMLDivElement>(null);
   const selectAllDesktopRef = useRef<HTMLInputElement>(null);
   const selectAllMobileRef = useRef<HTMLInputElement>(null);
   const expandedScrollYRef = useRef<number>(0);
@@ -377,8 +374,6 @@ export function PositionsGrid({
   useEffect(() => {
     setSelectedIds(new Set());
     setConfirmBulkDelete(false);
-    setIsBulkTagOpen(false);
-    setBulkTagNames([]);
   }, [activeTab]);
 
   useEffect(() => {
@@ -409,29 +404,10 @@ export function PositionsGrid({
     }
   }, [someVisibleSelected]);
 
-  useEffect(() => {
-    if (!isBulkTagOpen) return;
-    const handlePointerDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        bulkTagContainerRef.current &&
-        !bulkTagContainerRef.current.contains(target)
-      ) {
-        setIsBulkTagOpen(false);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsBulkTagOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isBulkTagOpen]);
+  const availableBulkTags = useMemo(
+    () => tags.filter((t) => t.name.trim().toLowerCase() !== "purchased"),
+    [tags],
+  );
 
   const tagsOnSelectedItems = useMemo(() => {
     if (activeTab === "bought" || selectedIds.size === 0) return [];
@@ -472,19 +448,19 @@ export function PositionsGrid({
   const clearSelection = () => {
     setSelectedIds(new Set());
     setConfirmBulkDelete(false);
-    setIsBulkTagOpen(false);
-    setBulkTagNames([]);
   };
 
-  const handleApplyBulkTags = async () => {
+  const handleBulkTagSelectChange = async (value: string) => {
     const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
-    if (bulkTagMode !== "replace" && bulkTagNames.length === 0) return;
+    if (!value || ids.length === 0) return;
+    setConfirmBulkDelete(false);
     setBulkBusyAction("tags");
     try {
-      await onBulkUpdateTags(ids, bulkTagMode, bulkTagNames);
-      setIsBulkTagOpen(false);
-      setBulkTagNames([]);
+      if (value === REMOVE_ALL_TAGS_VALUE) {
+        await onBulkUpdateTags(ids, "replace", []);
+      } else {
+        await onBulkUpdateTags(ids, "add", [value]);
+      }
     } finally {
       setBulkBusyAction(null);
     }
@@ -494,7 +470,6 @@ export function PositionsGrid({
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     setBulkBusyAction("recheck");
-    setIsBulkTagOpen(false);
     setConfirmBulkDelete(false);
     try {
       await onBulkRecheck(ids);
@@ -507,7 +482,6 @@ export function PositionsGrid({
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     setBulkBusyAction("delete");
-    setIsBulkTagOpen(false);
     try {
       await onBulkDelete(ids);
       clearSelection();
@@ -515,6 +489,8 @@ export function PositionsGrid({
       setBulkBusyAction(null);
     }
   };
+
+  const anySelectedHasTags = tagsOnSelectedItems.length > 0;
 
   const bulkBusy = bulkBusyAction !== null;
 
@@ -1090,185 +1066,59 @@ export function PositionsGrid({
           role="region"
           aria-label="Bulk actions"
           aria-busy={bulkBusy}
-          className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-gray-50 px-3 py-2"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur"
         >
-          <div className="flex items-center gap-2">
-            <span className="tabular-nums text-xs font-semibold text-zinc-950">
-              {selectedIds.size} selected
-            </span>
-            <button
-              type="button"
-              disabled={bulkBusy}
-              onClick={clearSelection}
-              className="min-h-11 rounded-lg px-2.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-gray-200/70 hover:text-zinc-950 disabled:opacity-50 sm:min-h-8"
-            >
-              Clear
-            </button>
-          </div>
+          <div className="mx-auto flex min-h-11 max-w-6xl flex-wrap items-center justify-between gap-2 px-3 sm:px-6">
+            {/* Left: Cancel selection */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={clearSelection}
+                className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-gray-100 hover:text-zinc-950 disabled:opacity-50 sm:min-h-8"
+              >
+                Cancel
+              </button>
+              <span className="tabular-nums text-xs font-semibold text-zinc-950">
+                {selectedIds.size} selected
+              </span>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+            {/* Middle: Manage Tags & Re-check */}
             {activeTab !== "bought" && (
-              <>
-                <div ref={bulkTagContainerRef} className="relative">
-                  <button
-                    type="button"
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="min-w-0">
+                  <label htmlFor="bulk-manage-tags" className="sr-only">
+                    Manage tags
+                  </label>
+                  <select
+                    id="bulk-manage-tags"
+                    value=""
                     disabled={bulkBusy}
-                    aria-expanded={isBulkTagOpen}
-                    aria-controls={ANCHORS.gridPanelBulkTagPopover}
-                    onClick={() => {
-                      setConfirmBulkDelete(false);
-                      setIsBulkTagOpen((prev) => !prev);
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      e.target.value = "";
+                      void handleBulkTagSelectChange(val);
                     }}
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-950 transition-colors hover:bg-gray-100 disabled:opacity-50 sm:min-h-8"
+                    className="min-h-11 max-w-full rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 disabled:opacity-50 sm:min-h-8"
                   >
-                    <span>
+                    <option value="">
                       {bulkBusyAction === "tags"
                         ? "Updating tags..."
-                        : "Manage Tags"}
-                    </span>
-                    <span aria-hidden="true" className="text-[10px]">
-                      {isBulkTagOpen ? "\u25b4" : "\u25be"}
-                    </span>
-                  </button>
-
-                  {isBulkTagOpen && (
-                    <div
-                      id={ANCHORS.gridPanelBulkTagPopover}
-                      role="dialog"
-                      aria-label="Bulk manage tags"
-                      className="absolute left-0 top-full z-30 mt-1.5 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-3 shadow-lg sm:left-auto sm:right-0 sm:w-80"
+                        : "Manage tags..."}
+                    </option>
+                    {availableBulkTags.map((tag) => (
+                      <option key={tag.tag_id} value={tag.name}>
+                        + {tag.name}
+                      </option>
+                    ))}
+                    <option
+                      value={REMOVE_ALL_TAGS_VALUE}
+                      disabled={!anySelectedHasTags}
                     >
-                      <div
-                        role="tablist"
-                        aria-label="Bulk tag action mode"
-                        className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-gray-100 p-1"
-                      >
-                        {(["add", "replace", "remove"] as const).map((mode) => (
-                          <button
-                            key={mode}
-                            type="button"
-                            role="tab"
-                            aria-selected={bulkTagMode === mode}
-                            onClick={() => {
-                              setBulkTagMode(mode);
-                              setBulkTagNames([]);
-                            }}
-                            className={`min-h-9 rounded-md px-2 text-xs font-medium capitalize transition-colors ${
-                              bulkTagMode === mode
-                                ? "bg-zinc-950 text-white"
-                                : "text-zinc-700 hover:text-zinc-950"
-                            }`}
-                          >
-                            {mode === "replace" ? "Replace" : mode}
-                          </button>
-                        ))}
-                      </div>
-
-                      {bulkTagMode === "remove" ? (
-                        <div className="space-y-2">
-                          <p className="text-[11px] text-zinc-500">
-                            Select tags to remove from the {selectedIds.size}{" "}
-                            selected item{selectedIds.size === 1 ? "" : "s"}:
-                          </p>
-                          {tagsOnSelectedItems.length === 0 ? (
-                            <p className="text-xs text-zinc-400">
-                              Selected items have no tags.
-                            </p>
-                          ) : (
-                            <div className="flex flex-wrap gap-1.5">
-                              {tagsOnSelectedItems.map((tag) => {
-                                const picked = bulkTagNames.includes(tag.name);
-                                return (
-                                  <button
-                                    key={tag.tag_id}
-                                    type="button"
-                                    aria-pressed={picked}
-                                    onClick={() =>
-                                      setBulkTagNames((prev) =>
-                                        picked
-                                          ? prev.filter((n) => n !== tag.name)
-                                          : [...prev, tag.name],
-                                      )
-                                    }
-                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                                      picked
-                                        ? TAG_ACTIVE_BADGE_CLASSES[tag.color]
-                                        : TAG_BADGE_CLASSES[tag.color]
-                                    }`}
-                                  >
-                                    <span
-                                      aria-hidden="true"
-                                      className={`h-1.5 w-1.5 rounded-full ${
-                                        picked
-                                          ? "bg-white"
-                                          : TAG_DOT_CLASSES[tag.color]
-                                      }`}
-                                    />
-                                    {tag.name}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <p className="text-[11px] text-zinc-500">
-                            {bulkTagMode === "add"
-                              ? "Append tags while keeping existing tags:"
-                              : "Replace all existing tags on selected items (leave empty to clear):"}
-                          </p>
-                          <TagAdderControl
-                            idPrefix="bulk-tag"
-                            availableTags={tags}
-                            selectedTagNames={bulkTagNames}
-                            onAddTag={(name) =>
-                              setBulkTagNames((prev) =>
-                                prev.some(
-                                  (n) =>
-                                    n.trim().toLowerCase() ===
-                                    name.trim().toLowerCase(),
-                                )
-                                  ? prev
-                                  : [...prev, name],
-                              )
-                            }
-                            onRemoveTag={(name) =>
-                              setBulkTagNames((prev) =>
-                                prev.filter((n) => n !== name),
-                              )
-                            }
-                          />
-                        </div>
-                      )}
-
-                      <div className="mt-3 flex items-center justify-end gap-2 border-t border-gray-100 pt-2.5">
-                        <button
-                          type="button"
-                          onClick={() => setIsBulkTagOpen(false)}
-                          className="min-h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-gray-50"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          disabled={
-                            bulkBusy ||
-                            (bulkTagMode !== "replace" &&
-                              bulkTagNames.length === 0)
-                          }
-                          onClick={() => void handleApplyBulkTags()}
-                          className="min-h-9 rounded-lg bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40"
-                        >
-                          {bulkTagMode === "add"
-                            ? "Add Tags"
-                            : bulkTagMode === "replace"
-                              ? "Replace Tags"
-                              : "Remove Tags"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                      Remove all
+                    </option>
+                  </select>
                 </div>
 
                 <button
@@ -1281,43 +1131,43 @@ export function PositionsGrid({
                     ? `Re-checking (${selectedIds.size})...`
                     : `Re-check (${selectedIds.size})`}
                 </button>
-              </>
-            )}
-
-            {!confirmBulkDelete ? (
-              <button
-                type="button"
-                disabled={bulkBusy}
-                onClick={() => {
-                  setIsBulkTagOpen(false);
-                  setConfirmBulkDelete(true);
-                }}
-                className="tabular-nums min-h-11 rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50 sm:min-h-8"
-              >
-                Delete ({selectedIds.size})
-              </button>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={bulkBusy}
-                  onClick={() => void handleConfirmBulkDelete()}
-                  className="tabular-nums min-h-11 rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 sm:min-h-8"
-                >
-                  {bulkBusyAction === "delete"
-                    ? "Deleting..."
-                    : `Confirm Delete (${selectedIds.size})`}
-                </button>
-                <button
-                  type="button"
-                  disabled={bulkBusy}
-                  onClick={() => setConfirmBulkDelete(false)}
-                  className="min-h-11 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-gray-50 disabled:opacity-50 sm:min-h-8"
-                >
-                  Cancel
-                </button>
               </div>
             )}
+
+            {/* Right: Delete */}
+            <div className="flex items-center gap-1.5">
+              {!confirmBulkDelete ? (
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  onClick={() => setConfirmBulkDelete(true)}
+                  className="tabular-nums min-h-11 rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50 sm:min-h-8"
+                >
+                  Delete ({selectedIds.size})
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={bulkBusy}
+                    onClick={() => setConfirmBulkDelete(false)}
+                    className="min-h-11 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-gray-50 disabled:opacity-50 sm:min-h-8"
+                  >
+                    Keep
+                  </button>
+                  <button
+                    type="button"
+                    disabled={bulkBusy}
+                    onClick={() => void handleConfirmBulkDelete()}
+                    className="tabular-nums min-h-11 rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 sm:min-h-8"
+                  >
+                    {bulkBusyAction === "delete"
+                      ? "Deleting..."
+                      : `Confirm Delete (${selectedIds.size})`}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
