@@ -41,6 +41,39 @@ export function getBasePath(): string {
   return raw.endsWith("/") ? raw.slice(0, -1) : raw;
 }
 
+function decodePrefillPayload(encoded: string): AddModalPrefill | null {
+  try {
+    const b64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
+    const bin = atob(b64 + pad);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) {
+      bytes[i] = bin.charCodeAt(i);
+    }
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as Record<
+      string,
+      unknown
+    >;
+    const pick = (k: string): string | undefined => {
+      const val = parsed[k];
+      if (typeof val !== "string") return undefined;
+      const trimmed = val.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    };
+    const prefill: AddModalPrefill = {
+      url: pick("url"),
+      title: pick("title"),
+      price: pick("price"),
+      currency: pick("currency"),
+      image: pick("image"),
+      shortcutVersion: pick("sv"),
+    };
+    return Object.values(prefill).some(Boolean) ? prefill : null;
+  } catch {
+    return null;
+  }
+}
+
 export function parseRoute(pathname: string, search: string): AppRoute {
   const params = new URLSearchParams(search);
   const rawTab = params.get("tab");
@@ -51,6 +84,7 @@ export function parseRoute(pathname: string, search: string): AppRoute {
   const modalParam = params.get("modal");
   const addModalMode: AddModalMode =
     params.get("mode") === "bulk" ? "bulk" : "single";
+  const encodedData = params.get("d")?.trim() ?? "";
   const prefillUrl = params.get("url")?.trim() ?? "";
   const prefillTitle = params.get("title")?.trim() ?? "";
   const prefillPrice = params.get("price")?.trim() ?? "";
@@ -58,7 +92,8 @@ export function parseRoute(pathname: string, search: string): AppRoute {
   const prefillImage = params.get("image")?.trim() ?? "";
   const prefillShortcutVersion = params.get("sv")?.trim() ?? "";
   const addPrefill: AddModalPrefill | null =
-    prefillUrl ||
+    (encodedData ? decodePrefillPayload(encodedData) : null) ??
+    (prefillUrl ||
     prefillTitle ||
     prefillPrice ||
     prefillCurrency ||
@@ -72,7 +107,7 @@ export function parseRoute(pathname: string, search: string): AppRoute {
           image: prefillImage || undefined,
           shortcutVersion: prefillShortcutVersion || undefined,
         }
-      : null;
+      : null);
 
   const base = getBasePath();
   const withoutBase =

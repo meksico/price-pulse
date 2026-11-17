@@ -12,9 +12,9 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
 4. **Add Action 1: Run JavaScript on Webpage** (Input: **Shortcut Input**), and paste this script (replace `https://meksico.github.io/price-pulse` with your PricePulse URL if different):
 
 ```javascript
-// PricePulse iOS Shortcut v1.2 (2026-11-17)
+// PricePulse iOS Shortcut v1.3 (2026-11-17)
 (() => {
-  const SHORTCUT_VERSION = "1.2";
+  const SHORTCUT_VERSION = "1.3";
   const BASE = "https://meksico.github.io/price-pulse/items/new";
   const cleanText = (v) => String(v || "").replace(/\s+/g, " ").trim();
   const absUrl = (u) => {
@@ -175,17 +175,17 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
     }
   }
 
-  // Encode with %20 (not +) for iOS Shortcuts Open URLs compatibility
-  const pairs = [
-    ["url", location.href],
-    ["sv", SHORTCUT_VERSION],
-  ];
-  if (title) pairs.push(["title", title]);
-  if (price) pairs.push(["price", price]);
-  if (currency) pairs.push(["currency", currency]);
-  if (image) pairs.push(["image", image]);
-  const qs = pairs.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
-  completion(`${BASE}?${qs}`);
+  // Base64url-encode UTF-8 JSON into ?d=... so iOS Shortcuts Open URLs never corrupts non-ASCII characters
+  const payload = { url: location.href, sv: SHORTCUT_VERSION };
+  if (title) payload.title = title;
+  if (price) payload.price = price;
+  if (currency) payload.currency = currency;
+  if (image) payload.image = image;
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  const b64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  completion(`${BASE}?d=${b64}`);
 })();
 ```
 

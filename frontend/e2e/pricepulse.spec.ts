@@ -1509,5 +1509,39 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       "Shortcut Prefill Case",
     );
   });
+
+  test("iOS Shortcut Base64url ?d= payload preserves UTF-8 Polish title, PLN currency, and image", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const payload = {
+      url: "https://www.cos.com/pl-pl/women/accessories/bags/handbags/product/trullo-flap-bag-leather-black-1349970001",
+      title: "SKÓRZANA TOREBKA Z KLAPKĄ „TRULLO”",
+      price: "590,00",
+      currency: "PLN",
+      image: "https://lp2.hm.com/hmgoepprod?set=source[/trullo.jpg]",
+      sv: "1.3",
+    };
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
+    const b64 = btoa(bin)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    await page.goto(`/items/new?d=${b64}`);
+
+    const addModal = page.getByRole("dialog", { name: /Track New Product URL/i });
+    await expect(addModal).toBeVisible();
+    await expect(addModal.getByText("Shortcut v1.3")).toBeVisible();
+    await expect(addModal.getByLabel("Product Title")).toHaveValue(
+      "SKÓRZANA TOREBKA Z KLAPKĄ „TRULLO”",
+    );
+    await expect(addModal.getByLabel("Currency")).toHaveValue("zł");
+    await expect(addModal.getByLabel("Baseline Price")).toHaveValue("590.00");
+    await expect(addModal.getByLabel("Target Alert Price")).toHaveValue(
+      "501.5",
+    );
+  });
 });
 
