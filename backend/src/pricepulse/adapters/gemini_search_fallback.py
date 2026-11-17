@@ -240,25 +240,30 @@ class GeminiSearchFallbackClient:
         host, keywords = _extract_search_hints(url)
         target_desc = f"{keywords} on {host}" if keywords else url
         prompt_lines = [
-            f"Use Google Search (at most ONE query) to find the current price for {target_desc}.",
-            f"Product URL: {url}",
+            f"Search Google for the current price, currency, and product title for {target_desc}.",
             f"Expected store locale: {region_hint}",
         ]
         if title.strip():
             prompt_lines.append(f"Known product title: {title.strip()}")
         if currency_hint.strip():
             prompt_lines.append(f"Known currency: {currency_hint.strip()}")
-        prompt_lines.append(
-            "Return ONLY a raw JSON object with keys "
-            '{"price": number | null, "currency": string | null, "title": string | null}. '
-            "Use null if no reliable price is found in Google Search results."
-        )
 
         endpoint = f"{GEMINI_API_BASE}/models/{self._model}:generateContent"
         payload: dict[str, Any] = {
             "contents": [{"parts": [{"text": "\n".join(prompt_lines)}]}],
             "tools": [{"google_search": {}}],
-            "generationConfig": {"temperature": 0.0},
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "responseSchema": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "price": {"type": "NUMBER", "nullable": True},
+                        "currency": {"type": "STRING", "nullable": True},
+                        "title": {"type": "STRING", "nullable": True},
+                    },
+                    "required": ["price", "currency", "title"],
+                },
+            },
         }
 
         client_kwargs: dict[str, Any] = {"timeout": self._timeout_s}
