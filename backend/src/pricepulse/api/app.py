@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import os
 import time
@@ -607,16 +608,11 @@ def create_app(
             initial_used = _read_gemini_usage(state.config, current_month)
             used = initial_used
             state_items_by_id = {item.item_id: item for item in state.items}
+            remaining_budget = max(0, resolved_gemini.monthly_cap - used)
+            eligible: list[tuple[int, TrackedItem]] = []
             for idx, outcome in enumerate(outcomes):
                 if outcome.success or not _is_captcha_or_forbidden(outcome.error or ""):
                     continue
-                if used >= resolved_gemini.monthly_cap:
-                    cap = resolved_gemini.monthly_cap
-                    logger.warn(
-                        f"Gemini grounding monthly cap reached ({used}/{cap}); "
-                        "skipping remaining fallback checks."
-                    )
-                    break
                 matched = state_items_by_id.get(outcome.item_id)
                 if matched is None:
                     continue
@@ -624,26 +620,54 @@ def create_app(
                     matched.last_checked, resolved_gemini.cooldown_hours
                 ):
                     continue
-                try:
-                    gemini_res = await resolved_gemini.extract_price(
-                        matched.url,
-                        title=matched.name,
-                        currency_hint=matched.currency,
-                    )
-                except Exception as gemini_exc:
+                eligible.append((idx, matched))
+
+            if eligible and remaining_budget == 0:
+                cap = resolved_gemini.monthly_cap
+                logger.warn(
+                    f"Gemini grounding monthly cap reached ({used}/{cap}); "
+                    "skipping remaining fallback checks."
+                )
+            elif eligible:
+                to_check = eligible[:remaining_budget]
+                if len(eligible) > remaining_budget:
+                    cap = resolved_gemini.monthly_cap
                     logger.warn(
-                        f"Gemini fallback failed for {matched.url}: {gemini_exc}"
+                        f"Gemini grounding monthly cap reached ({used}/{cap}); "
+                        f"checking {len(to_check)} of {len(eligible)} blocked items."
                     )
-                    gemini_res = None
-                if gemini_res is not None:
-                    used += gemini_res.queries_used
-                    outcomes[idx] = ScrapeOutcome(
-                        item_id=matched.item_id,
-                        success=True,
-                        price=gemini_res.price,
-                        currency=gemini_res.currency,
-                        error=None,
-                    )
+                gemini_sem = asyncio.Semaphore(4)
+
+                async def _run_gemini_item(
+                    idx: int, item: TrackedItem
+                ) -> tuple[int, TrackedItem, Any]:
+                    async with gemini_sem:
+                        try:
+                            res = await resolved_gemini.extract_price(
+                                item.url,
+                                title=item.name,
+                                currency_hint=item.currency,
+                            )
+                            return idx, item, res
+                        except Exception as gemini_exc:
+                            logger.warn(
+                                f"Gemini fallback failed for {item.url}: {gemini_exc}"
+                            )
+                            return idx, item, None
+
+                gemini_results = await asyncio.gather(
+                    *(_run_gemini_item(idx, item) for idx, item in to_check)
+                )
+                for idx, matched, gemini_res in gemini_results:
+                    if gemini_res is not None:
+                        used += gemini_res.queries_used
+                        outcomes[idx] = ScrapeOutcome(
+                            item_id=matched.item_id,
+                            success=True,
+                            price=gemini_res.price,
+                            currency=gemini_res.currency,
+                            error=None,
+                        )
             if used > initial_used:
                 resolved_repo.save_config(
                     [

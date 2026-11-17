@@ -47,6 +47,7 @@ export class LocalApiDataAdapter implements DataStorePort {
     path: string,
     init?: RequestInit,
     onRetry?: RequestRetryCallback,
+    maxAttempts = 3,
   ): Promise<T> {
     const token = this.getAuthToken?.();
     const headers: Record<string, string> = {
@@ -55,7 +56,6 @@ export class LocalApiDataAdapter implements DataStorePort {
         ? { Authorization: `Bearer ${token}` }
         : {}),
     };
-    const maxAttempts = 3;
     let lastError: unknown;
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -207,7 +207,8 @@ export class LocalApiDataAdapter implements DataStorePort {
   }
 
   runBatchCheck(): Promise<{ telemetry: TelemetryRun; alerts_triggered: number }> {
-    return this.request("/api/scrape/run-check", { method: "POST" });
+    // Non-idempotent long-running batch: never auto-retry on 504 to avoid double-billing.
+    return this.request("/api/scrape/run-check", { method: "POST" }, undefined, 1);
   }
 
   async saveConfig(entries: ConfigEntry[]): Promise<ConfigEntry[]> {

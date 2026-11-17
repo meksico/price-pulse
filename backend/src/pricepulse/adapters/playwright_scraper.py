@@ -404,7 +404,10 @@ class PlaywrightScraperAdapter:
         try:
             return await self._fetch_html(direct_browser, url)
         except Exception as direct_exc:
-            proxies = self._next_proxies()
+            max_proxy_attempts = (
+                2 if _is_non_retryable_block(direct_exc) else 10
+            )
+            proxies = self._next_proxies(max_attempts=max_proxy_attempts)
             if not proxies:
                 raise direct_exc
             last_exc: Exception = direct_exc
@@ -465,6 +468,11 @@ class PlaywrightScraperAdapter:
                 await browser.close()
 
 
+def _is_non_retryable_block(exc: Exception) -> bool:
+    """Return True for WAF/CAPTCHA 403 blocks that should fail fast without retries."""
+    return isinstance(exc, CaptchaBlockedError) or "HTTP 403" in str(exc)
+
+
 async def check_items_pooled(
     items: list[TrackedItem],
     fetch_fn: Callable[[str], Awaitable[str]],
@@ -490,6 +498,8 @@ async def check_items_pooled(
                     )
                 except Exception as exc:
                     last_err = f"attempt {attempt + 1}: {exc}"
+                    if _is_non_retryable_block(exc):
+                        break
         return ScrapeOutcome(
             item_id=item.item_id,
             success=False,
@@ -522,6 +532,8 @@ async def preview_urls_pooled(
                     )
                 except Exception as exc:
                     last_err = f"attempt {attempt + 1}: {exc}"
+                    if _is_non_retryable_block(exc):
+                        break
         return BatchPreviewOutcome(
             url=url,
             success=False,
