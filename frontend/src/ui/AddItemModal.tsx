@@ -448,6 +448,11 @@ export function AddItemModal({
         setInitialPrice(prefill.price);
       }
     }
+    setSelectedTagNames((prev) =>
+      prev.some((t) => t.toLowerCase() === MANUAL_CHECK_TAG)
+        ? prev
+        : [...prev, MANUAL_CHECK_TAG],
+    );
     setCaptchaBlockedMsg(null);
     setPrefillNotice(true);
   }, [open, prefill, defaultCurrency]);

@@ -199,7 +199,7 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
 
 1. Open any product page in **Safari** (including CAPTCHA-protected stores).
 2. Tap **Share (↑)** → **Track in PricePulse**.
-3. PricePulse opens directly to the **Track New URL** modal (`/items/new`) with **Product URL**, **Product Title**, **Currency**, **Baseline Price**, **Target Alert Price** (15% below baseline), and **Image** pre-filled.
+3. PricePulse opens directly to the **Track New URL** modal (`/items/new`) with **Product URL**, **Product Title**, **Currency**, **Baseline Price**, **Target Alert Price** (15% below baseline), **Image**, and the **`manual check`** tag pre-filled.
 4. Review the details (optionally assign tags) and tap **Save & Start Tracking**.
 
 ---

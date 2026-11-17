@@ -1542,6 +1542,9 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(addModal.getByLabel("Target Alert Price")).toHaveValue(
       "501.5",
     );
+    await expect(
+      addModal.getByRole("button", { name: /Remove tag manual check/i }),
+    ).toBeVisible();
   });
 });
 
