@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.36`
+- **Document Version / App Target Baseline:** `0.3.37`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -124,7 +124,7 @@ flowchart TD
 - **`REQ-CHART-05` (Bi-Directional Chart &harr; Grid Sync):** Selecting a tag in the Chart dropdown updates the Data Grid's active tag filter (`state.activeLabelFilter`), resets grid pagination to page 1, and re-renders the grid. Conversely, selecting a tag in the Data Grid's `Filter by Tag:` bar or clicking a tag chip updates the Chart dropdown and plotted series.
 
 ### 5.3 Data Grid & Bought Items Sheet (`REQ-GRID-01`..`REQ-GRID-08`)
-- **`REQ-GRID-01` (View Switcher Tabs):** Filled Pill Tabs (`#09090B` active vs `#F3F4F6` inactive) toggling between **Active Positions (`N`)** and **Bought Items Sheet (`M`)**.
+- **`REQ-GRID-01` (View Switcher Tabs & Default Ordering):** Filled Pill Tabs (`#09090B` active vs `#F3F4F6` inactive) toggling between **Active Positions (`N`)** and **Bought Items Sheet (`M`)**. By default (`sortField = "added"`), `PositionsGrid` displays the **latest added items first** across Active Positions, Manual check, and Bought Items Sheet until the user explicitly sorts by a column header.
 - **`REQ-GRID-02` (Grid Toolbar Controls):**
   - **Group By** dropdown: `Flat List (None)` or `Tag` (no Category or Retailer grouping).
   - **Search** `#F3F4F6` borderless input well: filters by item `name` or any assigned `tag` across both Active and Bought views. (New URL creation lives exclusively in the top header's `+ Track New URL` primary CTA and mobile bottom bar.)
@@ -236,3 +236,4 @@ flowchart TD
 | `0.3.34` | 2026-11-16 | Antigravity | Un-fixed the global top `<header>` on mobile (`< 768px`, `md:sticky md:top-0`) to reclaim vertical working space and added a scroll-triggered collapsible sticky filtration ribbon (`#grid-panel__sticky-ribbon`) and expandable panel (`#grid-panel__sticky-panel`) to `PositionsGrid` (`REQ-NAV-01`, `REQ-GRID-09`). |
 | `0.3.35` | 2026-11-16 | Antigravity | Redesigned mobile (`< 768px`) item tiles in `PositionsGrid` as fully clickable `<button>` cards with a full-height left photo, compact `10px` tag pills next to the status badge, a 2-column `Baseline` / `Current` price strip, and removed the redundant `Item Card` / `View Card` buttons (`REQ-GRID-04`). |
 | `0.3.36` | 2026-11-17 | Antigravity | Fixed comma-decimal and mixed-separator price parsing (`50,48 грн`, `1.250,50 €`) in `_parse_float` / Tier 3 RegEx and enabled `json.loads(..., strict=False)` for Tier 1 JSON-LD blocks containing unescaped control characters (`REQ-SCRAPE-01`). |
+| `0.3.37` | 2026-11-17 | Antigravity | Changed `PositionsGrid` default sort order (`sortField = "added"`) to display the latest added items first across Active Positions, Manual check, and Bought Items Sheet (`REQ-GRID-01`). |

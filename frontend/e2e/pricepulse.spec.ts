@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.36");
+    expect(menuVersion).toBe("v0.3.37");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -589,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.36");
+    expect(healthVersion).toBe("v0.3.37");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -607,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.36"',
+      '"app_version": "0.3.37"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1410,6 +1410,39 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     ).toHaveCount(0);
     await firstTile.click();
     await expect(page.locator("#modal-item-details")).toBeVisible();
+  });
+
+  test("displays latest added items first in the grid by default", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+
+    const uniqueTitle = `Latest Added Product ${Date.now()}`;
+    await page.getByRole("button", { name: /\+ Track New URL/i }).click();
+    const addModal = page.locator("#modal-add-item");
+    await expect(addModal).toBeVisible();
+    await addModal
+      .getByLabel("Product URL")
+      .fill(`https://example.com/latest-${Date.now()}`);
+    await addModal.getByLabel("Product Title").fill(uniqueTitle);
+    await addModal.getByLabel("Baseline Price").fill("500");
+    await addModal.getByLabel("Target Alert Price").fill("425");
+    await addModal.getByRole("button", { name: "Save & Start Tracking" }).click();
+    await expect(addModal).toBeHidden();
+
+    // Newly added item (0% drop) must appear as the first row in Active Positions by default
+    const firstRow = page.locator("#grid-panel tbody tr").first();
+    await expect(firstRow).toContainText(uniqueTitle);
+
+    // Clicking Drop % column header still sorts by Drop %
+    await page
+      .locator("#grid-panel thead")
+      .getByRole("button", { name: /Drop %/i })
+      .click();
+    await expect(page.locator("#grid-panel tbody tr").first()).not.toContainText(
+      uniqueTitle,
+    );
   });
 });
 

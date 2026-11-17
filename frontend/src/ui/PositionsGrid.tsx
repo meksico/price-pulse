@@ -15,7 +15,13 @@ import { ANCHORS } from "../shared/anchors";
 import type { GridTab } from "../shared/routes";
 
 type GroupMode = "none" | "tag";
-type SortField = "name" | "initial_price" | "current_price" | "target_price" | "drop_pct";
+type SortField =
+  | "added"
+  | "name"
+  | "initial_price"
+  | "current_price"
+  | "target_price"
+  | "drop_pct";
 
 const PAGE_SIZE = 15;
 const MANUAL_CHECK_TAG = "manual check";
@@ -135,7 +141,7 @@ export function PositionsGrid({
 }: PositionsGridProps) {
   const [groupBy, setGroupBy] = useState<GroupMode>("none");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<SortField>("drop_pct");
+  const [sortField, setSortField] = useState<SortField>("added");
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -261,6 +267,9 @@ export function PositionsGrid({
         .toLowerCase();
       return item.name.toLowerCase().includes(q) || tagNames.includes(q);
     });
+    if (sortField === "added") {
+      return [...list].reverse();
+    }
     return [...list].sort((a, b) => {
       const av = a[sortField];
       const bv = b[sortField];
@@ -283,7 +292,7 @@ export function PositionsGrid({
 
   const filteredBought = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return boughtItems.filter((item) => {
+    return [...boughtItems].reverse().filter((item) => {
       if (activeTagFilter !== "ALL" && !item.tag_ids.includes(activeTagFilter)) {
         return false;
       }
