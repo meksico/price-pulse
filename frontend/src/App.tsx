@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LocalApiDataAdapter } from "./adapters/localApiAdapter";
 import type {
   AddItemPayload,
+  BulkTagAction,
   RuntimeDiagnostics,
   TagColor,
   UpdateItemPayload,
@@ -404,6 +405,87 @@ export function App() {
     }
   };
 
+  const handleBulkUpdateTags = async (
+    itemIds: string[],
+    action: BulkTagAction,
+    tagNames: string[],
+  ) => {
+    try {
+      const updated = await store.bulkUpdateTags(itemIds, action, tagNames);
+      await refreshAll();
+      const verb =
+        action === "add"
+          ? "Added tags to"
+          : action === "replace"
+            ? "Updated tags for"
+            : "Removed tags from";
+      pushToast(
+        "success",
+        "Bulk tags updated",
+        `${verb} ${updated.length} item${updated.length === 1 ? "" : "s"}.`,
+      );
+    } catch (err) {
+      pushToast(
+        "error",
+        "Bulk tag update failed",
+        err instanceof Error ? err.message : String(err),
+      );
+      throw err;
+    }
+  };
+
+  const handleBulkRecheck = async (itemIds: string[]) => {
+    try {
+      const { telemetry } = await store.bulkRecheckItems(itemIds);
+      await refreshAll();
+      if (telemetry.status === "PARTIAL") {
+        pushToast(
+          "warning",
+          "Bulk re-check finished with warnings",
+          `Checked ${telemetry.items_checked} items (${telemetry.breakdown}).`,
+        );
+      } else if (telemetry.status === "ERROR") {
+        pushToast(
+          "error",
+          "Bulk re-check failed",
+          telemetry.errors?.[0] ?? "Failed to re-check selected items.",
+        );
+      } else {
+        pushToast(
+          "success",
+          "Bulk re-check complete",
+          `Re-checked ${telemetry.items_checked} item${telemetry.items_checked === 1 ? "" : "s"}.`,
+        );
+      }
+    } catch (err) {
+      pushToast(
+        "error",
+        "Bulk re-check failed",
+        err instanceof Error ? err.message : String(err),
+      );
+      throw err;
+    }
+  };
+
+  const handleBulkDelete = async (itemIds: string[]) => {
+    try {
+      const deleted = await store.bulkDeleteItems(itemIds);
+      await refreshAll();
+      pushToast(
+        "success",
+        "Positions deleted",
+        `Removed ${deleted.length} item${deleted.length === 1 ? "" : "s"} from tracking.`,
+      );
+    } catch (err) {
+      pushToast(
+        "error",
+        "Bulk delete failed",
+        err instanceof Error ? err.message : String(err),
+      );
+      throw err;
+    }
+  };
+
   const handleCreateTag = async (name: string, color: TagColor) => {
     try {
       await store.createTag(name, color);
@@ -766,6 +848,9 @@ export function App() {
                     onOpenItem={(itemId) =>
                       navigate({ itemId, addModalOpen: false })
                     }
+                    onBulkUpdateTags={handleBulkUpdateTags}
+                    onBulkRecheck={handleBulkRecheck}
+                    onBulkDelete={handleBulkDelete}
                   />
                 </div>
               </section>

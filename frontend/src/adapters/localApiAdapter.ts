@@ -3,6 +3,7 @@ import type {
   BatchPreviewItemResult,
   BatchPreviewResponse,
   BoughtItem,
+  BulkTagAction,
   ConfigEntry,
   RuntimeDiagnostics,
   ScrapePreview,
@@ -177,6 +178,50 @@ export class LocalApiDataAdapter implements DataStorePort {
       1,
     );
     return res.item;
+  }
+
+  async bulkUpdateTags(
+    itemIds: string[],
+    action: BulkTagAction,
+    tagNames: string[],
+  ): Promise<TrackedItem[]> {
+    const res = await this.request<{ items: TrackedItem[] }>(
+      "/api/items/bulk-tags",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          item_ids: itemIds,
+          action,
+          tag_names: tagNames,
+        }),
+      },
+    );
+    return res.items;
+  }
+
+  bulkRecheckItems(
+    itemIds: string[],
+  ): Promise<{ telemetry: TelemetryRun; alerts_triggered: number }> {
+    return this.request(
+      "/api/items/bulk-recheck",
+      {
+        method: "POST",
+        body: JSON.stringify({ item_ids: itemIds }),
+      },
+      undefined,
+      1,
+    );
+  }
+
+  async bulkDeleteItems(itemIds: string[]): Promise<string[]> {
+    const res = await this.request<{ deleted_ids: string[] }>(
+      "/api/items/bulk-delete",
+      {
+        method: "POST",
+        body: JSON.stringify({ item_ids: itemIds }),
+      },
+    );
+    return res.deleted_ids;
   }
 
   markBought(itemId: string, purchasedPrice: number): Promise<BoughtItem> {

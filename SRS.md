@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS) — PricePulse
 
-- **Document Version / App Target Baseline:** `0.3.43`
+- **Document Version / App Target Baseline:** `0.4.0`
 - **Status:** Active Implementation Baseline (`DS-BASELINE-360` Editorial Minimalism UI)
 - **Primary Reference Prototype:** `ui_prototype.html` (v1.12) & `DS-BASELINE-360` (v1.0.0)
 - **Data Model Reference:** `docs/GSHEETS_DATA_MODEL.md`
@@ -123,7 +123,7 @@ flowchart TD
 - **`REQ-CHART-04` (Interactive Per-Bullet Tooltips):** Hovering or clicking any plotted bullet dynamically positions a floating tooltip near that specific bullet (without occluding it) displaying the item's series color dot, item name, assigned `Tags`, snapshot point index (`Point k/N`) and event type, exact price, recomputed `%` delta vs `initial_price` baseline, and formatted timestamp.
 - **`REQ-CHART-05` (Bi-Directional Chart &harr; Grid Sync):** Selecting a tag in the Chart dropdown updates the Data Grid's active tag filter (`state.activeLabelFilter`), resets grid pagination to page 1, and re-renders the grid. Conversely, selecting a tag in the Data Grid's `Filter by Tag:` bar or clicking a tag chip updates the Chart dropdown and plotted series.
 
-### 5.3 Data Grid & Bought Items Sheet (`REQ-GRID-01`..`REQ-GRID-08`)
+### 5.3 Data Grid & Bought Items Sheet (`REQ-GRID-01`..`REQ-GRID-10`)
 - **`REQ-GRID-01` (View Switcher Tabs & Default Ordering):** Filled Pill Tabs (`#09090B` active vs `#F3F4F6` inactive) toggling between **Active Positions (`N`)** and **Bought Items Sheet (`M`)**. By default (`sortField = "added"`), `PositionsGrid` displays the **latest added items first** across Active Positions, Manual check, and Bought Items Sheet until the user explicitly sorts by a column header.
 - **`REQ-GRID-02` (Grid Toolbar Controls):**
   - **Group By** dropdown: `Flat List (None)` or `Tag` (no Category or Retailer grouping).
@@ -143,6 +143,9 @@ flowchart TD
 - **`REQ-GRID-06` (Collapsible Group By Tag Mode):** When `Group By: Tag` is selected, items are partitioned under collapsible group header rows (`<TagName>`, item count, average drop `%`); pagination is hidden in grouped mode.
 - **`REQ-GRID-07` (Pagination):** In `Flat List (None)` mode, paginate at **15 items per page** with `← Prev`, numbered page buttons, and `Next →` plus range indicator (`Showing X–Y of Z active positions`).
 - **`REQ-GRID-08` (Bought Items Columns):** `Product Name` (clickable &rarr; Item Card in bought mode), `Tags` (clickable tag chips), `Baseline`, `Bought Price`, `Realized Savings` (`+$X.XX SAVED`), `Date Bought`, `Actions` (`View Card`).
+- **`REQ-GRID-10` (Grid Multi-Select & Bulk Actions):** `PositionsGrid` supports multi-item selection via a leading checkbox column on desktop (`>= 768px`, with a `Select all visible` header checkbox supporting `indeterminate`) and sibling card checkboxes (`<input type="checkbox">` beside the clickable card `<button>`, plus a `Select all` toggle) on mobile (`< 768px`). Selecting one or more items reveals `#grid-panel__bulk-bar` with selection count, `Clear`, and scoped bulk actions backed by single-request batch endpoints:
+  - **Active Positions (`active`) & Manual check (`manual`):** **Manage Tags** popover (`#grid-panel__bulk-tag-popover` with `RULE-OVERLAY-DISMISS` click-outside & `Escape` dismissal) offering **Add** (append existing or newly created tag), **Replace** (overwrite assigned tags with chosen set), and **Remove** (strip chosen tag from selected items) via `POST /api/items/bulk-tags`; **Re-check (`N`)** triggering pooled scraping via `POST /api/items/bulk-recheck`; and two-step **Delete (`N`)** (`bg-red-50 text-red-600` &rarr; **Confirm Delete (`N`)** + **Cancel**) via `POST /api/items/bulk-delete`.
+  - **Bought Items Sheet (`bought`):** Supports two-step **Delete (`N`)** only.
 
 ### 5.4 Modals: Track New URL & Item Card (`REQ-MODAL-01`..`REQ-MODAL-06`)
 - **`REQ-MODAL-01` (No Technical Selector Fields):** `modal-add-item` MUST NOT expose CSS/XPath selector inputs to end users.
@@ -244,3 +247,4 @@ flowchart TD
 | `0.3.41` | 2026-11-17 | Antigravity | Anchored `GeminiSearchFallbackClient.extract_price` to the exact product URL, extracted SKU/article ID (`_extract_product_id`), `temperature: 0.0`, and strict non-substitution instructions (`REQ-SCRAPE-05`), added `PLN`/`zł` support to `playwright_scraper.py` (`REQ-SCRAPE-01`), and set `extraction_tier="gemini_search"` in `_execute_batch_check`. |
 | `0.3.42` | 2026-11-17 | Antigravity | Added **Re-check** button in `ItemDetailsModal` header (`POST /api/items/{item_id}/recheck`) to trigger an immediate single-item price check with blocking loading overlay and toast feedback, bypassing the 48h Gemini cooldown (`REQ-MODAL-03`, `REQ-MODAL-06`). |
 | `0.3.43` | 2026-11-17 | Antigravity | Fixed `TrajectoryChart` line/dot misalignment on large coincident datasets (`REQ-CHART-01`): bounded `lineOffset` to `±2px` so lines stay at true `%` deltas regardless of series count, anchored polylines to true `(rawX, lineY)`, and replaced chart-wide 1D horizontal bullet spreading with locally bounded per-cluster (`±8px`) de-overlapping so bullets never drift into diagonal staircases. |
+| `0.4.0` | 2026-11-17 | Antigravity | Added grid multi-select and bulk actions (`REQ-GRID-10`) across desktop and mobile `PositionsGrid`: **Manage Tags** (`Add` / `Replace` / `Remove` via `POST /api/items/bulk-tags`), pooled **Re-check** (`POST /api/items/bulk-recheck`), and two-step **Delete** (`POST /api/items/bulk-delete`), with batched Google Sheets / Local JSON persistence and unified `APP_VERSION` bump to `0.4.0`. |

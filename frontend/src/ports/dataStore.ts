@@ -2,6 +2,7 @@ import type {
   AddItemPayload,
   BatchPreviewItemResult,
   BoughtItem,
+  BulkTagAction,
   ConfigEntry,
   RuntimeDiagnostics,
   ScrapePreview,
@@ -37,6 +38,15 @@ export interface DataStorePort {
   addItemsBatch(items: AddItemPayload[]): Promise<TrackedItem[]>;
   updateItem(itemId: string, payload: UpdateItemPayload): Promise<TrackedItem>;
   recheckItem(itemId: string): Promise<TrackedItem>;
+  bulkUpdateTags(
+    itemIds: string[],
+    action: BulkTagAction,
+    tagNames: string[],
+  ): Promise<TrackedItem[]>;
+  bulkRecheckItems(
+    itemIds: string[],
+  ): Promise<{ telemetry: TelemetryRun; alerts_triggered: number }>;
+  bulkDeleteItems(itemIds: string[]): Promise<string[]>;
   markBought(itemId: string, purchasedPrice: number): Promise<BoughtItem>;
   resumeTracking(itemId: string): Promise<TrackedItem>;
   deleteItem(itemId: string): Promise<void>;

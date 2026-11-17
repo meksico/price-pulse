@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   BoughtItem,
+  BulkTagAction,
   PriceSnapshot,
   Tag,
   TrackedItem,
@@ -13,6 +14,7 @@ import {
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 import type { GridTab } from "../shared/routes";
+import { TagAdderControl } from "./TagAdderControl";
 
 type GroupMode = "none" | "tag";
 type SortField =
@@ -97,6 +99,13 @@ interface PositionsGridProps {
   activeTagFilter: string;
   onTagFilterChange: (tagId: string) => void;
   onOpenItem: (itemId: string) => void;
+  onBulkUpdateTags: (
+    itemIds: string[],
+    action: BulkTagAction,
+    tagNames: string[],
+  ) => Promise<void>;
+  onBulkRecheck: (itemIds: string[]) => Promise<void>;
+  onBulkDelete: (itemIds: string[]) => Promise<void>;
 }
 
 function Sparkline({ snapshots }: { snapshots: PriceSnapshot[] }) {
@@ -138,6 +147,9 @@ export function PositionsGrid({
   activeTagFilter,
   onTagFilterChange,
   onOpenItem,
+  onBulkUpdateTags,
+  onBulkRecheck,
+  onBulkDelete,
 }: PositionsGridProps) {
   const [groupBy, setGroupBy] = useState<GroupMode>("none");
   const [searchQuery, setSearchQuery] = useState("");
@@ -148,8 +160,20 @@ export function PositionsGrid({
   const [isMobileScrolledPast, setIsMobileScrolledPast] = useState(false);
   const [isStickyExpanded, setIsStickyExpanded] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusyAction, setBulkBusyAction] = useState<
+    "tags" | "recheck" | "delete" | null
+  >(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [isBulkTagOpen, setIsBulkTagOpen] = useState(false);
+  const [bulkTagMode, setBulkTagMode] = useState<BulkTagAction>("add");
+  const [bulkTagNames, setBulkTagNames] = useState<string[]>([]);
+
   const filtrationHeaderRef = useRef<HTMLDivElement>(null);
   const stickyPanelRef = useRef<HTMLDivElement>(null);
+  const bulkTagContainerRef = useRef<HTMLDivElement>(null);
+  const selectAllDesktopRef = useRef<HTMLInputElement>(null);
+  const selectAllMobileRef = useRef<HTMLInputElement>(null);
   const expandedScrollYRef = useRef<number>(0);
 
   useEffect(() => {
@@ -332,6 +356,168 @@ export function PositionsGrid({
     return Array.from(groups.entries());
   }, [groupBy, filteredActive, tagById]);
 
+  const validTabItemIds = useMemo(() => {
+    if (activeTab === "bought") {
+      return new Set(boughtItems.map((i) => i.item_id));
+    }
+    if (activeTab === "manual") {
+      return new Set(manualCheckItemsAll.map((i) => i.item_id));
+    }
+    return new Set(items.map((i) => i.item_id));
+  }, [activeTab, items, manualCheckItemsAll, boughtItems]);
+
+  const visibleItemIds = useMemo(() => {
+    const raw =
+      activeTab === "bought"
+        ? filteredBought.map((i) => i.item_id)
+        : pagedActive.map((i) => i.item_id);
+    return Array.from(new Set(raw));
+  }, [activeTab, filteredBought, pagedActive]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setConfirmBulkDelete(false);
+    setIsBulkTagOpen(false);
+    setBulkTagNames([]);
+  }, [activeTab]);
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (validTabItemIds.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [validTabItemIds]);
+
+  const allVisibleSelected =
+    visibleItemIds.length > 0 &&
+    visibleItemIds.every((id) => selectedIds.has(id));
+  const someVisibleSelected =
+    visibleItemIds.some((id) => selectedIds.has(id)) && !allVisibleSelected;
+
+  useEffect(() => {
+    if (selectAllDesktopRef.current) {
+      selectAllDesktopRef.current.indeterminate = someVisibleSelected;
+    }
+    if (selectAllMobileRef.current) {
+      selectAllMobileRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected]);
+
+  useEffect(() => {
+    if (!isBulkTagOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        bulkTagContainerRef.current &&
+        !bulkTagContainerRef.current.contains(target)
+      ) {
+        setIsBulkTagOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsBulkTagOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isBulkTagOpen]);
+
+  const tagsOnSelectedItems = useMemo(() => {
+    if (activeTab === "bought" || selectedIds.size === 0) return [];
+    const presentIds = new Set<string>();
+    for (const item of items) {
+      if (selectedIds.has(item.item_id)) {
+        for (const tid of item.tag_ids) {
+          presentIds.add(tid);
+        }
+      }
+    }
+    return tags.filter((t) => presentIds.has(t.tag_id));
+  }, [activeTab, items, selectedIds, tags]);
+
+  const toggleSelectItem = (itemId: string) => {
+    setConfirmBulkDelete(false);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    setConfirmBulkDelete(false);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const id of visibleItemIds) next.delete(id);
+      } else {
+        for (const id of visibleItemIds) next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setConfirmBulkDelete(false);
+    setIsBulkTagOpen(false);
+    setBulkTagNames([]);
+  };
+
+  const handleApplyBulkTags = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (bulkTagMode !== "replace" && bulkTagNames.length === 0) return;
+    setBulkBusyAction("tags");
+    try {
+      await onBulkUpdateTags(ids, bulkTagMode, bulkTagNames);
+      setIsBulkTagOpen(false);
+      setBulkTagNames([]);
+    } finally {
+      setBulkBusyAction(null);
+    }
+  };
+
+  const handleRunBulkRecheck = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkBusyAction("recheck");
+    setIsBulkTagOpen(false);
+    setConfirmBulkDelete(false);
+    try {
+      await onBulkRecheck(ids);
+    } finally {
+      setBulkBusyAction(null);
+    }
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkBusyAction("delete");
+    setIsBulkTagOpen(false);
+    try {
+      await onBulkDelete(ids);
+      clearSelection();
+    } finally {
+      setBulkBusyAction(null);
+    }
+  };
+
+  const bulkBusy = bulkBusyAction !== null;
+
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortAsc((p) => !p);
     else {
@@ -393,16 +579,29 @@ export function PositionsGrid({
     const cardTone = isManualTab
       ? getManualCheckCardClass(daysSince)
       : "border-gray-200 bg-white";
+    const checked = selectedIds.has(item.item_id);
     return (
       <article
         key={item.item_id}
         data-manual-age-days={isManualTab ? daysSince : undefined}
-        className="min-w-0"
+        className="flex min-w-0 items-start gap-2"
       >
+        <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg pt-1">
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled={bulkBusy}
+            onChange={() => toggleSelectItem(item.item_id)}
+            aria-label={`Select ${item.name}`}
+            className="h-5 w-5 cursor-pointer rounded border-gray-300 accent-zinc-950"
+          />
+        </label>
         <button
           type="button"
           onClick={() => onOpenItem(item.item_id)}
-          className={`flex w-full min-w-0 items-stretch gap-3 rounded-xl border p-2.5 text-left transition-colors hover:border-zinc-300 ${cardTone}`}
+          className={`flex min-w-0 flex-1 items-stretch gap-3 rounded-xl border p-2.5 text-left transition-colors hover:border-zinc-300 ${
+            checked ? "ring-2 ring-zinc-950/20 " : ""
+          }${cardTone}`}
         >
           <div className="min-h-[140px] max-h-[160px] w-24 shrink-0 self-stretch overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
             {item.image_url ? (
@@ -470,13 +669,27 @@ export function PositionsGrid({
     );
   };
 
-  const renderMobileBoughtCard = (item: BoughtItem) => (
-    <article key={item.item_id} className="min-w-0">
-      <button
-        type="button"
-        onClick={() => onOpenItem(item.item_id)}
-        className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-gray-200 bg-white p-2.5 text-left transition-colors hover:border-zinc-300"
-      >
+  const renderMobileBoughtCard = (item: BoughtItem) => {
+    const checked = selectedIds.has(item.item_id);
+    return (
+      <article key={item.item_id} className="flex min-w-0 items-start gap-2">
+        <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg pt-1">
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled={bulkBusy}
+            onChange={() => toggleSelectItem(item.item_id)}
+            aria-label={`Select ${item.name}`}
+            className="h-5 w-5 cursor-pointer rounded border-gray-300 accent-zinc-950"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => onOpenItem(item.item_id)}
+          className={`flex min-w-0 flex-1 flex-col gap-2 rounded-xl border border-gray-200 bg-white p-2.5 text-left transition-colors hover:border-zinc-300 ${
+            checked ? "ring-2 ring-zinc-950/20" : ""
+          }`}
+        >
         <div className="flex flex-wrap items-center gap-1">
           <span className="tabular-nums shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-950">
             +{formatMoney(item.currency, item.saved_cost)}
@@ -514,7 +727,8 @@ export function PositionsGrid({
         </div>
       </button>
     </article>
-  );
+    );
+  };
 
   const renderActiveRow = (item: TrackedItem) => {
     const snaps = priceHistory.filter((s) => s.item_id === item.item_id);
@@ -523,12 +737,25 @@ export function PositionsGrid({
     const rowTone = isManualTab
       ? getManualCheckRowClass(daysSince)
       : "hover:bg-gray-50/70";
+    const checked = selectedIds.has(item.item_id);
     return (
       <tr
         key={item.item_id}
         data-manual-age-days={isManualTab ? daysSince : undefined}
-        className={`border-b border-gray-100 transition-colors last:border-b-0 ${rowTone}`}
+        className={`border-b border-gray-100 transition-colors last:border-b-0 ${
+          checked ? "bg-zinc-50/90" : rowTone
+        }`}
       >
+        <td className="w-10 py-3 pl-2 pr-1">
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled={bulkBusy}
+            onChange={() => toggleSelectItem(item.item_id)}
+            aria-label={`Select ${item.name}`}
+            className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-zinc-950"
+          />
+        </td>
         <td className={`py-3 pr-3 ${isManualTab ? "pl-2.5" : ""}`}>
           <div className="flex items-center gap-3">
             {isManualTab && daysSince >= 1 && (
@@ -857,8 +1084,264 @@ export function PositionsGrid({
         {renderFiltrationControls("grid", true)}
       </div>
 
+      {selectedIds.size > 0 && (
+        <div
+          id={ANCHORS.gridPanelBulkBar}
+          role="region"
+          aria-label="Bulk actions"
+          aria-busy={bulkBusy}
+          className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-gray-50 px-3 py-2"
+        >
+          <div className="flex items-center gap-2">
+            <span className="tabular-nums text-xs font-semibold text-zinc-950">
+              {selectedIds.size} selected
+            </span>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={clearSelection}
+              className="min-h-11 rounded-lg px-2.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-gray-200/70 hover:text-zinc-950 disabled:opacity-50 sm:min-h-8"
+            >
+              Clear
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {activeTab !== "bought" && (
+              <>
+                <div ref={bulkTagContainerRef} className="relative">
+                  <button
+                    type="button"
+                    disabled={bulkBusy}
+                    aria-expanded={isBulkTagOpen}
+                    aria-controls={ANCHORS.gridPanelBulkTagPopover}
+                    onClick={() => {
+                      setConfirmBulkDelete(false);
+                      setIsBulkTagOpen((prev) => !prev);
+                    }}
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-950 transition-colors hover:bg-gray-100 disabled:opacity-50 sm:min-h-8"
+                  >
+                    <span>
+                      {bulkBusyAction === "tags"
+                        ? "Updating tags..."
+                        : "Manage Tags"}
+                    </span>
+                    <span aria-hidden="true" className="text-[10px]">
+                      {isBulkTagOpen ? "\u25b4" : "\u25be"}
+                    </span>
+                  </button>
+
+                  {isBulkTagOpen && (
+                    <div
+                      id={ANCHORS.gridPanelBulkTagPopover}
+                      role="dialog"
+                      aria-label="Bulk manage tags"
+                      className="absolute left-0 top-full z-30 mt-1.5 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-3 shadow-lg sm:left-auto sm:right-0 sm:w-80"
+                    >
+                      <div
+                        role="tablist"
+                        aria-label="Bulk tag action mode"
+                        className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-gray-100 p-1"
+                      >
+                        {(["add", "replace", "remove"] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            role="tab"
+                            aria-selected={bulkTagMode === mode}
+                            onClick={() => {
+                              setBulkTagMode(mode);
+                              setBulkTagNames([]);
+                            }}
+                            className={`min-h-9 rounded-md px-2 text-xs font-medium capitalize transition-colors ${
+                              bulkTagMode === mode
+                                ? "bg-zinc-950 text-white"
+                                : "text-zinc-700 hover:text-zinc-950"
+                            }`}
+                          >
+                            {mode === "replace" ? "Replace" : mode}
+                          </button>
+                        ))}
+                      </div>
+
+                      {bulkTagMode === "remove" ? (
+                        <div className="space-y-2">
+                          <p className="text-[11px] text-zinc-500">
+                            Select tags to remove from the {selectedIds.size}{" "}
+                            selected item{selectedIds.size === 1 ? "" : "s"}:
+                          </p>
+                          {tagsOnSelectedItems.length === 0 ? (
+                            <p className="text-xs text-zinc-400">
+                              Selected items have no tags.
+                            </p>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {tagsOnSelectedItems.map((tag) => {
+                                const picked = bulkTagNames.includes(tag.name);
+                                return (
+                                  <button
+                                    key={tag.tag_id}
+                                    type="button"
+                                    aria-pressed={picked}
+                                    onClick={() =>
+                                      setBulkTagNames((prev) =>
+                                        picked
+                                          ? prev.filter((n) => n !== tag.name)
+                                          : [...prev, tag.name],
+                                      )
+                                    }
+                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                      picked
+                                        ? TAG_ACTIVE_BADGE_CLASSES[tag.color]
+                                        : TAG_BADGE_CLASSES[tag.color]
+                                    }`}
+                                  >
+                                    <span
+                                      aria-hidden="true"
+                                      className={`h-1.5 w-1.5 rounded-full ${
+                                        picked
+                                          ? "bg-white"
+                                          : TAG_DOT_CLASSES[tag.color]
+                                      }`}
+                                    />
+                                    {tag.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-[11px] text-zinc-500">
+                            {bulkTagMode === "add"
+                              ? "Append tags while keeping existing tags:"
+                              : "Replace all existing tags on selected items (leave empty to clear):"}
+                          </p>
+                          <TagAdderControl
+                            idPrefix="bulk-tag"
+                            availableTags={tags}
+                            selectedTagNames={bulkTagNames}
+                            onAddTag={(name) =>
+                              setBulkTagNames((prev) =>
+                                prev.some(
+                                  (n) =>
+                                    n.trim().toLowerCase() ===
+                                    name.trim().toLowerCase(),
+                                )
+                                  ? prev
+                                  : [...prev, name],
+                              )
+                            }
+                            onRemoveTag={(name) =>
+                              setBulkTagNames((prev) =>
+                                prev.filter((n) => n !== name),
+                              )
+                            }
+                          />
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex items-center justify-end gap-2 border-t border-gray-100 pt-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsBulkTagOpen(false)}
+                          className="min-h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            bulkBusy ||
+                            (bulkTagMode !== "replace" &&
+                              bulkTagNames.length === 0)
+                          }
+                          onClick={() => void handleApplyBulkTags()}
+                          className="min-h-9 rounded-lg bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40"
+                        >
+                          {bulkTagMode === "add"
+                            ? "Add Tags"
+                            : bulkTagMode === "replace"
+                              ? "Replace Tags"
+                              : "Remove Tags"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  onClick={() => void handleRunBulkRecheck()}
+                  className="tabular-nums min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-950 transition-colors hover:bg-gray-100 disabled:opacity-50 sm:min-h-8"
+                >
+                  {bulkBusyAction === "recheck"
+                    ? `Re-checking (${selectedIds.size})...`
+                    : `Re-check (${selectedIds.size})`}
+                </button>
+              </>
+            )}
+
+            {!confirmBulkDelete ? (
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => {
+                  setIsBulkTagOpen(false);
+                  setConfirmBulkDelete(true);
+                }}
+                className="tabular-nums min-h-11 rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50 sm:min-h-8"
+              >
+                Delete ({selectedIds.size})
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  onClick={() => void handleConfirmBulkDelete()}
+                  className="tabular-nums min-h-11 rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 sm:min-h-8"
+                >
+                  {bulkBusyAction === "delete"
+                    ? "Deleting..."
+                    : `Confirm Delete (${selectedIds.size})`}
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  onClick={() => setConfirmBulkDelete(false)}
+                  className="min-h-11 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-gray-50 disabled:opacity-50 sm:min-h-8"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Mobile-first stacked cards (< 768px) */}
       <div className="min-w-0 space-y-2.5 md:hidden">
+        {visibleItemIds.length > 0 && (
+          <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-xs font-medium text-zinc-700">
+              <input
+                ref={selectAllMobileRef}
+                type="checkbox"
+                checked={allVisibleSelected}
+                disabled={bulkBusy}
+                onChange={toggleSelectAllVisible}
+                aria-label="Select all visible items"
+                className="h-5 w-5 cursor-pointer rounded border-gray-300 accent-zinc-950"
+              />
+              <span className="tabular-nums">
+                Select all ({visibleItemIds.length})
+              </span>
+            </label>
+          </div>
+        )}
         {activeTab === "active" || activeTab === "manual"
           ? groupBy === "none"
             ? pagedActive.map(renderMobileActiveCard)
@@ -900,6 +1383,17 @@ export function PositionsGrid({
           <table className="w-full border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-gray-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <th className="w-10 py-2 pl-2 pr-1">
+                  <input
+                    ref={selectAllDesktopRef}
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    disabled={bulkBusy || visibleItemIds.length === 0}
+                    onChange={toggleSelectAllVisible}
+                    aria-label="Select all visible items"
+                    className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-zinc-950"
+                  />
+                </th>
                 <th className="py-2 pr-3">
                   <button
                     type="button"
@@ -963,6 +1457,7 @@ export function PositionsGrid({
                       Math.max(1, group.rows.length);
                     return (
                       <FragmentGroup
+                        colSpan={activeTab === "manual" ? 10 : 9}
                         key={gid}
                         groupId={gid}
                         label={group.label}
@@ -988,6 +1483,17 @@ export function PositionsGrid({
           <table className="w-full border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-gray-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <th className="w-10 py-2 pl-2 pr-1">
+                  <input
+                    ref={selectAllDesktopRef}
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    disabled={bulkBusy || visibleItemIds.length === 0}
+                    onChange={toggleSelectAllVisible}
+                    aria-label="Select all visible items"
+                    className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-zinc-950"
+                  />
+                </th>
                 <th className="py-2 pr-3">Product Name</th>
                 <th className="px-2 py-2">Tags</th>
                 <th className="px-2 py-2 text-right">Baseline</th>
@@ -998,11 +1504,25 @@ export function PositionsGrid({
               </tr>
             </thead>
             <tbody>
-              {filteredBought.map((item) => (
+              {filteredBought.map((item) => {
+                const checked = selectedIds.has(item.item_id);
+                return (
                 <tr
                   key={item.item_id}
-                  className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/70"
+                  className={`border-b border-gray-100 last:border-b-0 ${
+                    checked ? "bg-zinc-50/90" : "hover:bg-gray-50/70"
+                  }`}
                 >
+                  <td className="w-10 py-3 pl-2 pr-1">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={bulkBusy}
+                      onChange={() => toggleSelectItem(item.item_id)}
+                      aria-label={`Select ${item.name}`}
+                      className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-zinc-950"
+                    />
+                  </td>
                   <td className="py-3 pr-3">
                     <button
                       type="button"
@@ -1035,7 +1555,8 @@ export function PositionsGrid({
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -1083,6 +1604,7 @@ function FragmentGroup({
   label,
   count,
   avgDrop,
+  colSpan,
   collapsed,
   onToggle,
   children,
@@ -1091,6 +1613,7 @@ function FragmentGroup({
   label: string;
   count: number;
   avgDrop: number;
+  colSpan: number;
   collapsed: boolean;
   onToggle: () => void;
   children: React.ReactNode;
@@ -1098,7 +1621,7 @@ function FragmentGroup({
   return (
     <>
       <tr key={`group-${groupId}`} className="bg-gray-100/80">
-        <td colSpan={8} className="px-3 py-2">
+        <td colSpan={colSpan} className="px-3 py-2">
           <button
             type="button"
             aria-expanded={!collapsed}

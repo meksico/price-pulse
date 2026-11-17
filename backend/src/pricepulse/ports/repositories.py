@@ -66,6 +66,19 @@ class StateRepositoryPort(Protocol):
         """Permanently delete an item from active or bought storage."""
         ...
 
+    def bulk_update_tags(
+        self,
+        item_ids: list[str],
+        action: str,
+        tag_names: list[str],
+    ) -> list[TrackedItem]:
+        """Add, replace, or remove tags across multiple active tracked items."""
+        ...
+
+    def bulk_delete_items(self, item_ids: list[str]) -> list[str]:
+        """Permanently delete multiple active or bought items and their tag links."""
+        ...
+
     def apply_price_checks(
         self,
         outcomes: list[ScrapeOutcome],

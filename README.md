@@ -4,7 +4,7 @@
 
 # PricePulse
 
-> **Version:** `0.3.43` · **Architecture:** Hexagonal Clean Architecture (`frontend/` + `backend/`) · **Spec:** [SRS.md](SRS.md)
+> **Version:** `0.4.0` · **Architecture:** Hexagonal Clean Architecture (`frontend/` + `backend/`) · **Spec:** [SRS.md](SRS.md)
 
 **PricePulse** is a personal, automated e-commerce price intelligence and deal-tracking application. It monitors arbitrary retailer product URLs, records historical price trajectories, alerts users when target prices are reached, and tracks realized savings when items are purchased.
 
@@ -52,7 +52,7 @@ price-pulse/
 │   ├── tests/              # Automated unit tests
 │   └── scripts/            # Static analysis & quality gate (quality_check.py)
 ├── docs/                   # Data model & architectural decision records
-├── SRS.md                  # Software Requirements Specification (v0.3.43)
+├── SRS.md                  # Software Requirements Specification (v0.4.0)
 └── ui_prototype.html       # Primary reference UI prototype
 ```
 
@@ -65,7 +65,7 @@ price-pulse/
 - **Normalized `%` Price Dynamic Chart:** Compares items at different price points on a single `0.0%` baseline chart with `5%`-step gridlines, timestamp-aligned X coordinates, interactive tooltips, **Top 5 Drops** / **All in View** presets, keyboard focus isolation, and bi-directional **Chart ↔ Grid** tag filtering.
 
 ### Data Grid & Bought Items Sheet
-- **Active Positions & Bought Items Views:** Sortable columns (`Product Name`, `Tags`, `Baseline`, `Current Price`, `Target Alert`, `Trend Dynamic` sparkline, `Drop %`, `Actions`), 15-items-per-page pagination, search, clickable tag chips, and collapsible **Group By: Tag** mode.
+- **Active Positions & Bought Items Views:** Sortable columns (`Product Name`, `Tags`, `Baseline`, `Current Price`, `Target Alert`, `Trend Dynamic` sparkline, `Drop %`, `Actions`), 15-items-per-page pagination, search, clickable tag chips, collapsible **Group By: Tag** mode, and **multi-select bulk actions** (**Manage Tags** Add/Replace/Remove, pooled **Re-check**, and two-step **Delete**).
 - **Mobile-First Responsive Layout:** Zero horizontal overflow across `320px+` viewports; data grids render as stacked touch-friendly cards on `< 768px` (`md:hidden`) with a collapsible header navigation menu.
 
 ### Modals & Lifecycle Management

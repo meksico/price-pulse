@@ -502,6 +502,66 @@ class LocalJsonRepository:
         ]
         self._persist()
 
+    def bulk_update_tags(
+        self,
+        item_ids: list[str],
+        action: str,
+        tag_names: list[str],
+    ) -> list[TrackedItem]:
+        """Add, replace, or remove tags across multiple active tracked items."""
+        if action not in {"add", "replace", "remove"}:
+            raise ValueError(f"Unsupported bulk tag action: {action}")
+        target_set = set(item_ids)
+        matched = [item for item in self._state.items if item.item_id in target_set]
+        if not matched:
+            return []
+        if action in {"add", "replace"}:
+            resolved_ids = self._ensure_tags(tag_names)
+        else:
+            clean_lower = {n.strip().lower() for n in tag_names if n.strip()}
+            resolved_ids = [
+                t.tag_id
+                for t in self._state.tags
+                if t.name.strip().lower() in clean_lower
+            ]
+        resolved_set = set(resolved_ids)
+        for item in matched:
+            if action == "add":
+                next_ids = list(dict.fromkeys([*item.tag_ids, *resolved_ids]))
+            elif action == "replace":
+                next_ids = list(resolved_ids)
+            else:
+                next_ids = [tid for tid in item.tag_ids if tid not in resolved_set]
+            item.tag_ids = next_ids
+            self._sync_item_tags(item.item_id, next_ids)
+        self._persist()
+        return matched
+
+    def bulk_delete_items(self, item_ids: list[str]) -> list[str]:
+        """Delete multiple active or bought items and clean up Item_Tags links."""
+        target_set = set(item_ids)
+        if not target_set:
+            return []
+        existing_ids = {
+            *(i.item_id for i in self._state.items),
+            *(b.item_id for b in self._state.bought_items),
+        }
+        deleted = [iid for iid in item_ids if iid in existing_ids]
+        if not deleted:
+            return []
+        deleted_set = set(deleted)
+        self._state.items[:] = [
+            i for i in self._state.items if i.item_id not in deleted_set
+        ]
+        self._state.bought_items[:] = [
+            b for b in self._state.bought_items if b.item_id not in deleted_set
+        ]
+        self._state.item_tags[:] = [
+            link for link in self._state.item_tags if link.item_id not in deleted_set
+        ]
+        self._persist()
+        return deleted
+
     def apply_price_checks(
         self,
         outcomes: list[ScrapeOutcome],

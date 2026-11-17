@@ -679,6 +679,90 @@ class GoogleSheetsRepository:
         ]
         self._delete_rows("Item_Tags", tag_indices)
 
+    def bulk_update_tags(
+        self,
+        item_ids: list[str],
+        action: str,
+        tag_names: list[str],
+    ) -> list[TrackedItem]:
+        """Add, replace, or remove tags across multiple items in batched Sheets calls."""
+        if action not in {"add", "replace", "remove"}:
+            raise ValueError(f"Unsupported bulk tag action: {action}")
+        state = self.load_state()
+        target_set = set(item_ids)
+        matched = [it for it in state.items if it.item_id in target_set]
+        if not matched:
+            return []
+        if action in {"add", "replace"}:
+            resolved_ids = self._ensure_tags(tag_names, state.tags)
+        else:
+            clean_lower = {n.strip().lower() for n in tag_names if n.strip()}
+            resolved_ids = [
+                t.tag_id for t in state.tags if t.name.strip().lower() in clean_lower
+            ]
+        resolved_set = set(resolved_ids)
+        now = utc_now_iso()
+        desired_by_item: dict[str, list[str]] = {}
+        for item in matched:
+            if action == "add":
+                next_ids = list(dict.fromkeys([*item.tag_ids, *resolved_ids]))
+            elif action == "replace":
+                next_ids = list(resolved_ids)
+            else:
+                next_ids = [tid for tid in item.tag_ids if tid not in resolved_set]
+            item.tag_ids = next_ids
+            desired_by_item[item.item_id] = next_ids
+
+        del_indices: list[int] = []
+        existing_pairs: set[tuple[str, str]] = set()
+        for idx, link in enumerate(state.item_tags):
+            if link.item_id not in desired_by_item:
+                continue
+            if link.tag_id not in desired_by_item[link.item_id]:
+                del_indices.append(idx + 1)
+            else:
+                existing_pairs.add((link.item_id, link.tag_id))
+        if del_indices:
+            self._delete_rows("Item_Tags", del_indices)
+        new_rows = [
+            [iid, tid, now]
+            for iid, tids in desired_by_item.items()
+            for tid in tids
+            if (iid, tid) not in existing_pairs
+        ]
+        if new_rows:
+            self._append_rows("Item_Tags", new_rows)
+        return matched
+
+    def bulk_delete_items(self, item_ids: list[str]) -> list[str]:
+        """Delete multiple active or bought items and their Item_Tags in batched calls."""
+        target_set = set(item_ids)
+        if not target_set:
+            return []
+        state = self.load_state()
+        active_indices = [
+            i + 1 for i, it in enumerate(state.items) if it.item_id in target_set
+        ]
+        bought_indices = [
+            i + 1 for i, it in enumerate(state.bought_items) if it.item_id in target_set
+        ]
+        deleted = [
+            *(it.item_id for it in state.items if it.item_id in target_set),
+            *(it.item_id for it in state.bought_items if it.item_id in target_set),
+        ]
+        if not deleted:
+            return []
+        if active_indices:
+            self._delete_rows("Items", active_indices)
+        if bought_indices:
+            self._delete_rows("Bought_Items", bought_indices)
+        tag_indices = [
+            i + 1 for i, link in enumerate(state.item_tags) if link.item_id in target_set
+        ]
+        if tag_indices:
+            self._delete_rows("Item_Tags", tag_indices)
+        return deleted
+
     def apply_price_checks(
         self,
         outcomes: list[ScrapeOutcome],

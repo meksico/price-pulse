@@ -10,7 +10,7 @@ import traceback
 import uuid
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -81,6 +81,20 @@ class UpdateItemRequest(BaseModel):
     target_price: float | None = Field(default=None, gt=0)
     tag_names: list[str] | None = None
     current_price: float | None = Field(default=None, gt=0)
+
+
+class BulkTagsRequest(BaseModel):
+    """Payload for bulk adding, replacing, or removing tags on active items."""
+
+    item_ids: list[str] = Field(min_length=1)
+    action: Literal["add", "replace", "remove"]
+    tag_names: list[str] = Field(default_factory=list)
+
+
+class BulkItemIdsRequest(BaseModel):
+    """Payload for bulk operations targeting multiple item IDs."""
+
+    item_ids: list[str] = Field(min_length=1)
 
 
 class MarkBoughtRequest(BaseModel):
@@ -429,6 +443,35 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.post("/api/items/bulk-tags")
+    def bulk_update_item_tags(
+        payload: BulkTagsRequest,
+        _user: str = Depends(_verify_auth),
+    ) -> dict[str, Any]:
+        """Add, replace, or remove tags across multiple active tracked items."""
+        try:
+            updated = resolved_repo.bulk_update_tags(
+                item_ids=payload.item_ids,
+                action=payload.action,
+                tag_names=payload.tag_names,
+            )
+            logger.info(
+                f"Bulk tag {payload.action} applied to {len(updated)} items"
+            )
+            return {"items": [_serialize_item(item) for item in updated]}
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/items/bulk-delete")
+    def bulk_delete_items(
+        payload: BulkItemIdsRequest,
+        _user: str = Depends(_verify_auth),
+    ) -> dict[str, Any]:
+        """Delete multiple active or bought items in one batched operation."""
+        deleted = resolved_repo.bulk_delete_items(payload.item_ids)
+        logger.info(f"Bulk deleted {len(deleted)} items")
+        return {"status": "deleted", "deleted_ids": deleted}
+
     @app.post("/api/tags")
     def create_tag(
         payload: CreateTagRequest,
@@ -601,8 +644,9 @@ def create_app(
         user_email: str = "",
         respect_cooldown: bool = True,
         target_item_id: str | None = None,
+        target_item_ids: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Run pooled price check (all items or single item), update state, and send digest."""
+        """Run pooled price check (all items or subset), update state, and send digest."""
         started_at = utc_now_iso()
         start_ms = time.perf_counter()
         state = resolved_repo.load_state()
@@ -615,6 +659,16 @@ def create_app(
                 raise HTTPException(
                     status_code=404,
                     detail=f"Unknown item_id: {target_item_id}",
+                )
+        elif target_item_ids is not None:
+            target_set = set(target_item_ids)
+            target_items = [
+                item for item in state.items if item.item_id in target_set
+            ]
+            if not target_items:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No matching active items found for bulk re-check",
                 )
         prev_by_id = {
             item.item_id: (item.status, item.lowest_price) for item in target_items
@@ -825,6 +879,18 @@ def create_app(
             "telemetry": telemetry,
             "alerts_triggered": result["alerts_triggered"],
         }
+
+    @app.post("/api/items/bulk-recheck")
+    async def bulk_recheck_items(
+        payload: BulkItemIdsRequest,
+        _user: str = Depends(_verify_auth),
+    ) -> dict[str, Any]:
+        """Trigger immediate pooled price check for selected active items."""
+        return await _execute_batch_check(
+            user_email=_user,
+            respect_cooldown=False,
+            target_item_ids=payload.item_ids,
+        )
 
     @app.post("/api/scrape/run-check")
     async def run_check(_user: str = Depends(_verify_auth)) -> dict[str, Any]:

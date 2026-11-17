@@ -41,7 +41,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.3.43"
+    assert body["app_version"] == "0.4.0"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
@@ -643,5 +643,105 @@ def test_single_item_recheck_updates_price_and_bypasses_cooldown(tmp_path: Path)
     assert body["item"]["status"] == "DISCOUNT"
     assert body["telemetry"]["items_checked"] == 1
     assert client.post("/api/items/item-missing/recheck").status_code == 404
+
+
+def test_bulk_tags_recheck_and_delete(tmp_path: Path) -> None:
+    """Verify bulk-tags (add/replace/remove), bulk-recheck, and bulk-delete."""
+    client = _make_client(tmp_path)
+    state = client.get("/api/state").json()
+    active_ids = [it["item_id"] for it in state["items"][:2]]
+    assert len(active_ids) == 2
+
+    # 1. Bulk add tag (including auto-creating a new tag)
+    add_resp = client.post(
+        "/api/items/bulk-tags",
+        json={
+            "item_ids": active_ids,
+            "action": "add",
+            "tag_names": ["Wishlist"],
+        },
+    )
+    assert add_resp.status_code == 200
+    updated_items = add_resp.json()["items"]
+    assert len(updated_items) == 2
+
+    state_after_add = client.get("/api/state").json()
+    wishlist_tag = next(
+        (t for t in state_after_add["tags"] if t["name"] == "Wishlist"),
+        None,
+    )
+    assert wishlist_tag is not None
+    for it in state_after_add["items"]:
+        if it["item_id"] in active_ids:
+            assert wishlist_tag["tag_id"] in it["tag_ids"]
+
+    # 2. Bulk remove tag
+    rem_resp = client.post(
+        "/api/items/bulk-tags",
+        json={
+            "item_ids": active_ids,
+            "action": "remove",
+            "tag_names": ["Wishlist"],
+        },
+    )
+    assert rem_resp.status_code == 200
+    state_after_rem = client.get("/api/state").json()
+    for it in state_after_rem["items"]:
+        if it["item_id"] in active_ids:
+            assert wishlist_tag["tag_id"] not in it["tag_ids"]
+
+    # 3. Bulk replace tags
+    rep_resp = client.post(
+        "/api/items/bulk-tags",
+        json={
+            "item_ids": active_ids,
+            "action": "replace",
+            "tag_names": ["Priority"],
+        },
+    )
+    assert rep_resp.status_code == 200
+    state_after_rep = client.get("/api/state").json()
+    priority_tag = next(
+        t for t in state_after_rep["tags"] if t["name"] == "Priority"
+    )
+    for it in state_after_rep["items"]:
+        if it["item_id"] in active_ids:
+            assert it["tag_ids"] == [priority_tag["tag_id"]]
+
+    # 4. Bulk re-check
+    recheck_resp = client.post(
+        "/api/items/bulk-recheck",
+        json={"item_ids": active_ids},
+    )
+    assert recheck_resp.status_code == 200
+    assert recheck_resp.json()["telemetry"]["items_checked"] == 2
+    assert (
+        client.post(
+            "/api/items/bulk-recheck",
+            json={"item_ids": ["item-missing"]},
+        ).status_code
+        == 404
+    )
+
+    # 5. Bulk delete (mix of active + bought)
+    bought_id = state_after_rep["bought_items"][0]["item_id"]
+    del_resp = client.post(
+        "/api/items/bulk-delete",
+        json={"item_ids": [active_ids[0], bought_id]},
+    )
+    assert del_resp.status_code == 200
+    assert set(del_resp.json()["deleted_ids"]) == {active_ids[0], bought_id}
+    final_state = client.get("/api/state").json()
+    remaining_ids = {
+        *(it["item_id"] for it in final_state["items"]),
+        *(b["item_id"] for b in final_state["bought_items"]),
+    }
+    assert active_ids[0] not in remaining_ids
+    assert bought_id not in remaining_ids
+    assert all(
+        link["item_id"] not in {active_ids[0], bought_id}
+        for link in final_state["item_tags"]
+    )
+
 
 

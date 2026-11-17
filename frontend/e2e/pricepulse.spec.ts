@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.3.43");
+    expect(menuVersion).toBe("v0.4.0");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -589,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.3.43");
+    expect(healthVersion).toBe("v0.4.0");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -607,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.3.43"',
+      '"app_version": "0.4.0"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1642,7 +1642,127 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     expect(metrics!.uniquePolyXs.length).toBe(3);
     expect(metrics!.maxPolyYDrift).toBeLessThanOrEqual(2.5);
     expect(metrics!.maxBulletYDrift).toBeLessThanOrEqual(2.5);
-    expect(metrics!.maxBulletXDrift).toBeLessThanOrEqual(20);
+    expect(metrics!.maxBulletXDrift).toBeLessThanOrEqual(12);
+  });
+
+  test("Grid bulk actions support add/replace/remove tags, re-check, delete, and popover dismissal", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+
+    const grid = page.locator("#grid-panel");
+    const checkboxes = grid.locator(
+      'tbody input[type="checkbox"][aria-label^="Select "]',
+    );
+    await expect(checkboxes.first()).toBeVisible();
+    const count = await checkboxes.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+
+    // Select first two active items
+    await checkboxes.nth(0).check();
+    await checkboxes.nth(1).check();
+
+    const bulkBar = page.locator("#grid-panel__bulk-bar");
+    await expect(bulkBar).toBeVisible();
+    await expect(bulkBar.getByText("2 selected")).toBeVisible();
+
+    // Open Manage Tags popover and verify Escape & outside-click dismissal
+    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
+    const tagPopover = page.locator("#grid-panel__bulk-tag-popover");
+    await expect(tagPopover).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(tagPopover).toBeHidden();
+
+    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
+    await expect(tagPopover).toBeVisible();
+    await page.locator("#chart-panel").click({ position: { x: 10, y: 10 } });
+    await expect(tagPopover).toBeHidden();
+
+    // 1. Bulk Add new tag
+    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
+    await tagPopover.getByLabel("Add Tag").selectOption("__NEW__");
+    await tagPopover.getByLabel("New tag name").fill("BulkTagE2E");
+    await tagPopover.getByRole("button", { name: "+ Add Tag" }).click();
+    await tagPopover.getByRole("button", { name: "Add Tags" }).click();
+    await expect(tagPopover).toBeHidden();
+    await expect(page.locator("#toast-viewport")).toContainText(
+      /Bulk tags updated/i,
+    );
+
+    // 2. Bulk Remove tag
+    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
+    await tagPopover.getByRole("tab", { name: "Remove" }).click();
+    await tagPopover.getByRole("button", { name: "BulkTagE2E" }).click();
+    await tagPopover.getByRole("button", { name: "Remove Tags" }).click();
+    await expect(tagPopover).toBeHidden();
+
+    // 3. Bulk Replace tags
+    await bulkBar.getByRole("button", { name: /Manage Tags/i }).click();
+    await tagPopover.getByRole("tab", { name: "Replace" }).click();
+    await tagPopover.getByLabel("Add Tag").selectOption("__NEW__");
+    await tagPopover.getByLabel("New tag name").fill("ReplacedTagE2E");
+    await tagPopover.getByRole("button", { name: "+ Add Tag" }).click();
+    await tagPopover.getByRole("button", { name: "Replace Tags" }).click();
+    await expect(tagPopover).toBeHidden();
+
+    // 4. Bulk Re-check
+    await bulkBar.getByRole("button", { name: "Re-check (2)" }).click();
+    await expect(page.locator("#toast-viewport")).toContainText(
+      /Bulk re-check complete/i,
+    );
+
+    // 5. Bulk Delete (two-step confirmation)
+    await bulkBar.getByRole("button", { name: "Delete (2)" }).click();
+    await bulkBar.getByRole("button", { name: "Confirm Delete (2)" }).click();
+    await expect(bulkBar).toBeHidden();
+    await expect(page.locator("#toast-viewport")).toContainText(
+      /Positions deleted/i,
+    );
+
+    // 6. Bought Items Sheet scopes bulk bar to Delete only
+    await grid.getByRole("tab", { name: /Bought Items Sheet/i }).click();
+    const boughtCheckboxes = grid.locator(
+      'tbody input[type="checkbox"][aria-label^="Select "]',
+    );
+    if ((await boughtCheckboxes.count()) > 0) {
+      await boughtCheckboxes.first().check();
+      await expect(bulkBar).toBeVisible();
+      await expect(
+        bulkBar.getByRole("button", { name: /Manage Tags/i }),
+      ).toBeHidden();
+      await expect(
+        bulkBar.getByRole("button", { name: /Re-check/i }),
+      ).toBeHidden();
+      await expect(
+        bulkBar.getByRole("button", { name: "Delete (1)" }),
+      ).toBeVisible();
+      await bulkBar.getByRole("button", { name: "Clear" }).click();
+    }
+  });
+
+  test("Mobile grid multi-select and bulk bar maintain zero horizontal overflow", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/");
+
+    const grid = page.locator("#grid-panel");
+    const selectAllMobile = grid
+      .locator(".md\\:hidden")
+      .getByLabel("Select all visible items");
+    await expect(selectAllMobile).toBeVisible();
+    await selectAllMobile.check();
+
+    const bulkBar = page.locator("#grid-panel__bulk-bar");
+    await expect(bulkBar).toBeVisible();
+
+    const hasOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    );
+    expect(hasOverflow).toBe(false);
   });
 });
 

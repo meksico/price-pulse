@@ -1,4 +1,6 @@
-export const APP_VERSION = "0.3.43";
+export const APP_VERSION = "0.4.0";
+
+export type BulkTagAction = "add" | "replace" | "remove";
 
 export type TagColor =
   | "purple"
