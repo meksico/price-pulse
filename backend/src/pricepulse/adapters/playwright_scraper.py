@@ -60,9 +60,9 @@ _CURRENCY_MAP: dict[str, str] = {
     "£": "£",
 }
 
-_PRICE_REGEX = re.compile(r"([$€₴£])\s*([0-9][0-9,\s\u00a0]*\.?[0-9]{0,2})")
+_PRICE_REGEX = re.compile(r"([$€₴£])\s*([0-9]+(?:[.,\s\u00a0][0-9]+)*)")
 _SUFFIX_PRICE_REGEX = re.compile(
-    r"([0-9][0-9,\s\u00a0]*\.?[0-9]{0,2})\s*(грн|UAH|USD|EUR|GBP|[$€₴£])",
+    r"([0-9]+(?:[.,\s\u00a0][0-9]+)*)\s*(грн|UAH|USD|EUR|GBP|[$€₴£])",
     re.IGNORECASE,
 )
 _NON_VISIBLE_HTML_RE = re.compile(
@@ -133,11 +133,23 @@ def _normalize_currency(raw: str | None) -> str:
 
 
 def _parse_float(raw: Any) -> float | None:
-    """Parse numeric price value safely."""
+    """Parse numeric price value safely (supporting dot and comma decimals)."""
     if isinstance(raw, (int, float)):
         return float(raw) if raw > 0 else None
     if isinstance(raw, str):
-        cleaned = raw.replace(",", "").replace(" ", "").replace("\u00a0", "").strip()
+        cleaned = raw.replace(" ", "").replace("\u00a0", "").replace("\u202f", "").strip()
+        if not cleaned:
+            return None
+        if "," in cleaned and "." in cleaned:
+            if cleaned.rfind(",") > cleaned.rfind("."):
+                cleaned = cleaned.replace(".", "").replace(",", ".")
+            else:
+                cleaned = cleaned.replace(",", "")
+        elif "," in cleaned:
+            if cleaned.count(",") == 1 and len(cleaned.split(",")[1]) in (1, 2):
+                cleaned = cleaned.replace(",", ".")
+            else:
+                cleaned = cleaned.replace(",", "")
         try:
             val = float(cleaned)
             return val if val > 0 else None
@@ -193,7 +205,7 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
     # Tier 1: Semantic JSON-LD
     for block in parser.json_ld_blocks:
         try:
-            parsed = json.loads(block)
+            parsed = json.loads(block, strict=False)
         except json.JSONDecodeError:
             continue
         product = _find_product_in_json_ld(parsed)

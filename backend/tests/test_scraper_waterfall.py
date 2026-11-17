@@ -231,3 +231,53 @@ def test_detect_captcha_challenge() -> None:
     assert detect_captcha_challenge(200, zh_html) is False
     assert detect_captcha_challenge(403, "<html><body>Forbidden</body></html>") is False
 
+
+def test_tier3_comma_decimal_and_mixed_separators() -> None:
+    """Verify Tier 3 parses comma decimals (50,48 грн) and European/US thousands formats."""
+    html_comma = "<html><head><title>Box</title></head><body><span>50,48 грн</span></body></html>"
+    preview_comma = extract_preview_from_html("https://example.com/box", html_comma)
+    assert preview_comma.price == 50.48
+    assert preview_comma.currency == "₴"
+
+    html_eu = "<html><head><title>EU</title></head><body><span>1.250,50 €</span></body></html>"
+    preview_eu = extract_preview_from_html("https://example.com/eu", html_eu)
+    assert preview_eu.price == 1250.5
+    assert preview_eu.currency == "€"
+
+    html_spaced = (
+        "<html><head><title>Spaced</title></head>"
+        "<body><span>1\u00a0250,5 грн</span></body></html>"
+    )
+    preview_spaced = extract_preview_from_html("https://example.com/spaced", html_spaced)
+    assert preview_spaced.price == 1250.5
+    assert preview_spaced.currency == "₴"
+
+    html_us_thousands = (
+        "<html><head><title>US</title></head><body><span>$1,299</span></body></html>"
+    )
+    preview_us = extract_preview_from_html("https://example.com/us", html_us_thousands)
+    assert preview_us.price == 1299.0
+    assert preview_us.currency == "$"
+
+
+def test_tier1_json_ld_with_unescaped_newline() -> None:
+    """Verify Tier 1 parses JSON-LD blocks containing unescaped control characters."""
+    html = (
+        '<html><head><script type="application/ld+json">\n'
+        '{\n'
+        '  "@context": "https://schema.org/",\n'
+        '  "@type": "Product",\n'
+        '  "name": "Самосборная коробка &quot;В&quot; бурый",\n'
+        '  "image": "https://img.test/box-500x500.PNG",\n'
+        '  "description": "Line 1\nLine 2",\n'
+        '  "offers": {"@type": "Offer", "priceCurrency": "UAH", "price": "50.48"}\n'
+        '}\n'
+        '</script></head><body></body></html>'
+    )
+    preview = extract_preview_from_html("https://example.com/box", html)
+    assert preview.extraction_tier == "TIER_1_JSON_LD"
+    assert preview.title == 'Самосборная коробка "В" бурый'
+    assert preview.price == 50.48
+    assert preview.currency == "₴"
+    assert preview.image_url == "https://img.test/box-500x500.PNG"
+
