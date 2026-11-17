@@ -1,0 +1,90 @@
+"""Unit tests for the Gemini Google Search grounding fallback adapter."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+import httpx
+import pytest
+
+from pricepulse.adapters.gemini_search_fallback import (
+    GeminiSearchFallbackClient,
+    format_monthly_usage,
+    is_cooldown_elapsed,
+    normalize_currency,
+    parse_gemini_json,
+    parse_monthly_usage,
+)
+
+
+def test_parse_gemini_json_and_currency_normalization() -> None:
+    """Verify JSON extraction from fenced output and currency symbol mapping."""
+    raw = '```json\n{"price": 800, "currency": "PLN", "title": "Cashmere Jumper"}\n```'
+    parsed = parse_gemini_json(raw)
+    assert parsed is not None
+    assert parsed["price"] == 800
+    assert normalize_currency("PLN") == "zł"
+    assert normalize_currency("UAH") == "₴"
+    assert normalize_currency("USD") == "$"
+
+
+def test_monthly_usage_parsing_and_rollover() -> None:
+    """Verify monthly usage counter parses matching month and resets on rollover."""
+    assert parse_monthly_usage("2026-11:120", "2026-11") == 120
+    assert parse_monthly_usage("2026-10:4400", "2026-11") == 0
+    assert parse_monthly_usage("invalid", "2026-11") == 0
+    assert format_monthly_usage("2026-11", 42) == "2026-11:42"
+
+
+def test_cooldown_elapsed_logic() -> None:
+    """Verify 48h cooldown blocks recent checks and allows stale/empty checks."""
+    now = datetime(2026, 11, 17, 12, 0, tzinfo=UTC)
+    recent = (now - timedelta(hours=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale = (now - timedelta(hours=49)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    assert is_cooldown_elapsed("", 48, now=now) is True
+    assert is_cooldown_elapsed(recent, 48, now=now) is False
+    assert is_cooldown_elapsed(stale, 48, now=now) is True
+
+
+@pytest.mark.asyncio
+async def test_gemini_client_extracts_price_with_mock_transport() -> None:
+    """Verify GeminiSearchFallbackClient parses grounded JSON and query count."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["x-goog-api-key"] == "test-key"
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        '{"price": "220,00", "currency": "PLN", '
+                                        '"title": "Relaxed Knit Jumper"}'
+                                    )
+                                }
+                            ]
+                        },
+                        "groundingMetadata": {
+                            "webSearchQueries": ["stories.com 1089897002 price"],
+                        },
+                    }
+                ]
+            },
+        )
+
+    client = GeminiSearchFallbackClient(
+        api_key="test-key",
+        transport=httpx.MockTransport(handler),
+    )
+    res = await client.extract_price(
+        "https://www.stories.com/pl-pl/product/relaxed-knit-jumper-black-1089897002/"
+    )
+    assert res is not None
+    assert res.price == 220.0
+    assert res.currency == "zł"
+    assert res.title == "Relaxed Knit Jumper"
+    assert res.queries_used == 1

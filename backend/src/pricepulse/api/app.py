@@ -18,6 +18,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from pricepulse.adapters.gemini_search_fallback import (
+    GeminiSearchFallbackClient,
+    format_monthly_usage,
+    is_cooldown_elapsed,
+    parse_monthly_usage,
+)
 from pricepulse.adapters.gmail_notifier import (
     GmailDigestNotifier,
     build_gmail_service,
@@ -41,6 +47,8 @@ from pricepulse.domain.models import (
     ConfigEntry,
     NewItemSpec,
     RunStatus,
+    ScrapeOutcome,
+    ScrapePreview,
     TelemetryRun,
     TrackedItem,
     should_alert,
@@ -283,10 +291,16 @@ def create_app(
     scraper: ScraperPort | None = None,
     notifier: NotificationPort | None = None,
     frontend_dist_dir: Path | None = None,
+    gemini_fallback: GeminiSearchFallbackClient | None = None,
 ) -> FastAPI:
     """Create and configure the PricePulse FastAPI application."""
     storage_mode, resolved_repo, resolved_scraper, resolved_notifier = (
         _resolve_runtime_adapters(repo, scraper, notifier)
+    )
+    resolved_gemini = (
+        gemini_fallback
+        if gemini_fallback is not None
+        else GeminiSearchFallbackClient.from_env()
     )
     logger = StructuredLogger()
     logger.info(f"PricePulse API v{APP_VERSION} initialized (adapter={storage_mode})")
@@ -476,6 +490,16 @@ def create_app(
         tabs = resolved_repo.ensure_schema()
         return {"initialized_tabs": tabs}
 
+    def _read_gemini_usage(config: list[ConfigEntry], current_month: str) -> int:
+        raw_usage = next(
+            (c.value.strip() for c in config if c.key == "gemini_grounding_usage"),
+            "",
+        )
+        return parse_monthly_usage(raw_usage, current_month)
+
+    def _is_captcha_or_forbidden(err: str) -> bool:
+        return "CAPTCHA_BLOCKED" in err or "HTTP 403" in err
+
     @app.post("/api/scrape/preview")
     async def preview_url(
         payload: PreviewUrlRequest,
@@ -486,6 +510,40 @@ def create_app(
             preview = await resolved_scraper.preview_url(payload.url)
             return asdict(preview)
         except CaptchaBlockedError as exc:
+            if resolved_gemini.is_enabled:
+                current_month = utc_now_iso()[:7]
+                state = resolved_repo.load_state()
+                used = _read_gemini_usage(state.config, current_month)
+                if used < resolved_gemini.monthly_cap:
+                    try:
+                        gemini_res = await resolved_gemini.extract_price(payload.url)
+                    except Exception as gemini_exc:
+                        logger.warn(
+                            f"Gemini fallback failed for preview {payload.url}: {gemini_exc}"
+                        )
+                        gemini_res = None
+                    if gemini_res is not None:
+                        resolved_repo.save_config(
+                            [
+                                ConfigEntry(
+                                    key="gemini_grounding_usage",
+                                    value=format_monthly_usage(
+                                        current_month,
+                                        used + gemini_res.queries_used,
+                                    ),
+                                )
+                            ]
+                        )
+                        return asdict(
+                            ScrapePreview(
+                                url=payload.url,
+                                title=gemini_res.title,
+                                price=gemini_res.price,
+                                currency=gemini_res.currency,
+                                image_url="",
+                                extraction_tier="gemini_search",
+                            )
+                        )
             logger.warn(f"Preview blocked by CAPTCHA for {payload.url}: {exc}")
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
@@ -529,6 +587,57 @@ def create_app(
             item.item_id: (item.status, item.lowest_price) for item in state.items
         }
         outcomes = await resolved_scraper.check_items(state.items)
+        if resolved_gemini.is_enabled:
+            current_month = utc_now_iso()[:7]
+            initial_used = _read_gemini_usage(state.config, current_month)
+            used = initial_used
+            state_items_by_id = {item.item_id: item for item in state.items}
+            for idx, outcome in enumerate(outcomes):
+                if outcome.success or not _is_captcha_or_forbidden(outcome.error or ""):
+                    continue
+                if used >= resolved_gemini.monthly_cap:
+                    cap = resolved_gemini.monthly_cap
+                    logger.warn(
+                        f"Gemini grounding monthly cap reached ({used}/{cap}); "
+                        "skipping remaining fallback checks."
+                    )
+                    break
+                matched = state_items_by_id.get(outcome.item_id)
+                if matched is None:
+                    continue
+                if not is_cooldown_elapsed(
+                    matched.last_checked, resolved_gemini.cooldown_hours
+                ):
+                    continue
+                try:
+                    gemini_res = await resolved_gemini.extract_price(
+                        matched.url,
+                        title=matched.name,
+                        currency_hint=matched.currency,
+                    )
+                except Exception as gemini_exc:
+                    logger.warn(
+                        f"Gemini fallback failed for {matched.url}: {gemini_exc}"
+                    )
+                    gemini_res = None
+                if gemini_res is not None:
+                    used += gemini_res.queries_used
+                    outcomes[idx] = ScrapeOutcome(
+                        item_id=matched.item_id,
+                        success=True,
+                        price=gemini_res.price,
+                        currency=gemini_res.currency,
+                        error=None,
+                    )
+            if used > initial_used:
+                resolved_repo.save_config(
+                    [
+                        ConfigEntry(
+                            key="gemini_grounding_usage",
+                            value=format_monthly_usage(current_month, used),
+                        )
+                    ]
+                )
         succeeded = sum(1 for o in outcomes if o.success)
         failed = len(outcomes) - succeeded
         errors = [o.error for o in outcomes if o.error]
@@ -574,7 +683,7 @@ def create_app(
         captcha_blocked_items: list[tuple[TrackedItem, str]] = []
         for outcome in outcomes:
             err = outcome.error or ""
-            if not outcome.success and ("CAPTCHA_BLOCKED" in err or "HTTP 403" in err):
+            if not outcome.success and _is_captcha_or_forbidden(err):
                 matched_item = items_by_id.get(outcome.item_id)
                 if matched_item is not None:
                     existing_names = [

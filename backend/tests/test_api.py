@@ -33,7 +33,7 @@ def test_health_exposes_runtime_diagnostics(tmp_path: Path) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["app_version"] == "0.3.39"
+    assert body["app_version"] == "0.3.40"
     assert body["python_executable"]
     assert body["python_version"]
     assert body["platform"]
@@ -335,4 +335,158 @@ def test_daily_captcha_report_sent_once_per_day(
     assert second.status_code == 200
     assert second.json()["captcha_report_sent"] is False
     assert len(notifier.sent_captcha_reports) == 1
+
+
+def test_gemini_fallback_recovers_captcha_preview_and_tracks_usage(
+    tmp_path: Path,
+) -> None:
+    """Verify Gemini fallback recovers 422 CAPTCHA preview and increments Config."""
+    import httpx
+
+    from pricepulse.adapters.gemini_search_fallback import GeminiSearchFallbackClient
+    from pricepulse.adapters.playwright_scraper import CaptchaBlockedError
+    from pricepulse.domain.models import utc_now_iso
+
+    class CaptchaScraper:
+        async def preview_url(self, url: str) -> Any:
+            raise CaptchaBlockedError(f"CAPTCHA_BLOCKED (HTTP 403): {url}")
+
+        async def preview_urls(self, urls: list[str]) -> list[Any]:
+            return []
+
+        async def check_items(self, items: list[Any]) -> list[Any]:
+            return []
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        '{"price": 800, "currency": "PLN", '
+                                        '"title": "Cashmere Jumper"}'
+                                    )
+                                }
+                            ]
+                        },
+                        "groundingMetadata": {
+                            "webSearchQueries": ["cos.com 1288193001 price"],
+                        },
+                    }
+                ]
+            },
+        )
+
+    repo = LocalJsonRepository(tmp_path / "state.json")
+    gemini = GeminiSearchFallbackClient(
+        api_key="test-key",
+        monthly_cap=4500,
+        transport=httpx.MockTransport(handler),
+    )
+    app = create_app(
+        repo=repo,
+        scraper=CaptchaScraper(),
+        notifier=InMemoryNotificationAdapter(),
+        gemini_fallback=gemini,
+    )
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/scrape/preview",
+        json={"url": "https://www.cos.com/pl-pl/product/1288193001"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["price"] == 800.0
+    assert body["currency"] == "zł"
+    assert body["title"] == "Cashmere Jumper"
+
+    current_month = utc_now_iso()[:7]
+    usage = next(
+        (c.value for c in repo.load_state().config if c.key == "gemini_grounding_usage"),
+        "",
+    )
+    assert usage == f"{current_month}:1"
+
+
+def test_gemini_fallback_batch_respects_cooldown_and_monthly_cap(
+    tmp_path: Path,
+) -> None:
+    """Verify batch fallback skips cooling-down items and stops at monthly cap."""
+    from pricepulse.adapters.gemini_search_fallback import GeminiSearchResult
+    from pricepulse.domain.models import ConfigEntry, ScrapeOutcome, utc_now_iso
+
+    class FakeGeminiClient:
+        def __init__(self, monthly_cap: int, cooldown_hours: int) -> None:
+            self.calls = 0
+            self.monthly_cap = monthly_cap
+            self.cooldown_hours = cooldown_hours
+
+        @property
+        def is_enabled(self) -> bool:
+            return self.monthly_cap > 0
+
+        async def extract_price(
+            self,
+            url: str,
+            title: str = "",
+            currency_hint: str = "",
+        ) -> GeminiSearchResult | None:
+            self.calls += 1
+            return GeminiSearchResult(
+                price=550.0,
+                currency=currency_hint or "zł",
+                title=title or "Item",
+                queries_used=1,
+            )
+
+    class CaptchaBatchScraper:
+        async def preview_url(self, url: str) -> Any:
+            raise ValueError("unused")
+
+        async def preview_urls(self, urls: list[str]) -> list[Any]:
+            return []
+
+        async def check_items(self, items: list[Any]) -> list[ScrapeOutcome]:
+            return [
+                ScrapeOutcome(
+                    item_id=item.item_id,
+                    success=False,
+                    error=f"CAPTCHA_BLOCKED (HTTP 403): {item.url}",
+                )
+                for item in items
+            ]
+
+    repo = LocalJsonRepository(tmp_path / "state.json")
+    current_month = utc_now_iso()[:7]
+    # Seed items: default seed items have recent last_checked (<48h), so set one stale
+    state = repo.load_state()
+    stale_item = state.items[0]
+    stale_item.last_checked = "2020-01-01T00:00:00Z"
+    repo._persist()  # noqa: SLF001
+
+    # Cap at 1 query so only the 1 stale item runs, and recent items are skipped by cooldown
+    gemini = FakeGeminiClient(monthly_cap=1, cooldown_hours=48)
+    app = create_app(
+        repo=repo,
+        scraper=CaptchaBatchScraper(),
+        notifier=InMemoryNotificationAdapter(),
+        gemini_fallback=gemini,  # type: ignore[arg-type]
+    )
+    client = TestClient(app)
+
+    resp = client.post("/api/scrape/run-check")
+    assert resp.status_code == 200
+    assert gemini.calls == 1
+
+    # Second run: cap is now 1/1, so even stale items must not trigger Gemini
+    repo.save_config([ConfigEntry(key="gemini_grounding_usage", value=f"{current_month}:1")])
+    resp2 = client.post("/api/scrape/run-check")
+    assert resp2.status_code == 200
+    assert gemini.calls == 1
+
 
