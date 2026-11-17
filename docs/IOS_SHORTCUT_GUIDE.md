@@ -12,7 +12,9 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
 4. **Add Action 1: Run JavaScript on Webpage** (Input: **Shortcut Input**), and paste this script (replace `https://meksico.github.io/price-pulse` with your PricePulse URL if different):
 
 ```javascript
+// PricePulse iOS Shortcut v1.2 (2026-11-17)
 (() => {
+  const SHORTCUT_VERSION = "1.2";
   const BASE = "https://meksico.github.io/price-pulse/items/new";
   const cleanText = (v) => String(v || "").replace(/\s+/g, " ").trim();
   const absUrl = (u) => {
@@ -174,7 +176,10 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
   }
 
   // Encode with %20 (not +) for iOS Shortcuts Open URLs compatibility
-  const pairs = [["url", location.href]];
+  const pairs = [
+    ["url", location.href],
+    ["sv", SHORTCUT_VERSION],
+  ];
   if (title) pairs.push(["title", title]);
   if (price) pairs.push(["price", price]);
   if (currency) pairs.push(["currency", currency]);
@@ -207,4 +212,5 @@ Some retailers use strict anti-bot / CAPTCHA gates (Cloudflare, hCaptcha, reCAPT
 | `title` | Product title (JSON-LD `name` → `og:title` → `document.title`) | Trimmed |
 | `price` | Current product price | Spaces stripped, comma decimals converted to `.` |
 | `currency` | ISO code or symbol (`UAH`, `USD`, `EUR`, `GBP`, `₴`, `$`, `€`, `£`) | Mapped to canonical symbol (`₴`, `$`, `€`, `£`) |
-| `image` | Product image URL (JSON-LD `image` → `og:image`) | Trimmed |
+| `image` | Product image URL (JSON-LD `image` → `og:image` / `twitter:image` → largest visible `<img>`) | Resolved to absolute URL |
+| `sv` | Shortcut script version (e.g. `1.2`) | Rendered as a `Shortcut v1.2` badge in the pre-fill banner |

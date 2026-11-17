@@ -9,6 +9,7 @@ export interface AddModalPrefill {
   price?: string;
   currency?: string;
   image?: string;
+  shortcutVersion?: string;
 }
 
 export interface AppRoute {
@@ -55,14 +56,21 @@ export function parseRoute(pathname: string, search: string): AppRoute {
   const prefillPrice = params.get("price")?.trim() ?? "";
   const prefillCurrency = params.get("currency")?.trim() ?? "";
   const prefillImage = params.get("image")?.trim() ?? "";
+  const prefillShortcutVersion = params.get("sv")?.trim() ?? "";
   const addPrefill: AddModalPrefill | null =
-    prefillUrl || prefillTitle || prefillPrice || prefillCurrency || prefillImage
+    prefillUrl ||
+    prefillTitle ||
+    prefillPrice ||
+    prefillCurrency ||
+    prefillImage ||
+    prefillShortcutVersion
       ? {
           url: prefillUrl || undefined,
           title: prefillTitle || undefined,
           price: prefillPrice || undefined,
           currency: prefillCurrency || undefined,
           image: prefillImage || undefined,
+          shortcutVersion: prefillShortcutVersion || undefined,
         }
       : null;
 

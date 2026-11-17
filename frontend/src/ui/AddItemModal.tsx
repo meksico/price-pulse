@@ -1025,8 +1025,13 @@ export function AddItemModal({
                       />
                     )}
                     <p className="min-w-0 leading-relaxed">
-                      Loaded product details from your browser session. Review
-                      the title and price below, then click{" "}
+                      Loaded product details from your browser session
+                      {prefill?.shortcutVersion && (
+                        <span className="ml-1 inline-block rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-800">
+                          Shortcut v{prefill.shortcutVersion}
+                        </span>
+                      )}
+                      . Review the title and price below, then click{" "}
                       <span className="font-semibold">
                         Save &amp; Start Tracking
                       </span>

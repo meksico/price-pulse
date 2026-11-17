@@ -1481,6 +1481,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       price: "1 299,50",
       currency: "UAH",
       image: "https://example-shop.com/case.jpg",
+      sv: "1.2",
     });
     await page.goto(`/items/new?${params.toString()}`);
 
@@ -1489,6 +1490,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(
       addModal.getByText(/Loaded product details from your browser session/i),
     ).toBeVisible();
+    await expect(addModal.getByText("Shortcut v1.2")).toBeVisible();
     await expect(addModal.getByLabel("Product URL")).toHaveValue(
       "https://example-shop.com/product/iphone-case",
     );
