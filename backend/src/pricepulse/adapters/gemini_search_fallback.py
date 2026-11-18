@@ -267,7 +267,7 @@ class GeminiSearchFallbackClient:
             exact_query = f'site:{site_scope} "{product_id}"'
             keyword_hint = keywords.replace(product_id, "").strip()
             keyword_clause = (
-                f' (and if needed, search "{keyword_hint}" on site:{site_scope})'
+                f' (or "{keyword_hint}" "{product_id}" site:{site_scope})'
                 if keyword_hint
                 else ""
             )
@@ -279,8 +279,10 @@ class GeminiSearchFallbackClient:
                 "matching listing.",
                 f"Exact product URL: {url}",
                 f"Expected store locale: {region_hint}",
-                f"Exact product/article ID: {product_id}. Match this exact product ID "
-                f"({product_id}) and exact store locale ({region_hint}).",
+                f"Exact product/article ID: {product_id}. Every search query and matched "
+                f"price MUST be for this exact article ID ({product_id}) on "
+                f"{site_scope} ({region_hint}). Do NOT use prices from a different "
+                "SKU/article ID, category page, or another country store.",
             ]
         else:
             target_desc = f"{keywords} on {site_scope}" if keywords else url
