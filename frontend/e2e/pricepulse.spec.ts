@@ -1182,7 +1182,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(detailsDialog).toBeHidden();
   });
 
-  test("auto-tags CAPTCHA items with 'manual check' and renders Manual check section with Last check age highlighting", async ({
+  test("does not auto-tag CAPTCHA items with 'manual check' and renders stale items (2+ days) in Manual check tab with Last check age highlighting", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -1207,27 +1207,19 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
 
     await expect(
       addDialog.getByRole("button", { name: "Remove tag manual check" }),
-    ).toBeVisible();
+    ).toBeHidden();
     await addDialog.getByLabel("Product Title").fill("Manual Tab Today");
     await addDialog.getByLabel("Baseline Price").fill("1000");
     await addDialog.getByLabel("Target Alert Price").fill("850");
     await addDialog.getByRole("button", { name: /Save & Start Tracking/i }).click();
     await expect(addDialog).toBeHidden();
 
-    // Remains visible in Active Positions AND aggregated in Manual check tab
-    await expect(
-      page.getByRole("row", { name: /Manual Tab Today/i }),
-    ).toBeVisible();
-    await page.getByRole("tab", { name: /Manual check/i }).click();
-    await expect(page).toHaveURL(/tab=manual/);
-    await expect(
-      page.getByRole("columnheader", { name: "Last check" }),
-    ).toBeVisible();
+    // Fresh item is visible in Active Positions and NOT in Manual check (2+ days stale)
     await expect(
       page.getByRole("row", { name: /Manual Tab Today/i }),
     ).toBeVisible();
 
-    // Verify 1-5 days yellow and 6+ days red highlighting via mocked /api/state dates
+    // Verify 2-5 days yellow and 6+ days red highlighting via mocked /api/state dates
     const daysAgoIso = (days: number) => {
       const d = new Date(Date.now() - days * 86_400_000);
       return d.toISOString();
@@ -1243,22 +1235,20 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
           last_checked: string;
         }>;
       };
-      const manualTag = json.tags.find(
-        (t) => t.name.toLowerCase() === "manual check",
-      );
-      if (manualTag && json.items.length >= 2) {
+      if (json.items.length >= 2) {
         json.items[0].name = "Yellow 3d Item";
-        json.items[0].tag_ids = [manualTag.tag_id];
         json.items[0].last_checked = daysAgoIso(3);
 
         json.items[1].name = "Red 7d Item";
-        json.items[1].tag_ids = [manualTag.tag_id];
         json.items[1].last_checked = daysAgoIso(7);
       }
       await route.fulfill({ json });
     });
 
     await page.goto("/?tab=manual");
+    await expect(
+      page.getByRole("columnheader", { name: "Last check" }),
+    ).toBeVisible();
     const manualTab = page.getByRole("tab", { name: /Manual check/i });
     await expect(
       manualTab.locator('[data-manual-indicator="red"]'),
@@ -1276,7 +1266,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
 
     // Verify clicking Save Changes with unchanged price still sends current_price in PATCH
     await page.unroute("**/api/state");
-    await page.goto("/?tab=manual");
+    await page.goto("/?tab=active");
     let patchBody: Record<string, unknown> | null = null;
     await page.route("**/api/items/*", async (route) => {
       if (route.request().method() === "PATCH") {
@@ -1544,7 +1534,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     );
     await expect(
       addModal.getByRole("button", { name: /Remove tag manual check/i }),
-    ).toBeVisible();
+    ).toBeHidden();
   });
 
   test("TrajectoryChart keeps lines at true baseline and bullets aligned for 25 coincident items", async ({

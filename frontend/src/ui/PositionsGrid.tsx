@@ -28,7 +28,7 @@ type SortField =
   | "drop_pct";
 
 const PAGE_SIZE = 15;
-const MANUAL_CHECK_TAG = "manual check";
+const STALE_CHECK_THRESHOLD_DAYS = 2;
 
 function getLastCheckDateStr(lastCheckedIso: string): string {
   const match = /^(\d{4}-\d{2}-\d{2})/.exec(lastCheckedIso.trim());
@@ -259,13 +259,10 @@ export function PositionsGrid({
 
   const manualCheckItemsAll = useMemo(
     () =>
-      items.filter((item) =>
-        item.tag_ids.some(
-          (id) =>
-            tagById.get(id)?.name.trim().toLowerCase() === MANUAL_CHECK_TAG,
-        ),
+      items.filter(
+        (item) => getDaysSinceLastCheck(item.last_checked) >= STALE_CHECK_THRESHOLD_DAYS,
       ),
-    [items, tagById],
+    [items],
   );
 
   const maxManualAgeDays = useMemo(

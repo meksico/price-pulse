@@ -324,6 +324,8 @@ def test_daily_captcha_report_sent_once_per_day(
             ]
 
     repo = LocalJsonRepository(tmp_path / "state.json")
+    seed_state = repo.load_state()
+    repo.update_item(seed_state.items[0].item_id, tag_names=["manual check"])
     repo.save_config([ConfigEntry(key="gmail_alert_recipient", value="owner@example.com")])
     notifier = InMemoryNotificationAdapter()
     app = create_app(repo=repo, scraper=CaptchaCheckScraper(), notifier=notifier)
@@ -336,8 +338,7 @@ def test_daily_captcha_report_sent_once_per_day(
     assert notifier.sent_captcha_reports[0][2] == "https://meksico.github.io/price-pulse"
     updated = repo.load_state()
     manual_tag = next((t for t in updated.tags if t.name.lower() == "manual check"), None)
-    assert manual_tag is not None
-    assert manual_tag.tag_id in updated.items[0].tag_ids
+    assert manual_tag is None
 
     second = client.post("/api/scrape/run-check")
     assert second.status_code == 200

@@ -16,7 +16,6 @@ import { TagAdderControl } from "./TagAdderControl";
 import type { PushToastFn } from "./ToastViewport";
 
 const MAX_BULK_URLS = 20;
-const MANUAL_CHECK_TAG = "manual check";
 const SWIPE_ACTIVATION_PX = 8;
 const SWIPE_COMMIT_PX = 48;
 
@@ -450,11 +449,6 @@ export function AddItemModal({
         setInitialPrice(prefill.price);
       }
     }
-    setSelectedTagNames((prev) =>
-      prev.some((t) => t.toLowerCase() === MANUAL_CHECK_TAG)
-        ? prev
-        : [...prev, MANUAL_CHECK_TAG],
-    );
     setCaptchaBlockedMsg(null);
     setPrefillNotice(true);
   }, [open, prefill, defaultCurrency]);
@@ -569,11 +563,6 @@ export function AddItemModal({
           ? err.message
           : "Could not extract product metadata.";
       if (/CAPTCHA_BLOCKED|HTTP 403/i.test(msg)) {
-        setSelectedTagNames((prev) =>
-          prev.some((t) => t.toLowerCase() === MANUAL_CHECK_TAG)
-            ? prev
-            : [...prev, MANUAL_CHECK_TAG],
-        );
         setCaptchaBlockedMsg(t("addModal.captchaBannerBody"));
         onNotify?.(
           "warning",
@@ -854,20 +843,14 @@ export function AddItemModal({
     }
   };
 
-  const handleConfigureManually = (failedUrl: string, failedError = "") => {
+  const handleConfigureManually = (failedUrl: string) => {
     setUrl(failedUrl);
     setTitle("");
     setImageUrl("");
     setCurrency(defaultCurrency);
     setInitialPrice("");
     setTargetPrice("");
-    const needsManualCheck = /CAPTCHA_BLOCKED|HTTP 403/i.test(failedError);
-    setSelectedTagNames(
-      needsManualCheck &&
-        !bulkTagNames.some((t) => t.toLowerCase() === MANUAL_CHECK_TAG)
-        ? [...bulkTagNames, MANUAL_CHECK_TAG]
-        : [...bulkTagNames],
-    );
+    setSelectedTagNames([...bulkTagNames]);
     switchMode("single");
   };
 
@@ -1267,8 +1250,8 @@ export function AddItemModal({
                     className="tabular-nums min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
                   />
                 </div>
-                <div className="min-w-0 space-y-1.5">
-                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <div className="min-w-0">
+                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                     {t("addModal.bulkSharedTagsLabel")}
                   </span>
                   <TagAdderControl
@@ -1278,6 +1261,7 @@ export function AddItemModal({
                     onAddTag={handleAddBulkTag}
                     onRemoveTag={handleRemoveBulkTag}
                     readOnly={fetching}
+                    controlsFirst
                   />
                 </div>
               </div>
@@ -1626,7 +1610,7 @@ export function AddItemModal({
                       aria-label={t("addModal.configureManuallyAria", {
                         url: failed.url,
                       })}
-                      onClick={() => handleConfigureManually(failed.url, failed.error)}
+                      onClick={() => handleConfigureManually(failed.url)}
                       className="min-h-9 shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-950 hover:bg-gray-50"
                     >
                       {t("addModal.configureManually")}
