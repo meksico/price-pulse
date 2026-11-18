@@ -168,9 +168,10 @@ async def test_gemini_prompt_anchors_exact_url_and_sku() -> None:
     prompt_text = contents[0]["parts"][0]["text"]
     assert f"Exact product URL: {target_url}" in prompt_text
     assert (
-        'First, run this exact Google Search query: site:cos.com/pl-pl "1288193001"'
+        'Run ONLY this exact Google Search query: site:cos.com/pl-pl "1288193001"'
         in prompt_text
     )
+    assert "Do NOT fall back to generic product keyword searches" in prompt_text
     assert "Exact product/article ID: 1288193001" in prompt_text
     assert "Poland / PLN (zł)" in prompt_text
     assert _extract_locale_prefix(target_url) == "/pl-pl"

@@ -269,7 +269,7 @@ class GeminiSearchFallbackClient:
         if product_id:
             exact_query = f'site:{site_scope} "{product_id}"'
             prompt_lines = [
-                f"First, run this exact Google Search query: {exact_query}",
+                f"Run ONLY this exact Google Search query: {exact_query}",
                 "Extract the current price, currency, product title, and direct product "
                 f"image URL (from {host} or its CDN) from the matching {site_scope} "
                 f"product page for article/SKU ID {product_id}.",
@@ -277,8 +277,9 @@ class GeminiSearchFallbackClient:
                 f"Expected store locale: {region_hint}",
                 f"Exact product/article ID: {product_id}. You MUST match this exact product "
                 f"ID ({product_id}) and exact store locale ({region_hint}). "
-                f"Only fall back to searching by product keywords ({keywords}) on "
-                f"{site_scope} if the exact query {exact_query} returns no results.",
+                "Do NOT fall back to generic product keyword searches, and if "
+                f"{exact_query} does not return a verified price for {product_id}, "
+                "return null for price.",
             ]
         else:
             target_desc = f"{keywords} on {site_scope}" if keywords else url
