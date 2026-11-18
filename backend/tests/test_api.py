@@ -914,5 +914,75 @@ def test_resources_aggregates_gcp_bigquery_billing_charges(
     assert by_id["gemini_grounding"]["monthly_cost_usd"] == 0.02
 
 
+def test_allowed_owner_email_drives_all_report_recipients(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify ALLOWED_OWNER_EMAIL is the single source of truth for all report recipients."""
+    from pricepulse.domain.models import ConfigEntry, ScrapeOutcome
+
+    monkeypatch.setenv(
+        "ALLOWED_OWNER_EMAIL",
+        "owner@example.com, partner@example.com, OWNER@example.com",
+    )
+
+    class DiscountAndCaptchaScraper:
+        async def preview_url(self, url: str) -> Any:
+            raise ValueError("unused")
+
+        async def preview_urls(self, urls: list[str]) -> list[Any]:
+            return []
+
+        async def check_items(self, items: list[Any]) -> list[ScrapeOutcome]:
+            outcomes: list[ScrapeOutcome] = []
+            for idx, item in enumerate(items):
+                if idx == 0:
+                    outcomes.append(
+                        ScrapeOutcome(
+                            item_id=item.item_id,
+                            success=True,
+                            price=round(min(item.target_price, item.lowest_price) - 10.0, 2),
+                        )
+                    )
+                elif idx == 1:
+                    outcomes.append(
+                        ScrapeOutcome(
+                            item_id=item.item_id,
+                            success=False,
+                            error=f"CAPTCHA_BLOCKED (HTTP 403): {item.url}",
+                        )
+                    )
+                else:
+                    outcomes.append(
+                        ScrapeOutcome(
+                            item_id=item.item_id,
+                            success=True,
+                            price=item.current_price,
+                        )
+                    )
+            return outcomes
+
+    repo = LocalJsonRepository(tmp_path / "state.json")
+    repo.save_config([ConfigEntry(key="gmail_alert_recipient", value="stale@example.com")])
+    notifier = InMemoryNotificationAdapter()
+    app = create_app(repo=repo, scraper=DiscountAndCaptchaScraper(), notifier=notifier)
+    client = TestClient(app)
+
+    cron_resp = client.post("/api/cron/run-check")
+    assert cron_resp.status_code == 200
+    assert cron_resp.json()["digest_sent"] is True
+    assert cron_resp.json()["captcha_report_sent"] is True
+    assert notifier.sent_digests[0][0] == "owner@example.com, partner@example.com"
+    assert notifier.sent_captcha_reports[0][0] == "owner@example.com, partner@example.com"
+
+    res_resp = client.get("/api/resources")
+    assert res_resp.status_code == 200
+    gmail_res = next(
+        r for r in res_resp.json()["resources"] if r["resource_id"] == "gmail_api"
+    )
+    assert gmail_res["details"]["alert_recipient"] == "owner@example.com, partner@example.com"
+
+
+
 
 

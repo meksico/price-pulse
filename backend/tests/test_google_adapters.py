@@ -256,3 +256,35 @@ def test_gmail_captcha_report_contains_retailer_and_modal_links() -> None:
     assert "Check price on kaplya.com.ua" in html_body
     assert "Update in PricePulse" in html_body
 
+
+def test_gmail_digest_notifier_normalizes_multiple_recipients() -> None:
+    """Verify comma-separated recipients are formatted cleanly in the To header."""
+    import base64
+    from email import message_from_bytes
+
+    svc = _FakeGmailService()
+    notifier = GmailDigestNotifier(svc)
+    item = TrackedItem(
+        item_id="item-multi-1",
+        name="Multi Recipient Item",
+        url="https://example.com/item",
+        image_url="",
+        currency="$",
+        initial_price=100.0,
+        current_price=80.0,
+        target_price=85.0,
+        lowest_price=80.0,
+        last_checked="2026-11-18T00:00:00Z",
+    )
+    assert (
+        notifier.send_discount_digest(
+            " owner@example.com , partner@example.com ",
+            [item],
+        )
+        is True
+    )
+    raw_bytes = base64.urlsafe_b64decode(svc.sent[0]["body"]["raw"])
+    parsed = message_from_bytes(raw_bytes)
+    assert parsed["To"] == "owner@example.com, partner@example.com"
+
+

@@ -695,11 +695,6 @@ export function App() {
     }
   };
 
-  const spreadsheetId =
-    state?.config.find((c) => c.key === "spreadsheet_id")?.value ?? "";
-  const configEmail =
-    state?.config.find((c) => c.key === "gmail_alert_recipient")?.value?.trim() ??
-    "";
   const latestRun = state?.telemetry_logs[0];
   const workspaceCurrency =
     state?.items[0]?.currency ?? state?.bought_items[0]?.currency ?? "₴";
@@ -780,31 +775,6 @@ export function App() {
     };
   }, [isUnauthenticated, state, isSyncing, refreshAll]);
 
-  useEffect(() => {
-    if (!state || !userProfile?.email) return;
-    if (configEmail === userProfile.email) return;
-    void store
-      .saveConfig([
-        {
-          key: "spreadsheet_id",
-          value: spreadsheetId,
-          description: "Google Sheets Workbook ID",
-        },
-        {
-          key: "gmail_alert_recipient",
-          value: userProfile.email,
-          description: "Recipient for target_price discount digests",
-        },
-        {
-          key: "poll_interval_hours",
-          value: "24",
-          description: "Cloud Scheduler polling cadence in hours",
-        },
-      ])
-      .then(() => refreshAll())
-      .catch(() => {});
-  }, [state, userProfile?.email, configEmail, spreadsheetId, store, refreshAll]);
-
   const handleSelectTopView = (view: AppRoute["view"]) => {
     navigate({
       view,
@@ -840,9 +810,17 @@ export function App() {
               itemId: null,
             })
           }
-          spreadsheetId={spreadsheetId}
+          spreadsheetId={
+            state?.config.find((c) => c.key === "spreadsheet_id")?.value ?? ""
+          }
           userName={userProfile?.name ?? ""}
-          userEmail={userProfile?.email || configEmail}
+          userEmail={
+            userProfile?.email ||
+            state?.config
+              .find((c) => c.key === "gmail_alert_recipient")
+              ?.value?.trim() ||
+            ""
+          }
           userAvatarUrl={userProfile?.picture ?? ""}
           onSignOut={authEnabled && authToken ? handleSignOut : undefined}
         />

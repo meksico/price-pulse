@@ -451,6 +451,21 @@ def _build_sheets_resource(
     )
 
 
+def parse_allowed_emails() -> list[str]:
+    """Return deduplicated, lowercase emails from ALLOWED_OWNER_EMAIL in order."""
+    raw = os.getenv("ALLOWED_OWNER_EMAIL", "").strip().lower()
+    if not raw:
+        return []
+    seen: set[str] = set()
+    emails: list[str] = []
+    for part in raw.split(","):
+        email = part.strip()
+        if email and email not in seen:
+            seen.add(email)
+            emails.append(email)
+    return emails
+
+
 def _build_gmail_resource(
     storage_mode: str,
     state: WorkspaceState,
@@ -458,15 +473,13 @@ def _build_gmail_resource(
     probe_email: str | None = None,
 ) -> ThirdPartyResourceStatus:
     """Build sanitized status for Gmail API v1."""
-    recipient = ""
+    recipient = ", ".join(parse_allowed_emails())
     last_captcha_report = ""
     for cfg in state.config:
-        if cfg.key == "gmail_alert_recipient":
+        if cfg.key == "gmail_alert_recipient" and not recipient:
             recipient = cfg.value.strip()
         elif cfg.key == "last_captcha_report_date":
             last_captcha_report = cfg.value.strip()
-    if not recipient:
-        recipient = os.getenv("ALLOWED_OWNER_EMAIL", "").split(",")[0].strip()
 
     is_live = storage_mode == "google_sheets"
     status = "operational" if is_live else "disabled"

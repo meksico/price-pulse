@@ -46,6 +46,7 @@ from pricepulse.diagnostics import (
     StructuredLogger,
     collect_runtime_diagnostics,
     collect_third_party_resources_async,
+    parse_allowed_emails,
 )
 from pricepulse.domain.models import (
     APP_VERSION,
@@ -196,6 +197,26 @@ def _serialize_state(repo: StateRepositoryPort) -> dict[str, Any]:
     }
 
 
+def _resolve_alert_recipient(
+    user_email: str,
+    config_entries: list[ConfigEntry],
+) -> str:
+    """Resolve comma-separated report recipients, preferring ALLOWED_OWNER_EMAIL."""
+    allowed_emails = parse_allowed_emails()
+    if allowed_emails:
+        return ", ".join(allowed_emails)
+    if "@" in user_email:
+        return user_email.strip()
+    return next(
+        (
+            c.value.strip()
+            for c in config_entries
+            if c.key == "gmail_alert_recipient" and c.value.strip()
+        ),
+        "",
+    )
+
+
 def _verify_auth(authorization: str | None = Header(default=None)) -> str:
     """Verify Google Bearer token in production; allow local dev bypass."""
     auth_mode = os.getenv("AUTH_MODE", "local_dev")
@@ -219,11 +240,9 @@ def _verify_auth(authorization: str | None = Header(default=None)) -> str:
         raise HTTPException(status_code=403, detail="OAuth token client mismatch")
 
     email = str(info.get("email", "")).lower()
-    allowed_raw = os.getenv("ALLOWED_OWNER_EMAIL", "").strip().lower()
-    if allowed_raw:
-        allowed_emails = {e.strip() for e in allowed_raw.split(",") if e.strip()}
-        if email not in allowed_emails:
-            raise HTTPException(status_code=403, detail="Unauthorized Google account")
+    allowed_emails = parse_allowed_emails()
+    if allowed_emails and email not in allowed_emails:
+        raise HTTPException(status_code=403, detail="Unauthorized Google account")
     return email or "authenticated-user"
 
 
@@ -816,17 +835,7 @@ def create_app(
                 prev[0], prev[1], item.current_price, item.target_price
             ):
                 alert_items.append(item)
-        auth_email = user_email if "@" in user_email else ""
-        cfg_recipient = next(
-            (
-                c.value.strip()
-                for c in updated_state.config
-                if c.key == "gmail_alert_recipient" and c.value.strip()
-            ),
-            "",
-        )
-        env_email = os.getenv("ALLOWED_OWNER_EMAIL", "").split(",")[0].strip()
-        recipient = auth_email or cfg_recipient or env_email
+        recipient = _resolve_alert_recipient(user_email, updated_state.config)
         digest_sent = resolved_notifier.send_discount_digest(recipient, alert_items)
 
         items_by_id = {item.item_id: item for item in updated_state.items}

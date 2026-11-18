@@ -133,8 +133,9 @@ class GmailDigestNotifier:
         html_body: str,
     ) -> None:
         """Send a multipart/alternative email (plain text + HTML) via Gmail API."""
+        normalized_to = ", ".join(r.strip() for r in recipient.split(",") if r.strip())
         msg = EmailMessage()
-        msg["To"] = recipient.strip()
+        msg["To"] = normalized_to
         msg["Subject"] = subject
         msg.set_content(plain_text)
         msg.add_alternative(html_body, subtype="html")
