@@ -264,3 +264,22 @@ export function formatSavingsByCurrency(
     .join(" + ");
 }
 
+/**
+ * Extracts a clean lowercase retailer domain from a product URL
+ * (e.g., "https://www.levi.com/US/..." -> "levi.com").
+ */
+export function extractDomain(rawUrl: string | undefined | null): string {
+  const trimmed = (rawUrl ?? "").trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(
+      /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)
+        ? trimmed
+        : `https://${trimmed}`,
+    );
+    return parsed.hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+

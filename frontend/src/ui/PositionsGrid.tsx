@@ -10,6 +10,7 @@ import {
   TAG_ACTIVE_BADGE_CLASSES,
   TAG_BADGE_CLASSES,
   TAG_DOT_CLASSES,
+  extractDomain,
   formatMoney,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
@@ -287,7 +288,11 @@ export function PositionsGrid({
         .map((id) => tagById.get(id)?.name ?? "")
         .join(" ")
         .toLowerCase();
-      return item.name.toLowerCase().includes(q) || tagNames.includes(q);
+      return (
+        item.name.toLowerCase().includes(q) ||
+        tagNames.includes(q) ||
+        extractDomain(item.url).includes(q)
+      );
     });
     if (sortField === "added") {
       return [...list].reverse();
@@ -323,7 +328,11 @@ export function PositionsGrid({
         .map((id) => tagById.get(id)?.name ?? "")
         .join(" ")
         .toLowerCase();
-      return item.name.toLowerCase().includes(q) || tagNames.includes(q);
+      return (
+        item.name.toLowerCase().includes(q) ||
+        tagNames.includes(q) ||
+        extractDomain(item.url).includes(q)
+      );
     });
   }, [boughtItems, activeTagFilter, searchQuery, tagById]);
 
@@ -609,11 +618,18 @@ export function PositionsGrid({
               {renderCompactTagBadges(item.tag_ids)}
             </div>
 
-            <div
-              title={item.name}
-              className="line-clamp-2 text-[13px] font-semibold leading-snug text-zinc-950"
-            >
-              {item.name}
+            <div className="flex flex-col gap-0.5">
+              {extractDomain(item.url) && (
+                <div className="truncate text-[11px] font-normal leading-tight text-zinc-500">
+                  {extractDomain(item.url)}
+                </div>
+              )}
+              <div
+                title={item.name}
+                className="line-clamp-2 text-[13px] font-semibold leading-snug text-zinc-950"
+              >
+                {item.name}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs">
@@ -675,8 +691,15 @@ export function PositionsGrid({
           </span>
           {renderCompactTagBadges(item.tag_ids)}
         </div>
-        <div className="line-clamp-2 text-[13px] font-semibold leading-snug text-zinc-950">
-          {item.name}
+        <div className="flex flex-col gap-0.5">
+          {extractDomain(item.url) && (
+            <div className="truncate text-[11px] font-normal leading-tight text-zinc-500">
+              {extractDomain(item.url)}
+            </div>
+          )}
+          <div className="line-clamp-2 text-[13px] font-semibold leading-snug text-zinc-950">
+            {item.name}
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs">
           <div className="min-w-0">
@@ -749,14 +772,21 @@ export function PositionsGrid({
             ) : (
               <div className="h-11 w-11 shrink-0 rounded-lg border border-gray-200/70 bg-gray-100" />
             )}
-            <button
-              type="button"
-              onClick={() => onOpenItem(item.item_id)}
-              title={item.name}
-              className="max-w-xs truncate text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
-            >
-              {item.name}
-            </button>
+            <div className="flex min-w-0 max-w-xs flex-col">
+              {extractDomain(item.url) && (
+                <span className="truncate text-[11px] leading-tight text-zinc-500">
+                  {extractDomain(item.url)}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => onOpenItem(item.item_id)}
+                title={item.name}
+                className="truncate text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
+              >
+                {item.name}
+              </button>
+            </div>
           </div>
         </td>
         <td className="px-2 py-3">{renderTagChips(item.tag_ids)}</td>
@@ -1389,13 +1419,20 @@ export function PositionsGrid({
                     />
                   </td>
                   <td className="py-3 pr-3">
-                    <button
-                      type="button"
-                      onClick={() => onOpenItem(item.item_id)}
-                      className="text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
-                    >
-                      {item.name}
-                    </button>
+                    <div className="flex min-w-0 max-w-xs flex-col">
+                      {extractDomain(item.url) && (
+                        <span className="truncate text-[11px] leading-tight text-zinc-500">
+                          {extractDomain(item.url)}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onOpenItem(item.item_id)}
+                        className="truncate text-left text-[13px] font-medium text-zinc-950 hover:text-blue-600"
+                      >
+                        {item.name}
+                      </button>
+                    </div>
                   </td>
                   <td className="px-2 py-3">{renderTagChips(item.tag_ids)}</td>
                   <td className="tabular-nums px-2 py-3 text-right text-zinc-500">

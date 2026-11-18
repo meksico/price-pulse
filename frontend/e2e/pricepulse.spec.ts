@@ -1860,5 +1860,70 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       page.getByRole("button", { name: "+ Track New URL" }),
     ).toBeVisible();
   });
+
+  test("REQ-GRID-04: displays clean retailer domain above title on desktop and mobile", async ({
+    page,
+  }) => {
+    const leviUrl =
+      "https://www.levi.com/US/en_US/clothing/women/lyla-ring-belt/p/007ZK0000?camp=CME*EC*US*EN*LSA_Abandon_Browse_T1_EN_US*cme_trig*cord*US*&mcID=1998:48e769b3cdcdbfe147d347f9aaa4cd4b:d261109&cmid=LSA_Abandon_Browse_T1_EN_US&cid=65d874b318c36efebd456625";
+    const title = "Lyla Ring Belt";
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(
+      `/items/new?url=${encodeURIComponent(leviUrl)}&title=${encodeURIComponent(title)}&price=49.50&currency=USD`,
+    );
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Save & Start Tracking" }).click();
+    await expect(dialog).toBeHidden();
+
+    // Desktop row: levi.com is visible directly above the title
+    const grid = page.locator("#grid-panel");
+    const desktopTitleBtn = grid
+      .locator("table")
+      .getByRole("button", { name: title });
+    const desktopDomain = grid
+      .locator("table")
+      .getByText("levi.com", { exact: true })
+      .first();
+    await expect(desktopTitleBtn).toBeVisible();
+    await expect(desktopDomain).toBeVisible();
+
+    const desktopDomainBox = await desktopDomain.boundingBox();
+    const desktopTitleBox = await desktopTitleBtn.boundingBox();
+    expect(desktopDomainBox).not.toBeNull();
+    expect(desktopTitleBox).not.toBeNull();
+    expect(desktopDomainBox!.y).toBeLessThan(desktopTitleBox!.y);
+
+    // Search by domain name matches the item
+    const searchInput = grid.getByPlaceholder("Search products or tags...");
+    await searchInput.fill("levi.com");
+    await expect(desktopTitleBtn).toBeVisible();
+    await searchInput.fill("");
+
+    // Mobile card: levi.com is visible directly above the title with zero overflow
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileCard = grid
+      .locator("article")
+      .filter({ hasText: title })
+      .first();
+    const mobileDomain = mobileCard.getByText("levi.com", { exact: true });
+    const mobileTitle = mobileCard.getByText(title, { exact: true });
+    await expect(mobileDomain).toBeVisible();
+    await expect(mobileTitle).toBeVisible();
+
+    const mobileDomainBox = await mobileDomain.boundingBox();
+    const mobileTitleBox = await mobileTitle.boundingBox();
+    expect(mobileDomainBox).not.toBeNull();
+    expect(mobileTitleBox).not.toBeNull();
+    expect(mobileDomainBox!.y).toBeLessThan(mobileTitleBox!.y);
+
+    const hasOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    );
+    expect(hasOverflow).toBe(false);
+  });
 });
 
