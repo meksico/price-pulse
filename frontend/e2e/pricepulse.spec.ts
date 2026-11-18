@@ -1955,6 +1955,14 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(toastViewport).toContainText(/Batch check started/i);
     await expect(toastViewport.locator('[data-toast-spinner="true"]')).toBeVisible();
 
+    // Switching language while persistent toast is visible re-translates it immediately
+    await page.getByRole("button", { name: "User account menu" }).click();
+    await page.getByRole("menuitemradio", { name: "Українська" }).click();
+    await expect(toastViewport).toContainText(/Перевірку розпочато/i);
+    await page.getByRole("menuitemradio", { name: "English" }).click();
+    await expect(toastViewport).toContainText(/Batch check started/i);
+    await page.keyboard.press("Escape");
+
     releaseBatchCheck();
     await expect(toastViewport).toContainText(/Batch check complete/i);
     await expect(toastViewport.locator('[data-toast-spinner="true"]')).toHaveCount(0);

@@ -92,6 +92,10 @@ export function App() {
         message,
         loading: options?.loading,
         persistent: options?.persistent,
+        titleKey: options?.titleKey,
+        titleVars: options?.titleVars,
+        messageKey: options?.messageKey,
+        messageVars: options?.messageVars,
       };
       setToasts((prev) => {
         const withoutSame = prev.filter((item) => item.id !== id);
@@ -277,7 +281,13 @@ export function App() {
       "info",
       t("toast.batchCheckStartedTitle"),
       t("toast.batchCheckStartedBody"),
-      { id: toastId, loading: true, persistent: true },
+      {
+        id: toastId,
+        loading: true,
+        persistent: true,
+        titleKey: "toast.batchCheckStartedTitle",
+        messageKey: "toast.batchCheckStartedBody",
+      },
     );
     try {
       const result = await store.runBatchCheck();
@@ -499,7 +509,14 @@ export function App() {
       "info",
       t("toast.bulkRecheckStartedTitle"),
       t("toast.bulkRecheckStartedBody", { count: itemIds.length }),
-      { id: toastId, loading: true, persistent: true },
+      {
+        id: toastId,
+        loading: true,
+        persistent: true,
+        titleKey: "toast.bulkRecheckStartedTitle",
+        messageKey: "toast.bulkRecheckStartedBody",
+        messageVars: { count: itemIds.length },
+      },
     );
     try {
       const { telemetry } = await store.bulkRecheckItems(itemIds);

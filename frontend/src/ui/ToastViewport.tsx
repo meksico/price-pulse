@@ -1,5 +1,5 @@
 import { ANCHORS } from "../shared/anchors";
-import { useI18n } from "../shared/i18n";
+import { useI18n, type TranslationKey } from "../shared/i18n";
 
 export type ToastVariant = "success" | "warning" | "error" | "info";
 
@@ -7,6 +7,10 @@ export interface ToastOptions {
   id?: string;
   loading?: boolean;
   persistent?: boolean;
+  titleKey?: TranslationKey;
+  titleVars?: Record<string, string | number>;
+  messageKey?: TranslationKey;
+  messageVars?: Record<string, string | number>;
 }
 
 export interface ToastMessage {
@@ -16,6 +20,10 @@ export interface ToastMessage {
   message?: string;
   loading?: boolean;
   persistent?: boolean;
+  titleKey?: TranslationKey;
+  titleVars?: Record<string, string | number>;
+  messageKey?: TranslationKey;
+  messageVars?: Record<string, string | number>;
 }
 
 export type PushToastFn = (
@@ -66,6 +74,12 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
     >
       {toasts.map((toast) => {
         const theme = VARIANT_CLASSES[toast.variant];
+        const resolvedTitle = toast.titleKey
+          ? t(toast.titleKey, toast.titleVars)
+          : toast.title;
+        const resolvedMessage = toast.messageKey
+          ? t(toast.messageKey, toast.messageVars)
+          : toast.message;
         return (
           <div
             key={toast.id}
@@ -86,10 +100,10 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
                 />
               )}
               <div className="min-w-0">
-                <div className="font-semibold text-zinc-950">{toast.title}</div>
-                {toast.message && (
+                <div className="font-semibold text-zinc-950">{resolvedTitle}</div>
+                {resolvedMessage && (
                   <div className="mt-0.5 break-words text-[11px] text-zinc-600">
-                    {toast.message}
+                    {resolvedMessage}
                   </div>
                 )}
               </div>
