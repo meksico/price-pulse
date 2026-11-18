@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { PriceSnapshot, Tag, TrackedItem } from "../domain/models";
 import { formatMoney } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { useI18n } from "../shared/i18n";
 
 const SERIES_PALETTE: readonly string[] = [
   "#2563EB", // Cobalt Blue
@@ -100,6 +101,7 @@ export function TrajectoryChart({
   activeTagFilter,
   onTagFilterChange,
 }: TrajectoryChartProps) {
+  const { locale, t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
   const [seriesMode, setSeriesMode] = useState<"all" | "top5" | "custom">("all");
@@ -254,19 +256,19 @@ export function TrajectoryChart({
       new Set(allSnapshots.map((s) => s.recorded_at)),
     ).sort((a, b) => a.localeCompare(b));
       if (timestamps.length <= 1) {
-        return ["Baseline", "Latest Check (Pooled)"];
+        return [t("chart.baselineLabel"), t("chart.latestCheckPooled")];
       }
       const latestMs = Date.parse(timestamps[timestamps.length - 1]);
       const formatTickLabel = (iso: string, isLast: boolean) => {
-        if (isLast) return "Latest Check (Pooled)";
+        if (isLast) return t("chart.latestCheckPooled");
         const ms = Date.parse(iso);
         if (Number.isNaN(ms) || Number.isNaN(latestMs)) {
           return iso.slice(0, 10);
         }
         const diffDays = Math.round((latestMs - ms) / (1000 * 60 * 60 * 24));
-        if (diffDays <= 0) return iso.slice(11, 16) || "Today";
-        if (diffDays === 1) return "Yesterday";
-        return new Date(ms).toLocaleDateString("en-US", {
+        if (diffDays <= 0) return iso.slice(11, 16) || t("chart.today");
+        if (diffDays === 1) return t("chart.yesterday");
+        return new Date(ms).toLocaleDateString(locale, {
           month: "short",
           day: "numeric",
           timeZone: "UTC",
@@ -286,7 +288,7 @@ export function TrajectoryChart({
           const dt = new Date(iso);
           candidate = Number.isNaN(dt.getTime())
             ? iso.slice(0, 16)
-            : dt.toLocaleDateString("en-US", {
+            : dt.toLocaleDateString(locale, {
               month: "short",
               day: "numeric",
               timeZone: "UTC",
@@ -299,7 +301,7 @@ export function TrajectoryChart({
         labels.push(candidate);
       }
       return labels;
-    }, [allSnapshots]);
+    }, [allSnapshots, locale, t]);
 
   const primaryItemId = hoveredItemId ?? visibleItems[0]?.item_id ?? null;
 
@@ -356,7 +358,7 @@ export function TrajectoryChart({
           tagNames,
           recordedAt: snap.recorded_at,
           formattedTime: formatSnapshotTimestamp(snap.recorded_at),
-          priceText: formatMoney(item.currency, snap.price),
+          priceText: formatMoney(item.currency, snap.price, locale),
           baselineText,
           trueDeltaPct,
           checkIndex: sIdx + 1,
@@ -377,8 +379,8 @@ export function TrajectoryChart({
       trajectories.push({ item, seriesColor, points });
     });
 
-    const minX = padX + 4;
-    const maxX = padX + plotWidth - 4;
+    const minX = padX;
+    const maxX = padX + plotWidth;
     const idealGap = 6;
     const maxClusterHalfSpread = 8;
     const clusters = new Map<string, ChartBulletPoint[]>();
@@ -404,10 +406,8 @@ export function TrajectoryChart({
         maxClusterHalfSpread,
         ((n - 1) * idealGap) / 2,
       );
-      const centerX = Math.max(
-        minX + halfSpread,
-        Math.min(maxX - halfSpread, meanRawX),
-      );
+      // Center cluster on meanRawX so bullets remain within ±maxClusterHalfSpread of rawX.
+      const centerX = Math.max(minX, Math.min(maxX, meanRawX));
       for (let i = 0; i < n; i++) {
         cluster[i].cx =
           centerX - halfSpread + (i / (n - 1)) * (halfSpread * 2);
@@ -442,16 +442,16 @@ export function TrajectoryChart({
   return (
     <section
       id={ANCHORS.chartPanel}
-      aria-label="Total Price Dynamic and Market Trajectory"
+      aria-label={t("chart.title")}
       className="@container min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4"
     >
       <div className="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="min-w-0">
             <h2 className="text-sm font-semibold text-zinc-950">
-              Total Price Dynamic &amp; Market Trajectory (%)
+              {t("chart.title")}
             </h2>
               <p className="text-[11px] text-zinc-500">
-                Normalized % delta relative to each item&apos;s initial baseline (0%)
+                {t("chart.subtitle")}
               </p>
             </div>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -463,7 +463,7 @@ export function TrajectoryChart({
                       : "bg-gray-100 text-zinc-900 hover:bg-gray-200"
                     }`}
                 >
-                  Top 5 Drops
+                  {t("chart.presetTop5")}
                 </button>
                 <button
                   type="button"
@@ -473,7 +473,7 @@ export function TrajectoryChart({
                       : "bg-gray-100 text-zinc-900 hover:bg-gray-200"
                     }`}
                 >
-                  All in View
+                  {t("chart.presetAll")}
                 </button>
               </div>
             </div>
@@ -487,14 +487,17 @@ export function TrajectoryChart({
                                 aria-hidden="true"
                                 className="inline-block w-3 border-t border-dashed border-zinc-400"
                               />
-                              0.0% Baseline
+                              {t("chart.baseline")}
                             </span>
                               <span className="font-medium text-blue-600">
-                                &darr; Negative % = Price Drop
+                                {t("chart.negativeIsDrop")}
                               </span>
                             </div>
                               <span className="tabular-nums text-zinc-500">
-                                Visible: {visibleItems.length} of {filteredItems.length} items
+                                {t("chart.visibleCount", {
+                                  shown: visibleItems.length,
+                                  total: filteredItems.length,
+                                })}
                               </span>
                             </div>
 
@@ -502,7 +505,7 @@ export function TrajectoryChart({
                               <svg
                                 viewBox={`0 0 ${width} ${height}`}
                                 role="img"
-                                aria-label="Normalized percentage price trajectory chart"
+                                aria-label={t("chart.ariaChartLabel")}
                                 className="h-44 w-full sm:h-60"
                               >
                                 <defs>
@@ -671,15 +674,22 @@ export function TrajectoryChart({
                                     </span>
                                   </div>
                                   <div className="mt-0.5 text-zinc-500">
-                                    Tags: {hoveredPoint.tagNames} &bull; Point{" "}
-                                    {hoveredPoint.checkIndex}/{hoveredPoint.totalChecks}{" "}
+                                    {t("chart.tagsLabel")}: {hoveredPoint.tagNames}{" "}
+                                    &bull;{" "}
+                                    {t("chart.pointLabel", {
+                                      index: hoveredPoint.checkIndex,
+                                      total: hoveredPoint.totalChecks,
+                                    })}{" "}
                                     ({hoveredPoint.eventType})
                                   </div>
                                   <div className="tabular-nums mt-0.5 font-medium text-blue-600">
                                     {hoveredPoint.priceText} (
                                     {hoveredPoint.deltaPct > 0 ? "+" : ""}
-                                    {hoveredPoint.deltaPct}% vs{" "}
-                                    {hoveredPoint.baselineText} baseline)
+                                    {hoveredPoint.deltaPct}%{" "}
+                                    {t("chart.vsBaseline", {
+                                      baseline: hoveredPoint.baselineText,
+                                    })}
+                                    )
                                   </div>
                                   <div className="tabular-nums mt-0.5 text-[10px] text-zinc-400">
                                     {hoveredPoint.formattedTime}
@@ -713,39 +723,47 @@ export function TrajectoryChart({
             className="mb-2 flex min-h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-gray-100 lg:hidden"
           >
             <span className="tabular-nums">
-              Series Filters ({visibleItems.length}/{filteredItems.length})
+              {t("chart.seriesFilters", {
+                shown: visibleItems.length,
+                total: filteredItems.length,
+              })}
             </span>
             <span className="text-zinc-600">
-              {mobileControlsOpen ? "Hide \u25B2" : "Show \u25BC"}
+              {mobileControlsOpen
+                ? t("chart.hideControls")
+                : t("chart.showControls")}
             </span>
           </button>
 
           <aside
             id={ANCHORS.chartPanelControls}
-            aria-label="Chart series controls"
+            aria-label={t("chart.seriesControlsAria")}
             className={`${
               mobileControlsOpen ? "flex" : "hidden"
             } min-w-0 w-full flex-col gap-2.5 rounded-xl border border-gray-200 bg-gray-50/50 p-3 lg:flex lg:rounded-none lg:border-0 lg:border-l lg:border-gray-100 lg:bg-transparent lg:p-0 lg:pl-4`}
           >
             <div className="flex min-w-0 items-center justify-between gap-2">
               <span className="tabular-nums truncate text-xs font-semibold text-zinc-950">
-                Series Visible ({visibleItems.length}/{filteredItems.length})
+                {t("chart.seriesVisible", {
+                  shown: visibleItems.length,
+                  total: filteredItems.length,
+                })}
               </span>
               <button
                 type="button"
                 onClick={toggleAll}
                 className="min-h-11 shrink-0 px-1 text-[11px] font-medium text-zinc-600 hover:text-zinc-950 sm:min-h-8"
               >
-                {allSelected ? "Unselect All" : "Select All"}
+                {allSelected ? t("chart.unselectAll") : t("chart.selectAll")}
               </button>
             </div>
 
             <label htmlFor={ANCHORS.chartCategoryFilter} className="sr-only">
-              Filter chart by tag
+              {t("chart.filterByTag")}
             </label>
             <select
               id={ANCHORS.chartCategoryFilter}
-              aria-label="Filter chart by tag"
+              aria-label={t("chart.filterByTag")}
               value={activeTagFilter}
               onChange={(e) => {
                 clearHover();
@@ -753,7 +771,9 @@ export function TrajectoryChart({
               }}
               className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9"
             >
-              <option value="ALL">All Tags ({tags.length})</option>
+              <option value="ALL">
+                {t("chart.allTags", { count: tags.length })}
+              </option>
               {tags.map((tag) => (
                 <option key={tag.tag_id} value={tag.tag_id}>
                   {tag.name}
@@ -762,7 +782,7 @@ export function TrajectoryChart({
             </select>
 
             <label htmlFor="chart-series-search" className="sr-only">
-              Filter series
+              {t("chart.filterSeriesPlaceholder")}
             </label>
             <input
               id="chart-series-search"
@@ -772,7 +792,7 @@ export function TrajectoryChart({
                 clearHover();
                 setSearchQuery(e.target.value);
               }}
-              placeholder="Filter series..."
+              placeholder={t("chart.filterSeriesPlaceholder")}
               className="min-h-11 w-full rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9"
             />
 

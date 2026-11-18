@@ -21,6 +21,7 @@ import {
   STORAGE_KEY,
   type UserProfile,
 } from "./shared/auth";
+import { useI18n } from "./shared/i18n";
 import {
   buildRouteUrl,
   parseRoute,
@@ -41,6 +42,7 @@ import {
 import { TrajectoryChart } from "./ui/TrajectoryChart";
 
 export function App() {
+  const { locale, t } = useI18n();
   const authEnabled = isGoogleAuthEnabled();
   const [authToken, setAuthToken] = useState<string | null>(() =>
     getStoredAuthToken(),
@@ -149,18 +151,18 @@ export function App() {
         setSyncError(null);
         pushToast(
           "warning",
-          "Session expired",
-          "Please sign in again with your Google account.",
+          t("auth.sessionExpiredTitle"),
+          t("auth.sessionExpiredBody"),
         );
       } else {
         setSyncError(msg);
-        pushToast("error", "Workspace sync failed", msg);
+        pushToast("error", t("auth.syncFailedTitle"), msg);
       }
       return false;
     } finally {
       setIsSyncing(false);
     }
-  }, [authEnabled, pushToast, store]);
+  }, [authEnabled, pushToast, store, t]);
 
   const handleSignIn = async () => {
     setIsSigningIn(true);
@@ -175,15 +177,15 @@ export function App() {
       if (profile) setUserProfile(profile);
       pushToast(
         "success",
-        "Signed in",
+        t("auth.signedInTitle"),
         profile?.email
-          ? `Connected as ${profile.email}.`
-          : "Google account connected.",
+          ? t("auth.connectedAs", { email: profile.email })
+          : t("auth.googleAccountConnected"),
       );
     } catch (err) {
       pushToast(
         "error",
-        "Sign in failed",
+        t("auth.signInFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
     } finally {
@@ -197,7 +199,7 @@ export function App() {
     setUserProfile(null);
     setState(null);
     setSyncError(null);
-    pushToast("info", "Signed out", "Disconnected from workspace session.");
+    pushToast("info", t("auth.signedOutTitle"), t("auth.signedOutBody"));
   };
 
   useEffect(() => {
@@ -244,8 +246,8 @@ export function App() {
     setIsChecking(true);
     pushToast(
       "info",
-      "Batch check started",
-      "Checking tracked product URLs...",
+      t("toast.batchCheckStartedTitle"),
+      t("toast.batchCheckStartedBody"),
     );
     try {
       const result = await store.runBatchCheck();
@@ -254,20 +256,27 @@ export function App() {
       if (telemetry.status === "PARTIAL") {
         pushToast(
           "warning",
-          "Batch check finished with warnings",
-          `${telemetry.breakdown} (${telemetry.duration_ms}ms). Check System Health for details.`,
+          t("toast.batchCheckPartialTitle"),
+          t("toast.batchCheckPartialBody", {
+            breakdown: telemetry.breakdown,
+            duration: telemetry.duration_ms,
+          }),
         );
       } else {
+        const alertSuffix =
+          alerts_triggered > 0
+            ? t("toast.batchCheckAlertsSuffix", { count: alerts_triggered })
+            : "";
         pushToast(
           "success",
-          "Batch check complete",
-          `${telemetry.breakdown}${alerts_triggered > 0 ? ` · ${alerts_triggered} alert(s) triggered` : ""} (${telemetry.duration_ms}ms).`,
+          t("toast.batchCheckSuccessTitle"),
+          `${telemetry.breakdown}${alertSuffix} (${telemetry.duration_ms}ms).`,
         );
       }
     } catch (err) {
       pushToast(
         "error",
-        "Batch check failed",
+        t("toast.batchCheckErrorTitle"),
         err instanceof Error ? err.message : String(err),
       );
     } finally {
@@ -278,7 +287,11 @@ export function App() {
   const handleAddItem = async (payload: AddItemPayload) => {
     await store.addItem(payload);
     await refreshAll();
-    pushToast("success", "Item added", `Started tracking "${payload.name}".`);
+    pushToast(
+      "success",
+      t("toast.itemAddedTitle"),
+      t("toast.itemAddedBody", { name: payload.name }),
+    );
   };
 
   const handleAddItemsBatch = async (payloads: AddItemPayload[]) => {
@@ -286,8 +299,8 @@ export function App() {
     await refreshAll();
     pushToast(
       "success",
-      "Bulk items added",
-      `Started tracking ${payloads.length} item${payloads.length === 1 ? "" : "s"}.`,
+      t("toast.batchSavedTitle"),
+      t("toast.batchSavedBody", { count: payloads.length }),
     );
   };
 
@@ -305,15 +318,15 @@ export function App() {
         payload.target_price === undefined;
       pushToast(
         "success",
-        tagsOnly ? "Item tags updated" : "Item card updated",
+        tagsOnly ? t("toast.itemTagsUpdatedTitle") : t("toast.itemUpdatedTitle"),
         tagsOnly
-          ? `Updated tags for "${targetName}".`
-          : `Saved changes for "${targetName}".`,
+          ? t("toast.itemTagsUpdatedBody", { name: targetName })
+          : t("toast.itemUpdatedBody", { name: targetName }),
       );
     } catch (err) {
       pushToast(
         "error",
-        "Update failed",
+        t("toast.itemUpdateFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
     }
@@ -325,14 +338,17 @@ export function App() {
       await refreshAll();
       pushToast(
         "success",
-        "Price re-checked",
-        `"${updated.name}" is currently ${formatMoney(updated.currency, updated.current_price)}.`,
+        t("toast.itemRecheckedTitle"),
+        t("toast.itemRecheckedBody", {
+          name: updated.name,
+          price: formatMoney(updated.currency, updated.current_price, locale),
+        }),
       );
     } catch (err) {
       pushToast(
         "error",
-        "Re-check failed",
-        err instanceof Error ? err.message : "Failed to re-check item price.",
+        t("toast.itemRecheckFailedTitle"),
+        err instanceof Error ? err.message : t("toast.itemRecheckFailedBody"),
       );
       throw err;
     }
@@ -346,15 +362,18 @@ export function App() {
       await refreshAll();
       pushToast(
         "success",
-        "Marked as bought",
+        t("toast.itemBoughtTitle"),
         target
-          ? `Moved "${target.name}" to Bought Items at ${target.currency}${purchasedPrice.toFixed(2)}.`
-          : "Moved item to Bought Items Sheet.",
+          ? t("toast.itemBoughtBody", {
+              name: target.name,
+              price: formatMoney(target.currency, purchasedPrice, locale),
+            })
+          : t("toast.itemBoughtFallbackBody"),
       );
     } catch (err) {
       pushToast(
         "error",
-        "Could not mark as bought",
+        t("toast.itemBuyFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
     }
@@ -368,15 +387,15 @@ export function App() {
       await refreshAll();
       pushToast(
         "success",
-        "Tracking resumed",
+        t("toast.itemResumedTitle"),
         target
-          ? `Returned "${target.name}" to Active Positions.`
-          : "Returned item to Active Positions.",
+          ? t("toast.itemResumedBody", { name: target.name })
+          : t("toast.itemResumedFallbackBody"),
       );
     } catch (err) {
       pushToast(
         "error",
-        "Could not resume tracking",
+        t("toast.itemResumeFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
     }
@@ -393,13 +412,13 @@ export function App() {
       await refreshAll();
       pushToast(
         "success",
-        "Position deleted",
-        `Removed "${targetName}" from tracking.`,
+        t("toast.itemDeletedTitle"),
+        t("toast.itemDeletedBody", { name: targetName }),
       );
     } catch (err) {
       pushToast(
         "error",
-        "Delete failed",
+        t("toast.itemDeleteFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
     }
@@ -413,21 +432,21 @@ export function App() {
     try {
       const updated = await store.bulkUpdateTags(itemIds, action, tagNames);
       await refreshAll();
-      const verb =
+      const bodyKey =
         action === "add"
-          ? "Added tags to"
+          ? "toast.bulkTagsAddedBody"
           : action === "replace"
-            ? "Updated tags for"
-            : "Removed tags from";
+            ? "toast.bulkTagsReplacedBody"
+            : "toast.bulkTagsRemovedBody";
       pushToast(
         "success",
-        "Bulk tags updated",
-        `${verb} ${updated.length} item${updated.length === 1 ? "" : "s"}.`,
+        t("toast.bulkTagsTitle"),
+        t(bodyKey, { count: updated.length }),
       );
     } catch (err) {
       pushToast(
         "error",
-        "Bulk tag update failed",
+        t("toast.bulkTagsFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
       throw err;
@@ -441,26 +460,29 @@ export function App() {
       if (telemetry.status === "PARTIAL") {
         pushToast(
           "warning",
-          "Bulk re-check finished with warnings",
-          `Checked ${telemetry.items_checked} items (${telemetry.breakdown}).`,
+          t("toast.bulkRecheckPartialTitle"),
+          t("toast.bulkRecheckPartialBody", {
+            count: telemetry.items_checked,
+            breakdown: telemetry.breakdown,
+          }),
         );
       } else if (telemetry.status === "ERROR") {
         pushToast(
           "error",
-          "Bulk re-check failed",
-          telemetry.errors?.[0] ?? "Failed to re-check selected items.",
+          t("toast.bulkRecheckFailedTitle"),
+          telemetry.errors?.[0] ?? t("toast.bulkRecheckFailedBody"),
         );
       } else {
         pushToast(
           "success",
-          "Bulk re-check complete",
-          `Re-checked ${telemetry.items_checked} item${telemetry.items_checked === 1 ? "" : "s"}.`,
+          t("toast.bulkRecheckTitle"),
+          t("toast.bulkRecheckBody", { count: telemetry.items_checked }),
         );
       }
     } catch (err) {
       pushToast(
         "error",
-        "Bulk re-check failed",
+        t("toast.bulkRecheckFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
       throw err;
@@ -473,13 +495,13 @@ export function App() {
       await refreshAll();
       pushToast(
         "success",
-        "Positions deleted",
-        `Removed ${deleted.length} item${deleted.length === 1 ? "" : "s"} from tracking.`,
+        t("toast.bulkDeleteTitle"),
+        t("toast.bulkDeleteBody", { count: deleted.length }),
       );
     } catch (err) {
       pushToast(
         "error",
-        "Bulk delete failed",
+        t("toast.bulkDeleteFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
       throw err;
@@ -490,11 +512,15 @@ export function App() {
     try {
       await store.createTag(name, color);
       await refreshAll();
-      pushToast("success", "Tag created", `Added tag "${name}".`);
+      pushToast(
+        "success",
+        t("toast.tagCreatedTitle"),
+        t("toast.tagCreatedBody", { name }),
+      );
     } catch (err) {
       pushToast(
         "error",
-        "Tag creation failed",
+        t("toast.tagCreateFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
     }
@@ -509,11 +535,15 @@ export function App() {
       await store.updateTag(tagId, updates);
       await refreshAll();
       const label = updates.name ?? existing?.name ?? tagId;
-      pushToast("success", "Tag updated", `Saved changes to "${label}".`);
+      pushToast(
+        "success",
+        t("toast.tagUpdatedTitle"),
+        t("toast.tagUpdatedBody", { name: label }),
+      );
     } catch (err) {
       pushToast(
         "error",
-        "Tag update failed",
+        t("toast.tagUpdateFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
     }
@@ -526,11 +556,15 @@ export function App() {
       await store.deleteTag(tagId);
       if (activeTagFilter === tagId) navigate({ tagFilter: "ALL" }, true);
       await refreshAll();
-      pushToast("success", "Tag deleted", `Removed tag "${existingName}".`);
+      pushToast(
+        "success",
+        t("toast.tagDeletedTitle"),
+        t("toast.tagDeletedBody", { name: existingName }),
+      );
     } catch (err) {
       pushToast(
         "error",
-        "Tag deletion failed",
+        t("toast.tagDeleteFailedTitle"),
         err instanceof Error ? err.message : String(err),
       );
     }
@@ -547,6 +581,7 @@ export function App() {
   const totalSavedText = formatSavingsByCurrency(
     state?.bought_items ?? [],
     workspaceCurrency,
+    locale,
   );
 
   const selectedActiveItem =
@@ -565,8 +600,8 @@ export function App() {
     ) {
       pushToast(
         "warning",
-        "Item not found",
-        `Item "${selectedItemId}" was not found.`,
+        t("toast.missingItemTitle"),
+        t("toast.missingItemBody", { id: selectedItemId }),
       );
       navigate({ itemId: null }, true);
     }
@@ -577,6 +612,7 @@ export function App() {
     selectedBoughtItem,
     navigate,
     pushToast,
+    t,
   ]);
 
   const isUnauthenticated = authEnabled && !authToken;
@@ -673,13 +709,13 @@ export function App() {
         {isUnauthenticated ? (
           <section
             id={ANCHORS.authGate}
-            aria-label="Google Sign-In"
+            aria-label={t("auth.googleSignInAria")}
             className="mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-[340px] flex-col items-center justify-between py-8 text-center"
           >
             <div className="my-auto w-full">
               <BrandHeroLogo />
               <h1 className="text-[17px] font-semibold text-zinc-950">
-                Sign in to your workspace
+                {t("auth.signInPrompt")}
               </h1>
 
               <div className="my-5 h-px w-full bg-gray-200" />
@@ -713,14 +749,22 @@ export function App() {
                     d="M12 4.77c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.69 1.28 6.63l4 3.1c.95-2.85 3.6-4.96 6.72-4.96z"
                   />
                 </svg>
-                {isSigningIn ? "Signing in..." : "Continue with Google"}
+                {isSigningIn
+                  ? t("auth.signingIn")
+                  : t("auth.continueWithGoogle")}
               </button>
             </div>
 
             <p className="max-w-[280px] text-[11px] leading-relaxed text-zinc-400">
-              Authorized Google account required for{" "}
-              <span className="font-medium text-zinc-950">Sheets Sync</span> and{" "}
-              <span className="font-medium text-zinc-950">Gmail Alerts</span>.
+              {t("auth.authorizedNotePrefix")}{" "}
+              <span className="font-medium text-zinc-950">
+                {t("auth.authorizedNoteSheets")}
+              </span>{" "}
+              {t("auth.authorizedNoteAnd")}{" "}
+              <span className="font-medium text-zinc-950">
+                {t("auth.authorizedNoteGmail")}
+              </span>
+              .
             </p>
           </section>
         ) : !state ? (
@@ -730,7 +774,7 @@ export function App() {
               role="status"
               className="text-sm text-zinc-500"
             >
-              Loading PricePulse workspace...
+              {t("auth.loadingWorkspace")}
             </div>
           ) : (
             <div
@@ -739,7 +783,7 @@ export function App() {
               className="mx-auto my-8 max-w-md rounded-xl border border-gray-200 bg-white p-5 text-center sm:p-6"
             >
               <h2 className="text-base font-semibold text-zinc-950">
-                Unable to load PricePulse workspace
+                {t("auth.unableToLoadWorkspace")}
               </h2>
               <p className="mt-1.5 break-words text-sm text-zinc-500">
                 {syncError}
@@ -750,7 +794,7 @@ export function App() {
                   onClick={() => void refreshAll()}
                   className="inline-flex min-h-11 items-center justify-center rounded-lg bg-zinc-950 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
                 >
-                  Retry Workspace Sync
+                  {t("auth.retrySync")}
                 </button>
                 {authEnabled && (
                   <button
@@ -758,7 +802,7 @@ export function App() {
                     onClick={handleSignOut}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-4 text-sm font-medium text-zinc-950 transition-colors hover:bg-gray-100"
                   >
-                    Sign out
+                    {t("nav.signOut")}
                   </button>
                 )}
               </div>
@@ -769,7 +813,7 @@ export function App() {
             {activeView === "dashboard" && (
               <section
                 id={ANCHORS.viewDashboard}
-                aria-label="Dashboard"
+                aria-label={t("nav.dashboard")}
                 className="flex min-w-0 flex-col gap-3 sm:gap-5"
               >
                 <div className="order-3 @container grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 md:order-1">
@@ -779,14 +823,16 @@ export function App() {
                     className="min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 sm:p-4"
                   >
                     <div className="truncate text-xs font-medium text-zinc-950">
-                      Active Monitoring
+                      {t("kpi.activeMonitoring")}
                     </div>
                     <div className="pp-kpi-value tabular-nums mt-1 font-bold tracking-tight text-zinc-950">
                       {state.items.length}
                     </div>
                     <div className="tabular-nums mt-0.5 truncate text-[11px] text-zinc-500">
-                      {state.tags.length} Tags &bull; {state.items.length}{" "}
-                      Tracked
+                      {t("kpi.activeMonitoringSub", {
+                        tags: state.tags.length,
+                        items: state.items.length,
+                      })}
                     </div>
                   </button>
                   <button
@@ -795,13 +841,15 @@ export function App() {
                     className="min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 sm:p-4"
                   >
                     <div className="truncate text-xs font-medium text-zinc-950">
-                      Total Saved Costs
+                      {t("kpi.totalSavedCosts")}
                     </div>
                     <div className="pp-kpi-value tabular-nums mt-1 truncate font-bold tracking-tight text-zinc-950">
                       {totalSavedText}
                     </div>
                     <div className="tabular-nums mt-0.5 truncate text-[11px] text-zinc-500">
-                      {state.bought_items.length} bought items
+                      {t("kpi.totalSavedCostsSub", {
+                        count: state.bought_items.length,
+                      })}
                     </div>
                   </button>
                   <button
@@ -811,16 +859,22 @@ export function App() {
                   >
                     <div className="flex items-center justify-between gap-2 sm:block">
                       <div className="truncate text-xs font-medium text-zinc-950">
-                        Engine Health
+                        {t("kpi.engineHealth")}
                       </div>
                       <div className="pp-kpi-value tabular-nums font-bold tracking-tight text-zinc-950 sm:mt-1">
-                        {latestRun?.status ?? "READY"}
+                        {latestRun
+                          ? latestRun.status === "SUCCESS"
+                            ? t("health.statusSuccess")
+                            : latestRun.status === "PARTIAL"
+                              ? t("health.statusPartial")
+                              : t("health.statusError")
+                          : t("kpi.statusReady")}
                       </div>
                     </div>
                     <div className="tabular-nums mt-0.5 truncate text-[11px] text-zinc-500">
                       {latestRun
                         ? `${latestRun.breakdown} (${latestRun.duration_ms}ms)`
-                        : "Awaiting first batch check"}
+                        : t("kpi.noTelemetryYet")}
                     </div>
                   </button>
                 </div>

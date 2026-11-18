@@ -8,6 +8,7 @@ import type {
 } from "../domain/models";
 import { formatMoney } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { useI18n } from "../shared/i18n";
 import { useBottomSheetSwipeDismiss } from "../shared/useBottomSheetSwipeDismiss";
 import { TagAdderControl } from "./TagAdderControl";
 import type { PushToastFn } from "./ToastViewport";
@@ -39,6 +40,7 @@ export function ItemDetailsModal({
   onDeleteItem,
   onNotify,
 }: ItemDetailsModalProps) {
+  const { locale, t } = useI18n();
   const item = activeItem ?? boughtItem;
   const [title, setTitle] = useState(item?.name ?? "");
   const [currentPrice, setCurrentPrice] = useState(
@@ -138,14 +140,14 @@ export function ItemDetailsModal({
       return;
     }
     const nextNames = [...currentTagNames, clean];
-    await runBlockingAction("Updating tags...", () =>
+    await runBlockingAction(t("detailsModal.updatingTags"), () =>
       onUpdateItem(activeItem.item_id, { tag_names: nextNames }),
     );
   };
 
   const handleRemoveTag = async (tagName: string) => {
     if (!activeItem) return;
-    await runBlockingAction("Updating tags...", () =>
+    await runBlockingAction(t("detailsModal.updatingTags"), () =>
       onUpdateItem(activeItem.item_id, {
         tag_names: currentTagNames.filter((n) => n !== tagName),
       }),
@@ -155,7 +157,7 @@ export function ItemDetailsModal({
   const handleSaveDetails = async () => {
     if (!activeItem) return;
     const parsedCurrent = Number(currentPrice);
-    await runBlockingAction("Saving changes...", async () => {
+    await runBlockingAction(t("detailsModal.savingChanges"), async () => {
       await onUpdateItem(activeItem.item_id, {
         name: title.trim() || activeItem.name,
         target_price: Number(targetPrice) || activeItem.target_price,
@@ -213,10 +215,10 @@ export function ItemDetailsModal({
     const ms = Date.parse(iso);
     if (Number.isNaN(ms)) return iso;
     const diffMins = Math.max(0, Math.round((Date.now() - ms) / 60000));
-    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffMins < 60) return t("detailsModal.minutesAgo", { n: diffMins });
     const diffHours = Math.round(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${Math.round(diffHours / 24)}d ago`;
+    if (diffHours < 24) return t("detailsModal.hoursAgo", { n: diffHours });
+    return t("detailsModal.daysAgo", { n: Math.round(diffHours / 24) });
   };
 
   return (
@@ -244,7 +246,7 @@ export function ItemDetailsModal({
               {pendingActionLabel}
             </div>
             <div className="text-[11px] text-zinc-500">
-              Waiting for server response
+              {t("detailsModal.waitingServer")}
             </div>
           </div>
         )}
@@ -275,25 +277,37 @@ export function ItemDetailsModal({
                   {activeItem ? (
                     activeItem.status === "DISCOUNT" ? (
                       <span className="tabular-nums rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700">
-                        -{activeItem.drop_pct}% DISCOUNT
+                        {t("detailsModal.statusDiscount", {
+                          pct: activeItem.drop_pct,
+                        })}
                       </span>
                     ) : (
                       <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-950">
-                        ACTIVE
+                        {t("detailsModal.statusActive")}
                       </span>
                     )
                   ) : (
                     boughtItem && (
                       <span className="tabular-nums rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-950">
-                        BOUGHT (+{formatMoney(boughtItem.currency, boughtItem.saved_cost)})
+                        {t("detailsModal.statusBought", {
+                          saved: formatMoney(
+                            boughtItem.currency,
+                            boughtItem.saved_cost,
+                            locale,
+                          ),
+                        })}
                       </span>
                     )
                   )}
                   <span className="tabular-nums text-[11px] text-zinc-500">
                     {activeItem
-                      ? `Last checked: ${formatLastChecked(activeItem.last_checked)}`
+                      ? t("detailsModal.lastChecked", {
+                          value: formatLastChecked(activeItem.last_checked),
+                        })
                       : boughtItem
-                        ? `Bought: ${boughtItem.purchased_date}`
+                        ? t("detailsModal.boughtDate", {
+                            date: boughtItem.purchased_date,
+                          })
                         : ""}
                   </span>
                 </div>
@@ -309,7 +323,7 @@ export function ItemDetailsModal({
                   rel="noreferrer"
                   className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
                 >
-                  Open Original Retailer Web Page &#x2197;
+                  {t("detailsModal.openRetailer")}
                 </a>
               </div>
             </div>
@@ -317,7 +331,7 @@ export function ItemDetailsModal({
               <button
                 type="button"
                 disabled={isBusy}
-                aria-label="Close Item Details modal"
+                aria-label={t("detailsModal.closeAria")}
                 onClick={onClose}
                 className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:min-w-9"
               >
@@ -328,13 +342,14 @@ export function ItemDetailsModal({
                   type="button"
                   disabled={isBusy}
                   onClick={() =>
-                    void runBlockingAction("Re-checking price...", () =>
-                      onRecheckItem(activeItem.item_id),
+                    void runBlockingAction(
+                      t("detailsModal.recheckingPrice"),
+                      () => onRecheckItem(activeItem.item_id),
                     ).catch(() => undefined)
                   }
                   className="min-h-11 shrink-0 whitespace-nowrap rounded-xl bg-gray-100 px-3.5 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
                 >
-                  Re-check
+                  {t("detailsModal.recheckBtn")}
                 </button>
               )}
             </div>
@@ -350,7 +365,7 @@ export function ItemDetailsModal({
                     aria-hidden="true"
                     className="inline-block w-3 border-t-2 border-blue-600"
                   />
-                  Price Dynamics
+                  {t("detailsModal.priceDynamics")}
                 </span>
                 {numericTarget !== null && (
                   <span className="inline-flex items-center gap-1.5 text-zinc-500">
@@ -358,12 +373,14 @@ export function ItemDetailsModal({
                       aria-hidden="true"
                       className="inline-block w-3 border-t-2 border-dashed border-zinc-400"
                     />
-                    Target Threshold
+                    {t("detailsModal.targetThreshold")}
                   </span>
                 )}
               </div>
               <span className="tabular-nums font-semibold text-zinc-950">
-                Value: {formatMoney(item.currency, currentOrBoughtPrice)}
+                {t("detailsModal.valueReadout", {
+                  price: formatMoney(item.currency, currentOrBoughtPrice, locale),
+                })}
               </span>
             </div>
 
@@ -411,7 +428,9 @@ export function ItemDetailsModal({
                       fontSize="10"
                       style={{ fontVariantNumeric: "tabular-nums" }}
                     >
-                      Target: {formatMoney(item.currency, numericTarget)}
+                      {t("detailsModal.targetSvgLabel", {
+                        price: formatMoney(item.currency, numericTarget, locale),
+                      })}
                     </text>
                   </g>
                 )}
@@ -474,7 +493,11 @@ export function ItemDetailsModal({
                           const activateSnap = () =>
                             setHoveredSnap({
                               historyId: p.id,
-                              priceText: formatMoney(item.currency, p.snap.price),
+                              priceText: formatMoney(
+                                item.currency,
+                                p.snap.price,
+                                locale,
+                              ),
                               deltaPct: p.trueDeltaPct,
                               formattedTime: formatSnapshotTimestamp(
                                 p.snap.recorded_at,
@@ -522,13 +545,16 @@ export function ItemDetailsModal({
                   className="pointer-events-none absolute z-10 w-[min(190px,calc(100%-16px))] rounded-lg border border-gray-200 bg-white/95 px-2.5 py-1.5 text-[11px] leading-snug shadow-md"
                 >
                   <div className="font-semibold text-zinc-950">
-                    Point {hoveredSnap.index}/{hoveredSnap.total} (
-                    {hoveredSnap.eventType})
+                    {t("chart.pointLabel", {
+                      index: hoveredSnap.index,
+                      total: hoveredSnap.total,
+                    })}{" "}
+                    ({hoveredSnap.eventType})
                   </div>
                   <div className="tabular-nums font-medium text-blue-600">
                     {hoveredSnap.priceText} (
                     {hoveredSnap.deltaPct > 0 ? "+" : ""}
-                    {hoveredSnap.deltaPct}% vs baseline)
+                    {hoveredSnap.deltaPct}% {t("detailsModal.vsBaseline")})
                   </div>
                   <div className="tabular-nums text-[10px] text-zinc-400">
                     {hoveredSnap.formattedTime}
@@ -541,7 +567,7 @@ export function ItemDetailsModal({
           <div className="divide-y divide-gray-200 border-t border-b border-gray-200">
             <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:gap-4">
               <span className="w-24 shrink-0 pt-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                Tags
+                {t("detailsModal.sectionTags")}
               </span>
               <div className="min-w-0 flex-1">
                 <TagAdderControl
@@ -563,7 +589,7 @@ export function ItemDetailsModal({
                     htmlFor="detail-title"
                     className="w-24 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                   >
-                    Title
+                    {t("detailsModal.sectionTitle")}
                   </label>
                   <input
                     id="detail-title"
@@ -576,15 +602,19 @@ export function ItemDetailsModal({
 
                 <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:gap-4">
                   <span className="w-24 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 sm:pt-2">
-                    Pricing
+                    {t("detailsModal.sectionPricing")}
                   </span>
                   <div className="grid min-w-0 flex-1 grid-cols-1 gap-2.5 sm:grid-cols-3">
                     <div className="min-w-0">
                       <div className="mb-1 text-[10px] font-medium text-zinc-500">
-                        Baseline Price
+                        {t("detailsModal.baselinePrice")}
                       </div>
                       <div className="tabular-nums flex min-h-11 items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 text-xs font-medium text-zinc-700 sm:min-h-9">
-                        {formatMoney(activeItem.currency, activeItem.initial_price)}
+                        {formatMoney(
+                          activeItem.currency,
+                          activeItem.initial_price,
+                          locale,
+                        )}
                       </div>
                     </div>
                     <div className="min-w-0">
@@ -592,7 +622,7 @@ export function ItemDetailsModal({
                         htmlFor="detail-current-price"
                         className="mb-1 block text-[10px] font-medium text-zinc-500"
                       >
-                        Current Tracked Price
+                        {t("detailsModal.currentTrackedPrice")}
                       </label>
                       <div className="flex min-h-11 items-center rounded-lg border border-gray-200 bg-white px-2.5 focus-within:ring-2 focus-within:ring-zinc-950 sm:min-h-9">
                         <span className="mr-1 text-zinc-400">
@@ -613,7 +643,7 @@ export function ItemDetailsModal({
                         htmlFor="detail-target"
                         className="mb-1 block text-[10px] font-medium text-zinc-500"
                       >
-                        Alert Target Price
+                        {t("detailsModal.alertTargetPrice")}
                       </label>
                       <div className="flex min-h-11 items-center rounded-lg border border-gray-200 bg-white px-2.5 focus-within:ring-2 focus-within:ring-zinc-950 sm:min-h-9">
                         <span className="mr-1 text-zinc-400">
@@ -636,34 +666,44 @@ export function ItemDetailsModal({
               boughtItem && (
                 <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:gap-4">
                   <span className="w-24 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 sm:pt-1">
-                    Settlement
+                    {t("detailsModal.sectionSettlement")}
                   </span>
                   <div className="grid min-w-0 flex-1 grid-cols-1 gap-2.5 sm:grid-cols-3">
                     <div>
                       <div className="text-[10px] font-medium text-zinc-500">
-                        Baseline
+                        {t("grid.colBaseline")}
                       </div>
                       <div className="tabular-nums font-medium text-zinc-700">
-                        {formatMoney(boughtItem.currency, boughtItem.initial_price)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-medium text-zinc-500">
-                        Bought Price
-                      </div>
-                      <div className="tabular-nums font-semibold text-zinc-950">
                         {formatMoney(
                           boughtItem.currency,
-                          boughtItem.purchased_price,
+                          boughtItem.initial_price,
+                          locale,
                         )}
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] font-medium text-zinc-500">
-                        Realized Savings
+                        {t("grid.colBoughtPrice")}
                       </div>
                       <div className="tabular-nums font-semibold text-zinc-950">
-                        +{formatMoney(boughtItem.currency, boughtItem.saved_cost)}
+                        {formatMoney(
+                          boughtItem.currency,
+                          boughtItem.purchased_price,
+                          locale,
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-medium text-zinc-500">
+                        {t("grid.colRealizedSavings")}
+                      </div>
+                      <div className="tabular-nums font-semibold text-zinc-950">
+                        +
+                        {formatMoney(
+                          boughtItem.currency,
+                          boughtItem.saved_cost,
+                          locale,
+                        )}
                       </div>
                     </div>
                   </div>
@@ -676,16 +716,16 @@ export function ItemDetailsModal({
             <div className="flex flex-col gap-3 rounded-xl bg-gray-100 p-3.5 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-zinc-950">
-                  Bought this item? Move to Bought Items Sheet
+                  {t("detailsModal.boughtWellTitle")}
                 </div>
                 <div className="mt-0.5 text-[11px] text-zinc-500">
-                  Stops active scraper tracking and logs savings to{" "}
+                  {t("detailsModal.boughtWellDescPrefix")}{" "}
                   <span className="font-medium text-zinc-950">Bought_Items</span>.
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <label htmlFor="detail-buy-price" className="sr-only">
-                  Purchase Price
+                  {t("detailsModal.purchasePriceLabel")}
                 </label>
                 <div className="flex min-h-11 items-center rounded-lg border border-gray-200 bg-white px-2.5 sm:min-h-9">
                   <span className="mr-1 text-zinc-400">
@@ -704,17 +744,20 @@ export function ItemDetailsModal({
                   type="button"
                   disabled={isBusy}
                   onClick={() =>
-                    void runBlockingAction("Archiving as bought...", async () => {
-                      await onBuyItem(
-                        activeItem.item_id,
-                        Number(buyPrice) || activeItem.current_price,
-                      );
-                      onClose();
-                    })
+                    void runBlockingAction(
+                      t("detailsModal.archivingBought"),
+                      async () => {
+                        await onBuyItem(
+                          activeItem.item_id,
+                          Number(buyPrice) || activeItem.current_price,
+                        );
+                        onClose();
+                      },
+                    )
                   }
                   className="min-h-11 rounded-lg border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
                 >
-                  Confirm Buy
+                  {t("detailsModal.confirmBuyBtn")}
                 </button>
               </div>
             </div>
@@ -731,27 +774,30 @@ export function ItemDetailsModal({
                   setConfirmDelete(true);
                   onNotify?.(
                     "warning",
-                    "Confirm deletion",
-                    "Click Confirm Delete to permanently remove this position.",
+                    t("detailsModal.confirmDeleteToastTitle"),
+                    t("detailsModal.confirmDeleteToastBody"),
                   );
                 }}
                 className="min-h-11 rounded-lg bg-red-50 px-3 py-1.5 font-medium text-red-600 hover:bg-red-100 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
-                Delete Position
+                {t("detailsModal.deletePositionBtn")}
               </button>
             ) : (
               <button
                 type="button"
                 disabled={isBusy}
                 onClick={() =>
-                  void runBlockingAction("Deleting position...", async () => {
-                    await onDeleteItem(item.item_id);
-                    onClose();
-                  })
+                  void runBlockingAction(
+                    t("detailsModal.deletingPosition"),
+                    async () => {
+                      await onDeleteItem(item.item_id);
+                      onClose();
+                    },
+                  )
                 }
                 className="min-h-11 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
-                Confirm Delete
+                {t("detailsModal.confirmDeleteBtn")}
               </button>
             )}
           </div>
@@ -763,7 +809,7 @@ export function ItemDetailsModal({
               onClick={onClose}
               className="min-h-11 rounded-lg bg-gray-100 px-4 py-1.5 font-medium text-zinc-950 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
             >
-              Close
+              {t("detailsModal.closeBtn")}
             </button>
             {activeItem ? (
               <button
@@ -772,21 +818,24 @@ export function ItemDetailsModal({
                 onClick={() => void handleSaveDetails()}
                 className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
-                Save Changes
+                {t("detailsModal.saveChangesBtn")}
               </button>
             ) : (
               <button
                 type="button"
                 disabled={isBusy}
                 onClick={() =>
-                  void runBlockingAction("Resuming tracking...", async () => {
-                    await onResumeItem(item.item_id);
-                    onClose();
-                  })
+                  void runBlockingAction(
+                    t("detailsModal.resumingTracking"),
+                    async () => {
+                      await onResumeItem(item.item_id);
+                      onClose();
+                    },
+                  )
                 }
                 className="min-h-11 rounded-lg bg-zinc-950 px-5 py-1.5 font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
               >
-                Resume Tracking
+                {t("detailsModal.resumeTrackingBtn")}
               </button>
             )}
           </div>

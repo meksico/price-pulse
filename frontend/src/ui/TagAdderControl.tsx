@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Tag } from "../domain/models";
 import { TAG_BADGE_CLASSES, TAG_DOT_CLASSES } from "../domain/models";
+import { useI18n } from "../shared/i18n";
 
 const NEW_TAG_OPTION_VALUE = "__NEW__";
 
@@ -21,6 +22,7 @@ export function TagAdderControl({
   onRemoveTag,
   readOnly = false,
 }: TagAdderControlProps) {
+  const { t } = useI18n();
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customValue, setCustomValue] = useState("");
   const customInputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +69,9 @@ export function TagAdderControl({
     <div className="min-w-0 space-y-2">
       <div className="flex flex-wrap items-center gap-1.5">
         {selectedTagNames.length === 0 && (
-          <span className="text-xs text-zinc-400">No tags assigned</span>
+          <span className="text-xs text-zinc-400">
+            {t("tagAdder.noTagsAssigned")}
+          </span>
         )}
         {selectedTagNames.map((name) => {
           const matched = tagByLowerName.get(name.trim().toLowerCase());
@@ -85,7 +89,9 @@ export function TagAdderControl({
               {!readOnly && onRemoveTag && (
                 <button
                   type="button"
-                  aria-label={`Remove tag ${matched?.name ?? name}`}
+                  aria-label={t("tagAdder.removeTagAria", {
+                    name: matched?.name ?? name,
+                  })}
                   onClick={() => void onRemoveTag(name)}
                   className="ml-0.5 opacity-60 hover:opacity-100"
                 >
@@ -102,7 +108,7 @@ export function TagAdderControl({
           {!isCustomMode ? (
             <div className="flex items-center">
               <label htmlFor={selectId} className="sr-only">
-                Add Tag
+                {t("tagAdder.addTagLabel")}
               </label>
               <select
                 id={selectId}
@@ -110,19 +116,21 @@ export function TagAdderControl({
                 onChange={handleSelectChange}
                 className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-9 sm:w-auto sm:min-w-[200px]"
               >
-                <option value="">+ Add tag...</option>
+                <option value="">{t("tagAdder.selectPlaceholder")}</option>
                 {unassignedTags.map((tag) => (
                   <option key={tag.tag_id} value={tag.name}>
                     {tag.name}
                   </option>
                 ))}
-                <option value={NEW_TAG_OPTION_VALUE}>+ Add new one</option>
+                <option value={NEW_TAG_OPTION_VALUE}>
+                  {t("tagAdder.addNewOne")}
+                </option>
               </select>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor={inputId} className="sr-only">
-                New tag name
+                {t("tagAdder.newTagLabel")}
               </label>
               <input
                 ref={customInputRef}
@@ -141,7 +149,7 @@ export function TagAdderControl({
                     setIsCustomMode(false);
                   }
                 }}
-                placeholder="Enter new tag name..."
+                placeholder={t("tagAdder.newTagPlaceholder")}
                 className="min-h-11 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-9"
               />
               <button
@@ -149,7 +157,7 @@ export function TagAdderControl({
                 onClick={() => void handleCustomSubmit()}
                 className="min-h-11 shrink-0 rounded-lg bg-zinc-950 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 sm:min-h-9"
               >
-                + Add Tag
+                {t("tagAdder.addBtn")}
               </button>
               <button
                 type="button"
@@ -159,7 +167,7 @@ export function TagAdderControl({
                 }}
                 className="min-h-11 shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-gray-50 sm:min-h-9"
               >
-                Cancel
+                {t("tagAdder.cancelBtn")}
               </button>
             </div>
           )}

@@ -8,6 +8,7 @@ import {
   type Tag,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { useI18n } from "../shared/i18n";
 import type { RequestRetryCallback } from "../ports/dataStore";
 import type { AddModalMode, AddModalPrefill } from "../shared/routes";
 import { useBottomSheetSwipeDismiss } from "../shared/useBottomSheetSwipeDismiss";
@@ -175,6 +176,7 @@ export function AddItemModal({
   onSaveItemsBatch,
   onNotify,
 }: AddItemModalProps) {
+  const { locale, t } = useI18n();
   const [internalMode, setInternalMode] = useState<AddModalMode>(mode);
   const activeMode = onModeChange ? mode : internalMode;
 
@@ -511,12 +513,19 @@ export function AddItemModal({
 
   const notifyRetryAttempt: RequestRetryCallback = (info) => {
     setLoadingTitle(
-      `Retrying (Attempt ${info.nextAttempt}/${info.maxAttempts})...`,
+      t("addModal.retryingStatus", {
+        next: info.nextAttempt,
+        max: info.maxAttempts,
+      }),
     );
     onNotify?.(
       "warning",
-      `Bad result. Attempt #${info.nextAttempt}`,
-      `${info.reason} — retrying request (${info.nextAttempt}/${info.maxAttempts})...`,
+      t("addModal.retryToastTitle", { next: info.nextAttempt }),
+      t("addModal.retryToastBody", {
+        reason: info.reason,
+        next: info.nextAttempt,
+        max: info.maxAttempts,
+      }),
     );
   };
 
@@ -524,13 +533,13 @@ export function AddItemModal({
     if (!url.trim()) {
       onNotify?.(
         "warning",
-        "Missing URL",
-        "Enter a product URL before fetching a preview.",
+        t("addModal.missingUrlTitle"),
+        t("addModal.missingUrlBody"),
       );
       return;
     }
     setCaptchaBlockedMsg(null);
-    setLoadingTitle("Fetching product metadata...");
+    setLoadingTitle(t("addModal.loadingSingle"));
     setFetching(true);
     try {
       const preview = await onPreviewUrl(url.trim(), notifyRetryAttempt);
@@ -548,8 +557,11 @@ export function AddItemModal({
       }
       onNotify?.(
         "success",
-        "Preview fetched",
-        `Extracted ${preview.title} (${preview.currency}${preview.price}).`,
+        t("addModal.previewFetchedTitle"),
+        t("addModal.previewFetchedBody", {
+          title: preview.title,
+          price: `${preview.currency}${preview.price}`,
+        }),
       );
     } catch (err) {
       const msg =
@@ -562,16 +574,14 @@ export function AddItemModal({
             ? prev
             : [...prev, MANUAL_CHECK_TAG],
         );
-        setCaptchaBlockedMsg(
-          "This retailer uses anti-bot / CAPTCHA protection, so PricePulse cannot fetch it automatically. Enter the Product Title and Baseline Price manually below and save — PricePulse will include this item in your once-daily manual-check email with direct links to check and update it.",
-        );
+        setCaptchaBlockedMsg(t("addModal.captchaBannerBody"));
         onNotify?.(
           "warning",
-          "Anti-bot protection detected",
-          "Enter Product Title and Baseline Price manually below. Daily manual-check reminders will include direct update links.",
+          t("addModal.captchaToastTitle"),
+          t("addModal.captchaToastBody"),
         );
       } else {
-        onNotify?.("error", "Preview failed", msg);
+        onNotify?.("error", t("addModal.previewFailedTitle"), msg);
       }
     } finally {
       setFetching(false);
@@ -586,12 +596,12 @@ export function AddItemModal({
     if (!title.trim() || !url.trim() || !(init > 0) || !(target > 0)) {
       onNotify?.(
         "warning",
-        "Incomplete item details",
-        "Provide a product URL, title, and positive baseline/target prices.",
+        t("addModal.incompleteTitle"),
+        t("addModal.incompleteBody"),
       );
       return;
     }
-    setLoadingTitle("Saving tracked item...");
+    setLoadingTitle(t("addModal.loadingSave"));
     setFetching(true);
     try {
       await onSaveItem({
@@ -628,7 +638,7 @@ export function AddItemModal({
     } catch (err) {
       onNotify?.(
         "error",
-        "Failed to add item",
+        t("addModal.saveFailedTitle"),
         err instanceof Error ? err.message : "Could not save tracked item.",
       );
     } finally {
@@ -640,8 +650,8 @@ export function AddItemModal({
     if (parsedBulk.validUrls.length === 0) {
       onNotify?.(
         "warning",
-        "No valid new URLs",
-        "Paste at least one valid HTTP/HTTPS product URL that is not already tracked.",
+        t("addModal.noValidBulkTitle"),
+        t("addModal.noValidBulkBody"),
       );
       return;
     }
@@ -652,7 +662,7 @@ export function AddItemModal({
         : 15;
 
     setLoadingTitle(
-      `Scraping ${parsedBulk.validUrls.length} product URL(s)...`,
+      t("addModal.loadingBulkFetch", { count: parsedBulk.validUrls.length }),
     );
     setFetching(true);
     try {
@@ -718,24 +728,27 @@ export function AddItemModal({
         setBulkStep("review");
         onNotify?.(
           nextFailures.length > 0 ? "warning" : "success",
-          "Bulk preview ready",
+          t("addModal.bulkPreviewReadyTitle"),
           nextFailures.length > 0
-            ? `Fetched ${nextCards.length} item(s); ${nextFailures.length} URL(s) failed.`
-            : `Fetched ${nextCards.length} product preview(s) for validation.`,
+            ? t("addModal.bulkPreviewPartialBody", {
+                ok: nextCards.length,
+                fail: nextFailures.length,
+              })
+            : t("addModal.bulkPreviewOkBody", { ok: nextCards.length }),
         );
       } else {
         setBulkUrlsText(nextFailures.map((f) => f.url).join("\n"));
         setBulkStep("summary");
         onNotify?.(
           "warning",
-          "No previews extracted",
-          `All ${nextFailures.length} URL(s) failed extraction. Review errors or configure manually.`,
+          t("addModal.bulkNoPreviewsTitle"),
+          t("addModal.bulkNoPreviewsBody", { fail: nextFailures.length }),
         );
       }
     } catch (err) {
       onNotify?.(
         "error",
-        "Bulk preview failed",
+        t("addModal.bulkPreviewFailedTitle"),
         err instanceof Error
           ? err.message
           : "Could not fetch bulk product previews.",
@@ -769,8 +782,11 @@ export function AddItemModal({
         setActiveCardIndex(i);
         onNotify?.(
           "warning",
-          "Incomplete validated card",
-          `Card (${i + 1}/${draftCards.length}) requires a title and positive prices.`,
+          t("addModal.incompleteCardTitle"),
+          t("addModal.incompleteCardBody", {
+            index: i + 1,
+            total: draftCards.length,
+          }),
         );
         return;
       }
@@ -785,7 +801,9 @@ export function AddItemModal({
       });
     }
 
-    setLoadingTitle(`Saving ${payloads.length} validated item(s)...`);
+    setLoadingTitle(
+      t("addModal.loadingBulkSave", { count: payloads.length }),
+    );
     setFetching(true);
     try {
       if (onSaveItemsBatch) {
@@ -819,13 +837,16 @@ export function AddItemModal({
       setBulkStep("summary");
       onNotify?.(
         "warning",
-        "Partial bulk import",
-        `Saved ${summaries.length} item(s); ${failedOutcomes.length} failed URL(s) remain for recovery.`,
+        t("addModal.partialBulkTitle"),
+        t("addModal.partialBulkBody", {
+          saved: summaries.length,
+          failed: failedOutcomes.length,
+        }),
       );
     } catch (err) {
       onNotify?.(
         "error",
-        "Batch save failed",
+        t("addModal.batchSaveFailedTitle"),
         err instanceof Error ? err.message : "Could not save validated items.",
       );
     } finally {
@@ -904,7 +925,7 @@ export function AddItemModal({
               {loadingTitle}
             </div>
             <div className="text-[11px] text-zinc-500">
-              Waiting for server response
+              {t("addModal.waitingServer")}
             </div>
           </div>
         )}
@@ -926,17 +947,17 @@ export function AddItemModal({
                 id="add-item-modal-title"
                 className="text-base font-semibold text-zinc-950"
               >
-                Track New Product URL
+                {t("addModal.title")}
               </h2>
               <p className="mt-0.5 text-xs text-zinc-500">
                 {activeMode === "single"
-                  ? "Paste a retailer link to extract current price and metadata"
-                  : "Paste up to 20 retailer links for pooled extraction and visual review"}
+                  ? t("addModal.subtitleSingle")
+                  : t("addModal.subtitleBulk")}
               </p>
             </div>
             <button
               type="button"
-              aria-label="Close Add Item modal"
+              aria-label={t("addModal.closeAria")}
               disabled={fetching}
               onClick={onClose}
               className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:opacity-40 sm:min-h-9 sm:min-w-9"
@@ -949,7 +970,7 @@ export function AddItemModal({
         <div
           id={ANCHORS.modalAddItemModeTabs}
           role="tablist"
-          aria-label="URL entry mode"
+          aria-label={t("addModal.modeTablistAria")}
           className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 text-xs"
         >
           <button
@@ -964,7 +985,7 @@ export function AddItemModal({
                 : "text-zinc-500 hover:text-zinc-950"
             }`}
           >
-            Single URL
+            {t("addModal.tabSingle")}
           </button>
           <button
             type="button"
@@ -978,7 +999,7 @@ export function AddItemModal({
                 : "text-zinc-500 hover:text-zinc-950"
             }`}
           >
-            Bulk URL List
+            {t("addModal.tabBulk")}
           </button>
         </div>
 
@@ -993,7 +1014,7 @@ export function AddItemModal({
                   htmlFor="add-item-url"
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                 >
-                  Product URL
+                  {t("addModal.urlLabel")}
                 </label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
@@ -1003,7 +1024,7 @@ export function AddItemModal({
                     required
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://retailer.com/product/..."
+                    placeholder={t("addModal.urlPlaceholder")}
                     className="min-h-11 min-w-0 flex-1 rounded-lg bg-gray-100 px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
                   />
                   <button
@@ -1013,7 +1034,9 @@ export function AddItemModal({
                     aria-busy={fetching}
                     className="min-h-11 shrink-0 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1 disabled:opacity-40 sm:min-h-10"
                   >
-                    {fetching ? "Fetching..." : "Fetch Preview"}
+                    {fetching
+                      ? t("addModal.fetchingPreview")
+                      : t("addModal.fetchPreview")}
                   </button>
                 </div>
                 {prefillNotice && (
@@ -1030,15 +1053,15 @@ export function AddItemModal({
                       />
                     )}
                     <p className="min-w-0 leading-relaxed">
-                      Loaded product details from your browser session
+                      {t("addModal.prefillLoadedPrefix")}
                       {prefill?.shortcutVersion && (
                         <span className="ml-1 inline-block rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-800">
                           Shortcut v{prefill.shortcutVersion}
                         </span>
                       )}
-                      . Review the title and price below, then click{" "}
+                      . {t("addModal.prefillLoadedSuffix")}{" "}
                       <span className="font-semibold">
-                        Save &amp; Start Tracking
+                        {t("addModal.saveAndTrack")}
                       </span>
                       .
                     </p>
@@ -1050,7 +1073,7 @@ export function AddItemModal({
                     className="mt-2 space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-950"
                   >
                     <p className="font-semibold">
-                      Anti-Bot / CAPTCHA Protection Detected
+                      {t("addModal.captchaBannerTitle")}
                     </p>
                     <p className="leading-relaxed text-amber-900">
                       {captchaBlockedMsg}
@@ -1064,7 +1087,7 @@ export function AddItemModal({
                   htmlFor="add-item-title"
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                 >
-                  Product Title
+                  {t("addModal.productTitleLabel")}
                 </label>
                 <input
                   id="add-item-title"
@@ -1072,7 +1095,7 @@ export function AddItemModal({
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Auto-filled on preview or type manually..."
+                  placeholder={t("addModal.productTitlePlaceholder")}
                   className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
                 />
               </div>
@@ -1083,7 +1106,7 @@ export function AddItemModal({
                     htmlFor="add-item-currency"
                     className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                   >
-                    Currency
+                    {t("addModal.currencyLabel")}
                   </label>
                   <input
                     id="add-item-currency"
@@ -1098,7 +1121,7 @@ export function AddItemModal({
                     htmlFor="add-item-baseline"
                     className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                   >
-                    Baseline Price
+                    {t("addModal.baselinePriceLabel")}
                   </label>
                   <input
                     id="add-item-baseline"
@@ -1116,7 +1139,7 @@ export function AddItemModal({
                     htmlFor="add-item-target"
                     className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                   >
-                    Target Alert Price
+                    {t("addModal.targetPriceLabel")}
                   </label>
                   <input
                     id="add-item-target"
@@ -1133,7 +1156,7 @@ export function AddItemModal({
 
               <div className="space-y-2">
                 <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                  Tags
+                  {t("addModal.tagsLabel")}
                 </span>
                 <TagAdderControl
                   idPrefix="add-item-tag"
@@ -1151,14 +1174,14 @@ export function AddItemModal({
                   onClick={handleResetAndClose}
                   className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
                 >
-                  Cancel
+                  {t("addModal.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={fetching || !canSaveSingle}
                   className="min-h-11 rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-10"
                 >
-                  Save &amp; Start Tracking
+                  {t("addModal.saveAndTrack")}
                 </button>
               </div>
             </fieldset>
@@ -1174,7 +1197,7 @@ export function AddItemModal({
                   htmlFor="bulk-url-input"
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                 >
-                  Product URLs (up to 20)
+                  {t("addModal.bulkUrlsLabel")}
                 </label>
                 <textarea
                   ref={bulkTextareaRef}
@@ -1182,9 +1205,7 @@ export function AddItemModal({
                   rows={5}
                   value={bulkUrlsText}
                   onChange={(e) => setBulkUrlsText(e.target.value)}
-                  placeholder={
-                    "https://retailer.com/product-1\nhttps://retailer.com/product-2"
-                  }
+                  placeholder={t("addModal.bulkUrlsPlaceholder")}
                   className="min-h-[112px] w-full min-w-0 rounded-lg bg-gray-100 px-3 py-2.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950"
                 />
                 <div
@@ -1193,29 +1214,36 @@ export function AddItemModal({
                   className="tabular-nums mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-zinc-600"
                 >
                   <span className="font-semibold text-zinc-950">
-                    {parsedBulk.validUrls.length} valid URL
-                    {parsedBulk.validUrls.length === 1 ? "" : "s"}
+                    {t("addModal.bulkStatsValid", {
+                      count: parsedBulk.validUrls.length,
+                    })}
                   </span>
                   {parsedBulk.alreadyTracked.length > 0 && (
                     <span>
-                      &bull; {parsedBulk.alreadyTracked.length} already tracked
-                      (skipped)
+                      {t("addModal.bulkStatsTracked", {
+                        count: parsedBulk.alreadyTracked.length,
+                      })}
                     </span>
                   )}
                   {parsedBulk.duplicates.length > 0 && (
                     <span>
-                      &bull; {parsedBulk.duplicates.length} duplicate
-                      {parsedBulk.duplicates.length === 1 ? "" : "s"}
+                      {t("addModal.bulkStatsDupes", {
+                        count: parsedBulk.duplicates.length,
+                      })}
                     </span>
                   )}
                   {parsedBulk.invalid.length > 0 && (
                     <span className="text-red-600">
-                      &bull; {parsedBulk.invalid.length} invalid
+                      {t("addModal.bulkStatsInvalid", {
+                        count: parsedBulk.invalid.length,
+                      })}
                     </span>
                   )}
                   {parsedBulk.overflowCount > 0 && (
                     <span className="text-amber-700">
-                      &bull; {parsedBulk.overflowCount} over 20-URL batch cap
+                      {t("addModal.bulkStatsCap", {
+                        count: parsedBulk.overflowCount,
+                      })}
                     </span>
                   )}
                 </div>
@@ -1227,7 +1255,7 @@ export function AddItemModal({
                     htmlFor="bulk-target-discount"
                     className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                   >
-                    Target Discount %
+                    {t("addModal.bulkTargetDiscountLabel")}
                   </label>
                   <input
                     id="bulk-target-discount"
@@ -1241,7 +1269,7 @@ export function AddItemModal({
                 </div>
                 <div className="min-w-0 space-y-1.5">
                   <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                    Shared Tags
+                    {t("addModal.bulkSharedTagsLabel")}
                   </span>
                   <TagAdderControl
                     idPrefix="bulk-item-tag"
@@ -1260,7 +1288,7 @@ export function AddItemModal({
                   onClick={handleResetAndClose}
                   className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
                 >
-                  Cancel
+                  {t("addModal.cancel")}
                 </button>
                 <button
                   type="button"
@@ -1268,8 +1296,9 @@ export function AddItemModal({
                   onClick={() => void handleFetchBulkPreviews()}
                   className="tabular-nums min-h-11 rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
                 >
-                  Fetch Previews ({parsedBulk.validUrls.length} URL
-                  {parsedBulk.validUrls.length === 1 ? "" : "s"})
+                  {t("addModal.fetchPreviewsBtn", {
+                    count: parsedBulk.validUrls.length,
+                  })}
                 </button>
               </div>
             </fieldset>
@@ -1283,31 +1312,31 @@ export function AddItemModal({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-zinc-950">
-                    Visual Validation
+                    {t("addModal.visualValidationTitle")}
                   </span>
                   <span className="tabular-nums rounded-full bg-zinc-950 px-2 py-0.5 text-[11px] font-semibold text-white">
                     ({activeCardIndex + 1}/{draftCards.length})
                   </span>
                 </div>
                 <div className="mt-0.5 text-[11px] text-zinc-500">
-                  Swipe card horizontally or use arrows to verify each item
+                  {t("addModal.visualValidationSub")}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
-                  aria-label="Previous fetched item"
+                  aria-label={t("addModal.prevCardAria")}
                   disabled={activeCardIndex === 0 || fetching}
                   onClick={() =>
                     setActiveCardIndex((prev) => Math.max(0, prev - 1))
                   }
                   className="min-h-9 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-950 hover:bg-gray-100 disabled:opacity-40"
                 >
-                  &larr; Prev
+                  {t("addModal.prevCard")}
                 </button>
                 <button
                   type="button"
-                  aria-label="Next fetched item"
+                  aria-label={t("addModal.nextCardAria")}
                   disabled={activeCardIndex >= draftCards.length - 1 || fetching}
                   onClick={() =>
                     setActiveCardIndex((prev) =>
@@ -1316,7 +1345,7 @@ export function AddItemModal({
                   }
                   className="min-h-9 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-950 hover:bg-gray-100 disabled:opacity-40"
                 >
-                  Next &rarr;
+                  {t("addModal.nextCard")}
                 </button>
               </div>
             </div>
@@ -1333,7 +1362,7 @@ export function AddItemModal({
             <div
               ref={carouselViewportRef}
               role="region"
-              aria-label="Fetched item preview card"
+              aria-label={t("addModal.cardRegionAria")}
               className="touch-pan-y min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white"
             >
               <div
@@ -1386,7 +1415,9 @@ export function AddItemModal({
                         : "border-gray-200 bg-gray-100 text-zinc-500 hover:bg-gray-200"
                     }`}
                   >
-                    {currentCard.included ? "Included" : "Skipped"}
+                    {currentCard.included
+                      ? t("addModal.includeInBatch")
+                      : t("addModal.skippedInBatch")}
                   </button>
                 </div>
 
@@ -1395,7 +1426,7 @@ export function AddItemModal({
                     htmlFor="bulk-card-title"
                     className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                   >
-                    Product Title
+                    {t("addModal.productTitleLabel")}
                   </label>
                   <input
                     id="bulk-card-title"
@@ -1417,7 +1448,7 @@ export function AddItemModal({
                       htmlFor="bulk-card-currency"
                       className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                     >
-                      Currency
+                      {t("addModal.currencyLabel")}
                     </label>
                     <input
                       id="bulk-card-currency"
@@ -1437,7 +1468,7 @@ export function AddItemModal({
                       htmlFor="bulk-card-baseline"
                       className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                     >
-                      Baseline Price
+                      {t("addModal.baselinePriceLabel")}
                     </label>
                     <input
                       id="bulk-card-baseline"
@@ -1458,7 +1489,7 @@ export function AddItemModal({
                       htmlFor="bulk-card-target"
                       className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                     >
-                      Target Alert Price
+                      {t("addModal.targetPriceLabel")}
                     </label>
                     <input
                       id="bulk-card-target"
@@ -1478,7 +1509,7 @@ export function AddItemModal({
 
                 <div className="space-y-1.5">
                   <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                    Item Tags
+                    {t("addModal.itemTagsLabel")}
                   </span>
                   <TagAdderControl
                     key={currentCard.id}
@@ -1509,11 +1540,9 @@ export function AddItemModal({
 
             {failedOutcomes.length > 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
-                <span className="tabular-nums font-semibold">
-                  {failedOutcomes.length} URL
-                  {failedOutcomes.length === 1 ? "" : "s"} failed preview
-                </span>{" "}
-                and will remain in the recovery window after saving.
+                {t("addModal.failedPreviewBanner", {
+                  count: failedOutcomes.length,
+                })}
               </div>
             )}
 
@@ -1524,7 +1553,7 @@ export function AddItemModal({
                 onClick={() => setBulkStep("input")}
                 className="min-h-11 rounded-lg bg-gray-100 px-3.5 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
               >
-                &larr; Edit URL List
+                {t("addModal.editUrlListBtn")}
               </button>
               <button
                 type="button"
@@ -1532,7 +1561,7 @@ export function AddItemModal({
                 onClick={() => void handleSaveValidatedBatch()}
                 className="tabular-nums min-h-11 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
               >
-                Save Validated Items ({includedCards.length})
+                {t("addModal.saveValidatedBtn", { count: includedCards.length })}
               </button>
             </div>
           </div>
@@ -1544,11 +1573,15 @@ export function AddItemModal({
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
               <div className="tabular-nums font-semibold text-zinc-950">
                 {savedSummaries.length > 0
-                  ? `${savedSummaries.length} Succeeded & Saved`
-                  : "0 Items Saved"}
+                  ? t("addModal.bulkSavedHeader", {
+                      count: savedSummaries.length,
+                    })
+                  : t("addModal.bulkZeroSavedHeader")}
               </div>
               <div className="tabular-nums font-semibold text-red-600">
-                {failedOutcomes.length} Failed
+                {t("addModal.bulkFailedHeader", {
+                  count: failedOutcomes.length,
+                })}
               </div>
             </div>
 
@@ -1563,8 +1596,9 @@ export function AddItemModal({
                       {item.name}
                     </span>
                     <span className="tabular-nums shrink-0 text-[11px] font-medium text-emerald-800">
-                      Saved ({item.currency}
-                      {item.price.toFixed(2)})
+                      {t("addModal.savedPriceBadge", {
+                        price: `${item.currency}${item.price.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      })}
                     </span>
                   </div>
                   <div className="mt-0.5 truncate text-[11px] text-zinc-500">
@@ -1589,11 +1623,13 @@ export function AddItemModal({
                     </div>
                     <button
                       type="button"
-                      aria-label={`Configure manually ${failed.url}`}
+                      aria-label={t("addModal.configureManuallyAria", {
+                        url: failed.url,
+                      })}
                       onClick={() => handleConfigureManually(failed.url, failed.error)}
                       className="min-h-9 shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-950 hover:bg-gray-50"
                     >
-                      Configure Manually &rarr;
+                      {t("addModal.configureManually")}
                     </button>
                   </div>
                 </div>
@@ -1605,7 +1641,7 @@ export function AddItemModal({
                 htmlFor="bulk-url-input"
                 className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
               >
-                Remaining Failed URLs
+                {t("addModal.remainingFailedLabel")}
               </label>
               <textarea
                 id="bulk-url-input"
@@ -1622,7 +1658,7 @@ export function AddItemModal({
                 onClick={handleResetAndClose}
                 className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
               >
-                Done
+                {t("addModal.doneClose")}
               </button>
               <button
                 type="button"
@@ -1630,7 +1666,9 @@ export function AddItemModal({
                 onClick={() => void handleFetchBulkPreviews()}
                 className="tabular-nums min-h-11 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
               >
-                Retry Failed URLs ({parsedBulk.validUrls.length})
+                {t("addModal.retryFailedBtn", {
+                  count: parsedBulk.validUrls.length,
+                })}
               </button>
             </div>
           </div>

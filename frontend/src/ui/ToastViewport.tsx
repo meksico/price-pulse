@@ -1,4 +1,5 @@
 import { ANCHORS } from "../shared/anchors";
+import { useI18n } from "../shared/i18n";
 
 export type ToastVariant = "success" | "warning" | "error" | "info";
 
@@ -43,6 +44,7 @@ const VARIANT_CLASSES: Record<
 };
 
 export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
+  const { t } = useI18n();
   if (toasts.length === 0) return null;
 
   return (
@@ -77,7 +79,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
             </div>
             <button
               type="button"
-              aria-label="Dismiss notification"
+              aria-label={t("toast.dismissAria")}
               onClick={() => onDismiss(toast.id)}
               className="shrink-0 rounded-md px-1.5 py-0.5 text-zinc-400 transition-colors hover:bg-gray-100 hover:text-zinc-900"
             >

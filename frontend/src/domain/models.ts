@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.4.0";
+export const APP_VERSION = "0.5.0";
 
 export type BulkTagAction = "add" | "replace" | "remove";
 
@@ -237,8 +237,12 @@ export function normalizePriceInput(raw: string | undefined | null): string {
   return normalized;
 }
 
-export function formatMoney(currency: string, amount: number): string {
-  return `${currency}${amount.toLocaleString("en-US", {
+export function formatMoney(
+  currency: string,
+  amount: number,
+  locale = "en-US",
+): string {
+  return `${currency}${amount.toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -247,15 +251,16 @@ export function formatMoney(currency: string, amount: number): string {
 export function formatSavingsByCurrency(
   entries: Array<{ currency: string; saved_cost: number }>,
   fallbackCurrency = "$",
+  locale = "en-US",
 ): string {
-  if (entries.length === 0) return formatMoney(fallbackCurrency, 0);
+  if (entries.length === 0) return formatMoney(fallbackCurrency, 0, locale);
   const totals = new Map<string, number>();
   for (const entry of entries) {
     const prev = totals.get(entry.currency) ?? 0;
     totals.set(entry.currency, prev + Math.max(0, entry.saved_cost));
   }
   return Array.from(totals.entries())
-    .map(([curr, sum]) => formatMoney(curr, sum))
+    .map(([curr, sum]) => formatMoney(curr, sum, locale))
     .join(" + ");
 }
 

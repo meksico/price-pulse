@@ -7,6 +7,7 @@ import {
   formatSavingsByCurrency,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { useI18n } from "../shared/i18n";
 
 interface TagManagerViewProps {
   tags: Tag[];
@@ -32,6 +33,7 @@ export function TagManagerView({
   onDeleteTag,
   onViewInGrid,
 }: TagManagerViewProps) {
+  const { locale, t } = useI18n();
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState<TagColor>("slate");
@@ -68,35 +70,39 @@ export function TagManagerView({
       linkedActive.length > 0
         ? linkedActive.reduce((s, i) => s + i.drop_pct, 0) / linkedActive.length
         : 0;
-    const savingsText = formatSavingsByCurrency(linkedBought, workspaceCurrency);
+    const savingsText = formatSavingsByCurrency(
+      linkedBought,
+      workspaceCurrency,
+      locale,
+    );
     return { activeCount: linkedActive.length, avgDrop, savingsText };
   };
 
   return (
     <section
       id={ANCHORS.viewTags}
-      aria-label="Tag Manager"
+      aria-label={t("tagManager.title")}
       className="mx-auto min-w-0 max-w-4xl space-y-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-6"
     >
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="min-w-0">
             <h1 className="text-[22px] font-bold tracking-tight text-zinc-950">
-              Tag Manager
+              {t("tagManager.title")}
             </h1>
             <p className="tabular-nums text-xs text-zinc-500">
-              Total Active Tags: {tags.length}
+              {t("tagManager.summaryCount", { count: tags.length })}
             </p>
         </div>
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
           <label htmlFor="tag-manager-search" className="sr-only">
-            Search tags
+            {t("tagManager.searchLabel")}
           </label>
           <input
             id="tag-manager-search"
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tags..."
+            placeholder={t("tagManager.searchPlaceholder")}
             className="min-h-11 w-full rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9 sm:w-52"
           />
           <button
@@ -105,7 +111,7 @@ export function TagManagerView({
             aria-expanded={showForm}
             className="min-h-11 rounded-lg bg-zinc-950 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-zinc-800 sm:min-h-9"
           >
-            + Create New Tag
+            {t("tagManager.createBtn")}
           </button>
         </div>
       </div>
@@ -120,7 +126,7 @@ export function TagManagerView({
               htmlFor="new-tag-name"
               className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
             >
-              Tag Name
+              {t("tagManager.tagNameLabel")}
             </label>
             <input
               id="new-tag-name"
@@ -128,7 +134,7 @@ export function TagManagerView({
               required
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Black Friday"
+              placeholder={t("tagManager.tagNamePlaceholder")}
               className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-9"
             />
           </div>
@@ -137,7 +143,7 @@ export function TagManagerView({
               htmlFor="new-tag-color"
               className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
             >
-              Color Theme
+              {t("tagManager.colorThemeLabel")}
             </label>
             <select
               id="new-tag-color"
@@ -147,7 +153,7 @@ export function TagManagerView({
             >
               {TAG_COLOR_OPTIONS.map((c) => (
                 <option key={c} value={c}>
-                  {c}
+                  {t(`tagManager.colors.${c}`)}
                 </option>
               ))}
             </select>
@@ -156,7 +162,7 @@ export function TagManagerView({
             type="submit"
             className="min-h-11 rounded-lg bg-zinc-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 sm:min-h-9"
           >
-            Save Tag
+            {t("tagManager.saveTagBtn")}
           </button>
         </form>
       )}
@@ -191,7 +197,7 @@ export function TagManagerView({
                       onClick={() => void commitRename(tag.tag_id)}
                       className="min-h-11 shrink-0 rounded-lg bg-zinc-950 px-3 py-1 text-[11px] font-semibold text-white sm:min-h-9"
                     >
-                      Save
+                      {t("tagManager.saveRenameBtn")}
                     </button>
                   </div>
                 ) : (
@@ -206,17 +212,16 @@ export function TagManagerView({
                   </span>
                 )}
                 <span className="tabular-nums text-zinc-500">
-                  {activeCount} active
+                  {t("tagManager.activeItems", { count: activeCount })}
                 </span>
               </div>
 
               <div className="tabular-nums flex items-center justify-between text-zinc-600">
-                <span>Avg drop: -{avgDrop.toFixed(1)}%</span>
                 <span>
-                  Saved:{" "}
-                  <strong className="font-semibold text-zinc-950">
-                    {savingsText}
-                  </strong>
+                  {t("tagManager.avgDrop", { pct: `-${avgDrop.toFixed(1)}` })}
+                </span>
+                <span>
+                  {t("tagManager.realizedSavings", { amount: savingsText })}
                 </span>
               </div>
 
@@ -225,7 +230,7 @@ export function TagManagerView({
                   htmlFor={`mobile-color-${tag.tag_id}`}
                   className="sr-only"
                 >
-                  Color theme for {tag.name}
+                  {t("tagManager.colorThemeLabel")} {tag.name}
                 </label>
                 <select
                   id={`mobile-color-${tag.tag_id}`}
@@ -239,7 +244,7 @@ export function TagManagerView({
                 >
                   {TAG_COLOR_OPTIONS.map((c) => (
                     <option key={c} value={c}>
-                      {c}
+                      {t(`tagManager.colors.${c}`)}
                     </option>
                   ))}
                 </select>
@@ -248,7 +253,7 @@ export function TagManagerView({
                   onClick={() => onViewInGrid(tag.tag_id)}
                   className="min-h-11 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:min-h-9"
                 >
-                  View in Grid &rarr;
+                  {t("tagManager.viewInGrid")}
                 </button>
                 <button
                   type="button"
@@ -258,14 +263,14 @@ export function TagManagerView({
                   }}
                   className="min-h-11 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-gray-100 sm:min-h-9"
                 >
-                  Rename
+                  {t("tagManager.renameBtn")}
                 </button>
                 <button
                   type="button"
                   onClick={() => void onDeleteTag(tag.tag_id)}
                   className="min-h-11 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:min-h-9"
                 >
-                  Delete
+                  {t("tagManager.deleteBtn")}
                 </button>
               </div>
             </article>
@@ -281,8 +286,12 @@ export function TagManagerView({
                         <table className="w-full border-collapse text-left text-xs">
                           <thead>
                             <tr className="border-b border-gray-200 bg-gray-50/50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                              <th className="px-4 py-2.5">Tag Name</th>
-                              <th className="px-4 py-2.5">Additional Info &amp; Edit Options</th>
+                              <th className="px-4 py-2.5">
+                                {t("tagManager.colTagName")}
+                              </th>
+                              <th className="px-4 py-2.5">
+                                {t("tagManager.colInfoOptions")}
+                              </th>
                             </tr>
                           </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -311,7 +320,7 @@ export function TagManagerView({
                                                 onClick={() => void commitRename(tag.tag_id)}
                                                 className="rounded-lg bg-zinc-950 px-2.5 py-1 text-[11px] font-semibold text-white"
                                               >
-                                                Save
+                                                {t("tagManager.saveRenameBtn")}
                                               </button>
                                             </div>
                                           ) : (
@@ -330,19 +339,19 @@ export function TagManagerView({
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="tabular-nums flex flex-wrap items-center gap-3 text-zinc-500">
                         <span>
-                          <strong className="font-medium text-zinc-950">
-                            {activeCount}
-                          </strong>{" "}
-                          active
+                          {t("tagManager.activeItems", { count: activeCount })}
                         </span>
                         <span aria-hidden="true">&middot;</span>
-                        <span>Avg drop: -{avgDrop.toFixed(1)}%</span>
+                        <span>
+                          {t("tagManager.avgDrop", {
+                            pct: `-${avgDrop.toFixed(1)}`,
+                          })}
+                        </span>
                         <span aria-hidden="true">&middot;</span>
                         <span>
-                          Saved:{" "}
-                          <strong className="font-medium text-zinc-950">
-                            {savingsText}
-                          </strong>
+                          {t("tagManager.realizedSavings", {
+                            amount: savingsText,
+                          })}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -350,7 +359,7 @@ export function TagManagerView({
                           htmlFor={`color-${tag.tag_id}`}
                           className="sr-only"
                         >
-                          Color theme for {tag.name}
+                          {t("tagManager.colorThemeLabel")} {tag.name}
                         </label>
                         <select
                           id={`color-${tag.tag_id}`}
@@ -364,7 +373,7 @@ export function TagManagerView({
                         >
                           {TAG_COLOR_OPTIONS.map((c) => (
                             <option key={c} value={c}>
-                              {c}
+                              {t(`tagManager.colors.${c}`)}
                             </option>
                           ))}
                         </select>
@@ -373,7 +382,7 @@ export function TagManagerView({
                           onClick={() => onViewInGrid(tag.tag_id)}
                           className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-950 hover:bg-gray-50"
                         >
-                          View in Grid &rarr;
+                          {t("tagManager.viewInGrid")}
                         </button>
                         <button
                           type="button"
@@ -383,14 +392,14 @@ export function TagManagerView({
                           }}
                           className="h-8 rounded-lg px-2.5 text-xs font-medium text-zinc-600 hover:bg-gray-100"
                         >
-                          Rename
+                          {t("tagManager.renameBtn")}
                         </button>
                         <button
                           type="button"
                           onClick={() => void onDeleteTag(tag.tag_id)}
                           className="h-8 rounded-lg px-2.5 text-xs font-medium text-zinc-400 hover:bg-red-50 hover:text-red-600"
                         >
-                          Delete
+                          {t("tagManager.deleteBtn")}
                         </button>
                       </div>
                     </div>

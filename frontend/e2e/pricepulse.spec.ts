@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.4.0");
+    expect(menuVersion).toBe("v0.5.0");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -589,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.4.0");
+    expect(healthVersion).toBe("v0.5.0");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -607,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.4.0"',
+      '"app_version": "0.5.0"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1756,6 +1756,119 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
         document.documentElement.clientWidth,
     );
     expect(hasOverflow).toBe(false);
+  });
+
+  test("User menu language selector switches between English and Ukrainian, persists across reload, and has zero overflow", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(
+      page.getByRole("button", { name: "+ Track New URL" }),
+    ).toBeVisible();
+
+    // Open user account menu and verify language radio options
+    await page.getByRole("button", { name: "User account menu" }).click();
+    const menu = page.locator("#user-dropdown-menu");
+    await expect(menu).toBeVisible();
+
+    const enBtn = menu.getByRole("menuitemradio", { name: "English" });
+    const ukBtn = menu.getByRole("menuitemradio", { name: "Українська" });
+    await expect(enBtn).toHaveAttribute("aria-checked", "true");
+    await expect(ukBtn).toHaveAttribute("aria-checked", "false");
+
+    // Switch to Ukrainian
+    await ukBtn.click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "uk");
+    await expect(ukBtn).toHaveAttribute("aria-checked", "true");
+    await expect(enBtn).toHaveAttribute("aria-checked", "false");
+
+    // Verify menu & background UI translated immediately
+    await expect(menu.getByText("Мова")).toBeVisible();
+    await expect(
+      menu.getByRole("menuitem", { name: /Стан системи/i }),
+    ).toBeVisible();
+
+    // Close menu via Escape
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+
+    await expect(
+      page.getByRole("button", { name: "+ Додати URL" }),
+    ).toBeVisible();
+    await expect(page.getByText("Активний моніторинг")).toBeVisible();
+    await expect(
+      page.getByText("Загальна динаміка цін та траєкторія (%)"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: /Активні позиції/i }),
+    ).toBeVisible();
+
+    // Reload and verify Ukrainian persists via localStorage
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", "uk");
+    await expect(
+      page.getByRole("button", { name: "+ Додати URL" }),
+    ).toBeVisible();
+
+    // Verify Add Item modal in Ukrainian
+    await page.getByRole("button", { name: "+ Додати URL" }).click();
+    const addDialog = page.getByRole("dialog");
+    await expect(addDialog).toBeVisible();
+    await expect(addDialog.getByText("Додати URL товару")).toBeVisible();
+    await expect(
+      addDialog.getByRole("tab", { name: "Один URL" }),
+    ).toBeVisible();
+    await expect(
+      addDialog.getByRole("tab", { name: "Список URL" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(addDialog).toBeHidden();
+
+    // Multi-viewport layout bounding-box audit in Ukrainian
+    const viewports = [
+      { width: 320, height: 568 },
+      { width: 375, height: 667 },
+      { width: 390, height: 844 },
+      { width: 768, height: 1024 },
+      { width: 1280, height: 800 },
+    ];
+    for (const vp of viewports) {
+      await page.setViewportSize(vp);
+      const layoutIssues = await page.evaluate(() => {
+        const docOverflow =
+          document.documentElement.scrollWidth >
+          document.documentElement.clientWidth;
+        const vw = window.innerWidth;
+        const offending: string[] = [];
+        document.querySelectorAll("body *").forEach((el) => {
+          const style = getComputedStyle(el);
+          if (style.display === "none" || style.visibility === "hidden") return;
+          if (el.closest('[data-scroll-container="true"]')) return;
+          const rect = el.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) return;
+          if (rect.right > vw + 1 || rect.left < -1) {
+            offending.push(
+              `${el.tagName.toLowerCase()}#${el.id || ""}.${String(el.className).slice(0, 30)} (${Math.round(rect.left)}..${Math.round(rect.right)} > ${vw})`,
+            );
+          }
+        });
+        return { docOverflow, offending: offending.slice(0, 5) };
+      });
+      expect(layoutIssues.docOverflow).toBe(false);
+      expect(layoutIssues.offending).toEqual([]);
+    }
+
+    // Switch back to English and verify restoration
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.getByRole("button", { name: "Меню облікового запису" }).click();
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitemradio", { name: "English" }).click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(
+      page.getByRole("button", { name: "+ Track New URL" }),
+    ).toBeVisible();
   });
 });
 

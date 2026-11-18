@@ -5,6 +5,7 @@ import {
   type TelemetryRun,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { useI18n } from "../shared/i18n";
 import { useBottomSheetSwipeDismiss } from "../shared/useBottomSheetSwipeDismiss";
 import type { PushToastFn } from "./ToastViewport";
 
@@ -19,6 +20,7 @@ export function SystemHealthView({
   diagnostics,
   onNotify,
 }: SystemHealthViewProps) {
+  const { t } = useI18n();
   const [selectedRun, setSelectedRun] = useState<TelemetryRun | null>(null);
   const [copied, setCopied] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -77,8 +79,8 @@ export function SystemHealthView({
       setCopied(true);
       onNotify?.(
         "success",
-        "Copied telemetry JSON",
-        "Run log copied to your clipboard.",
+        t("toast.jsonCopiedTitle"),
+        t("toast.jsonCopiedBody"),
       );
     } catch {
       try {
@@ -94,13 +96,13 @@ export function SystemHealthView({
         setCopied(true);
         onNotify?.(
           "success",
-          "Copied telemetry JSON",
-          "Run log copied to your clipboard.",
+          t("toast.jsonCopiedTitle"),
+          t("toast.jsonCopiedBody"),
         );
       } catch (err) {
         onNotify?.(
           "error",
-          "Copy failed",
+          t("toast.errorTitle"),
           err instanceof Error
             ? err.message
             : "Could not copy telemetry JSON to clipboard.",
@@ -112,20 +114,20 @@ export function SystemHealthView({
   return (
     <section
       id={ANCHORS.viewHealth}
-      aria-label="System Health and Diagnostics"
+      aria-label={t("health.title")}
       className="mx-auto min-w-0 max-w-5xl space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6"
     >
       <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-2">
             <h1 className="text-[22px] font-bold tracking-tight text-zinc-950">
-              System Health
+              {t("health.title")}
             </h1>
             <span className="tabular-nums font-mono text-xs font-semibold text-zinc-950">
               v{APP_VERSION}
             </span>
           </div>
           <p className="text-xs text-zinc-500">
-            Batch execution telemetry &amp; runtime diagnostic context
+            {t("health.subtitle")}
           </p>
       </div>
 
@@ -168,7 +170,7 @@ export function SystemHealthView({
                   onClick={() => setSelectedRun(run)}
                   className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-950 hover:bg-gray-50 sm:min-h-9"
                 >
-                  Inspect JSON Log
+                  {t("health.inspectJsonLogBtn")}
                 </button>
               </article>
               );
@@ -183,13 +185,13 @@ export function SystemHealthView({
                   <table className="w-full border-collapse text-left text-xs">
                     <thead>
                       <tr className="border-b border-gray-200 bg-gray-50/50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                        <th className="px-4 py-2.5">Run ID</th>
-                        <th className="px-3 py-2.5">Timestamp</th>
-                        <th className="px-3 py-2.5">Status</th>
-                        <th className="px-3 py-2.5 text-right">Checked</th>
-                        <th className="px-3 py-2.5">Breakdown</th>
-                        <th className="px-3 py-2.5 text-right">Duration</th>
-                        <th className="px-4 py-2.5 text-right">Inspect</th>
+                        <th className="px-4 py-2.5">{t("health.colRunId")}</th>
+                        <th className="px-3 py-2.5">{t("health.colTimestamp")}</th>
+                        <th className="px-3 py-2.5">{t("health.colStatus")}</th>
+                        <th className="px-3 py-2.5 text-right">{t("health.colChecked")}</th>
+                        <th className="px-3 py-2.5">{t("health.colBreakdown")}</th>
+                        <th className="px-3 py-2.5 text-right">{t("health.colDuration")}</th>
+                        <th className="px-4 py-2.5 text-right">{t("health.colPayload")}</th>
                       </tr>
                     </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -233,7 +235,7 @@ export function SystemHealthView({
                                   onClick={() => setSelectedRun(run)}
                                   className="h-8 rounded-lg border border-gray-200 bg-white px-2.5 text-[11px] font-medium text-zinc-950 hover:bg-gray-50"
                                 >
-                                  JSON Log
+                                  {t("health.jsonLogBtn")}
                                 </button>
                               </td>
                             </tr>
@@ -275,14 +277,14 @@ export function SystemHealthView({
                     onClick={() => void handleCopyJson()}
                     className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-gray-50 sm:min-h-8"
                   >
-                    {copied ? "Copied!" : "Copy JSON"}
+                    {copied ? t("health.copiedBtn") : t("health.copyJsonBtn")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedRun(null)}
                     className="min-h-11 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-gray-200 hover:text-zinc-950 sm:min-h-8"
                   >
-                    Close
+                    {t("health.closeBtn")}
                   </button>
                 </div>
               </div>

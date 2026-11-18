@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { APP_VERSION } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 import { deriveUserInitials, deriveUserNick } from "../shared/auth";
+import { useI18n, type TranslationKey } from "../shared/i18n";
 import { BrandMark } from "./BrandLogo";
 
 export type AppView = "dashboard" | "tags" | "health";
@@ -21,9 +22,9 @@ interface HeaderProps {
   onSignOut?: () => void;
 }
 
-const DESKTOP_TABS: Array<{ id: AppView; label: string }> = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "tags", label: "Tag Manager" },
+const DESKTOP_TABS: Array<{ id: AppView; labelKey: TranslationKey }> = [
+  { id: "dashboard", labelKey: "nav.dashboard" },
+  { id: "tags", labelKey: "nav.tags" },
 ];
 
 export function Header({
@@ -40,6 +41,7 @@ export function Header({
   userAvatarUrl = "",
   onSignOut,
 }: HeaderProps) {
+  const { lang, setLang, t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const userMenuContainerRef = useRef<HTMLDivElement>(null);
@@ -94,7 +96,7 @@ export function Header({
         </div>
 
         <nav
-          aria-label="Primary navigation"
+          aria-label={t("nav.primaryLabel")}
           className="hidden h-full items-center gap-3 md:flex lg:gap-6"
         >
           {DESKTOP_TABS.map((tab) => {
@@ -111,7 +113,7 @@ export function Header({
                     : "font-medium text-zinc-500 hover:text-zinc-950"
                 }`}
               >
-                {tab.label}
+                {t(tab.labelKey)}
                 {isActive && (
                   <span
                     aria-hidden="true"
@@ -127,17 +129,17 @@ export function Header({
           <button
             type="button"
             onClick={onOpenAddModal}
-            aria-label="+ Track New URL"
+            aria-label={t("nav.trackNewUrl")}
             className="hidden min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-zinc-950 px-1.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 sm:min-h-9 sm:px-3 sm:text-xs md:inline-flex lg:px-3.5"
           >
-            <span className="lg:hidden">+ Track</span>
-            <span className="hidden lg:inline">+ Track New URL</span>
+            <span className="lg:hidden">{t("nav.trackShort")}</span>
+            <span className="hidden lg:inline">{t("nav.trackNewUrl")}</span>
           </button>
 
           <div ref={userMenuContainerRef} className="relative">
             <button
               type="button"
-              aria-label="User account menu"
+              aria-label={t("nav.userMenuButton")}
               aria-expanded={menuOpen}
               aria-controls={ANCHORS.userDropdownMenu}
               onClick={() => {
@@ -167,12 +169,15 @@ export function Header({
                   <div
                     id={ANCHORS.userDropdownMenu}
                     role="menu"
-                    aria-label="Account and system navigation"
+                    aria-label={t("nav.userMenuLabel")}
                     className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-gray-200 bg-white py-2 text-xs text-zinc-900 shadow-xl"
                   >
                         <div className="border-b border-gray-100 px-3 py-2 text-zinc-500">
                           <div className="tabular-nums font-semibold text-zinc-950">
-                            {activeItemCount} Positions &amp; {tagCount} Tags Synced
+                            {t("nav.syncedSummary", {
+                              items: activeItemCount,
+                              tags: tagCount,
+                            })}
                           </div>
                             <div className="tabular-nums mt-0.5 text-[11px] text-zinc-400">
                               v{APP_VERSION}
@@ -184,7 +189,7 @@ export function Header({
                             onClick={() => navigate("health")}
                             className="block min-h-11 w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-gray-50 sm:min-h-9"
                           >
-                            System Health (Logs review)
+                            {t("nav.systemHealthMenu")}
                           </button>
                           <button
                             type="button"
@@ -197,7 +202,9 @@ export function Header({
                             }}
                             className="tabular-nums block min-h-11 w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-gray-50 disabled:opacity-40 sm:min-h-9"
                           >
-                            {isChecking ? "Checking..." : `Run Check (${activeItemCount} Items)`}
+                            {isChecking
+                              ? t("nav.checkingMenu")
+                              : t("nav.runCheckMenu", { count: activeItemCount })}
                           </button>
                           {spreadsheetId && (
                             <a
@@ -207,9 +214,41 @@ export function Header({
                               rel="noreferrer"
                               className="block min-h-11 w-full px-3 py-2 text-left font-medium text-blue-600 hover:bg-gray-50 sm:min-h-9"
                             >
-                              Open Google Sheet
+                              {t("nav.openGoogleSheet")}
                             </a>
                           )}
+                          <div
+                            role="group"
+                            aria-label={t("nav.language")}
+                            className="mt-1 border-t border-gray-100 px-3 py-2"
+                          >
+                            <div className="mb-1.5 text-[11px] font-medium text-zinc-400">
+                              {t("nav.language")}
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-0.5">
+                              {(["en", "uk"] as const).map((code) => {
+                                const isSelected = lang === code;
+                                return (
+                                  <button
+                                    key={code}
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked={isSelected}
+                                    onClick={() => setLang(code)}
+                                    className={`min-h-9 rounded-md px-2 py-1 text-center text-[11px] font-semibold transition-colors sm:min-h-7 ${
+                                      isSelected
+                                        ? "bg-white text-zinc-950 shadow-xs"
+                                        : "text-zinc-500 hover:text-zinc-950"
+                                    }`}
+                                  >
+                                    {code === "en"
+                                      ? t("nav.langEn")
+                                      : t("nav.langUk")}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
                           {onSignOut && (
                             <button
                               type="button"
@@ -220,7 +259,7 @@ export function Header({
                               }}
                               className="mt-1 block min-h-11 w-full border-t border-gray-100 px-3 py-2 text-left font-medium text-red-600 hover:bg-red-50 sm:min-h-9"
                             >
-                              Sign out
+                              {t("nav.signOut")}
                             </button>
                           )}
                         </div>
@@ -243,15 +282,16 @@ export function MobileBottomNav({
   onSelectView,
   onOpenAddModal,
 }: MobileBottomNavProps) {
+  const { t } = useI18n();
   return (
     <nav
       id={ANCHORS.mobileBottomNav}
-      aria-label="Bottom Navigation"
+      aria-label={t("nav.bottomLabel")}
       className="sticky bottom-0 z-30 flex h-14 items-center justify-around border-t border-gray-200 bg-white px-2 md:hidden"
     >
       <button
         type="button"
-        aria-label="Dashboard"
+        aria-label={t("nav.dashboard")}
         aria-current={activeView === "dashboard" ? "page" : undefined}
         onClick={() => onSelectView("dashboard")}
         className={`relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors ${
@@ -280,7 +320,7 @@ export function MobileBottomNav({
 
       <button
         type="button"
-        aria-label="Tag Manager"
+        aria-label={t("nav.tags")}
         aria-current={activeView === "tags" ? "page" : undefined}
         onClick={() => onSelectView("tags")}
         className={`relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors ${
@@ -311,7 +351,7 @@ export function MobileBottomNav({
 
       <button
         type="button"
-        aria-label="Track New URL"
+        aria-label={t("nav.trackNewUrl")}
         onClick={onOpenAddModal}
         className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 transition-colors hover:border-gray-300 hover:bg-gray-100"
       >

@@ -13,6 +13,7 @@ import {
   formatMoney,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
+import { useI18n } from "../shared/i18n";
 import type { GridTab } from "../shared/routes";
 
 const REMOVE_ALL_TAGS_VALUE = "__REMOVE_ALL__";
@@ -63,8 +64,10 @@ function getManualCheckCardClass(days: number): string {
 }
 
 function WarningTriangleIcon({ days }: { days: number }) {
+  const { t } = useI18n();
   const colorClass = days >= 6 ? "text-red-500" : "text-amber-500";
-  const label = `Last checked ${days} day${days === 1 ? "" : "s"} ago`;
+  const unit = days === 1 ? t("grid.daySingular") : t("grid.dayPlural");
+  const label = t("grid.lastCheckedDaysAgo", { days, unit });
   return (
     <span
       title={label}
@@ -152,6 +155,7 @@ export function PositionsGrid({
   onBulkRecheck,
   onBulkDelete,
 }: PositionsGridProps) {
+  const { locale, t } = useI18n();
   const [groupBy, setGroupBy] = useState<GroupMode>("none");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("added");
@@ -568,7 +572,7 @@ export function PositionsGrid({
             checked={checked}
             disabled={bulkBusy}
             onChange={() => toggleSelectItem(item.item_id)}
-            aria-label={`Select ${item.name}`}
+            aria-label={t("grid.selectItemAria", { name: item.name })}
             className="h-5 w-5 cursor-pointer rounded border-gray-300 accent-zinc-950"
           />
         </label>
@@ -598,11 +602,11 @@ export function PositionsGrid({
               )}
               {item.status === "DISCOUNT" ? (
                 <span className="tabular-nums shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
-                  -{item.drop_pct}%
+                  {t("grid.statusDiscount", { pct: item.drop_pct })}
                 </span>
               ) : (
                 <span className="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
-                  NORMAL
+                  {t("grid.statusNormal")}
                 </span>
               )}
               {renderCompactTagBadges(item.tag_ids)}
@@ -618,25 +622,27 @@ export function PositionsGrid({
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs">
               <div className="min-w-0">
                 <div className="text-[10px] font-medium leading-tight text-zinc-500">
-                  Baseline
+                  {t("grid.mobileBaseline")}
                 </div>
                 <div className="tabular-nums truncate text-xs text-zinc-600">
-                  {formatMoney(item.currency, item.initial_price)}
+                  {formatMoney(item.currency, item.initial_price, locale)}
                 </div>
               </div>
               <div className="min-w-0">
                 <div className="text-[10px] font-medium leading-tight text-zinc-500">
-                  Current
+                  {t("grid.mobileCurrent")}
                 </div>
                 <div className="tabular-nums truncate text-xs font-semibold text-zinc-950">
-                  {formatMoney(item.currency, item.current_price)}
+                  {formatMoney(item.currency, item.current_price, locale)}
                 </div>
               </div>
             </div>
 
             {isManualTab && (
               <div className="tabular-nums text-[10px] text-zinc-600">
-                Last check: {getLastCheckDateStr(item.last_checked)}
+                {t("grid.lastCheckInline", {
+                  date: getLastCheckDateStr(item.last_checked),
+                })}
               </div>
             )}
           </div>
@@ -655,7 +661,7 @@ export function PositionsGrid({
             checked={checked}
             disabled={bulkBusy}
             onChange={() => toggleSelectItem(item.item_id)}
-            aria-label={`Select ${item.name}`}
+            aria-label={t("grid.selectItemAria", { name: item.name })}
             className="h-5 w-5 cursor-pointer rounded border-gray-300 accent-zinc-950"
           />
         </label>
@@ -668,7 +674,7 @@ export function PositionsGrid({
         >
         <div className="flex flex-wrap items-center gap-1">
           <span className="tabular-nums shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-950">
-            +{formatMoney(item.currency, item.saved_cost)}
+            +{formatMoney(item.currency, item.saved_cost, locale)}
           </span>
           {renderCompactTagBadges(item.tag_ids)}
         </div>
@@ -678,23 +684,23 @@ export function PositionsGrid({
         <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs">
           <div className="min-w-0">
             <div className="text-[10px] font-medium leading-tight text-zinc-500">
-              Baseline
+              {t("grid.mobileBaseline")}
             </div>
             <div className="tabular-nums truncate text-xs text-zinc-600">
-              {formatMoney(item.currency, item.initial_price)}
+              {formatMoney(item.currency, item.initial_price, locale)}
             </div>
           </div>
           <div className="min-w-0">
             <div className="text-[10px] font-medium leading-tight text-zinc-500">
-              Bought
+              {t("grid.mobileBought")}
             </div>
             <div className="tabular-nums truncate text-xs font-semibold text-zinc-950">
-              {formatMoney(item.currency, item.purchased_price)}
+              {formatMoney(item.currency, item.purchased_price, locale)}
             </div>
           </div>
           <div className="min-w-0">
             <div className="text-[10px] font-medium leading-tight text-zinc-500">
-              Date
+              {t("grid.mobileDate")}
             </div>
             <div className="tabular-nums truncate text-xs text-zinc-600">
               {item.purchased_date}
@@ -728,7 +734,7 @@ export function PositionsGrid({
             checked={checked}
             disabled={bulkBusy}
             onChange={() => toggleSelectItem(item.item_id)}
-            aria-label={`Select ${item.name}`}
+            aria-label={t("grid.selectItemAria", { name: item.name })}
             className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-zinc-950"
           />
         </td>
@@ -758,13 +764,13 @@ export function PositionsGrid({
         </td>
         <td className="px-2 py-3">{renderTagChips(item.tag_ids)}</td>
         <td className="tabular-nums px-2 py-3 text-right text-xs text-zinc-500">
-          {formatMoney(item.currency, item.initial_price)}
+          {formatMoney(item.currency, item.initial_price, locale)}
         </td>
         <td className="tabular-nums px-2 py-3 text-right text-[13px] font-semibold text-zinc-950">
-          {formatMoney(item.currency, item.current_price)}
+          {formatMoney(item.currency, item.current_price, locale)}
         </td>
         <td className="tabular-nums px-2 py-3 text-right text-xs text-zinc-500">
-          {formatMoney(item.currency, item.target_price)}
+          {formatMoney(item.currency, item.target_price, locale)}
         </td>
         <td className="px-3 py-3 text-right">
           <Sparkline snapshots={snaps} />
@@ -772,11 +778,11 @@ export function PositionsGrid({
         <td className="px-2 py-3 text-right">
           {item.status === "DISCOUNT" ? (
             <span className="tabular-nums rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
-              -{item.drop_pct}%
+              {t("grid.statusDiscount", { pct: item.drop_pct })}
             </span>
           ) : (
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
-              NORMAL
+              {t("grid.statusNormal")}
             </span>
           )}
         </td>
@@ -791,7 +797,7 @@ export function PositionsGrid({
             onClick={() => onOpenItem(item.item_id)}
             className="h-8 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-950 transition-colors hover:bg-gray-100"
           >
-            Item Card &rarr;
+            {t("grid.itemCardBtn")}
           </button>
         </td>
       </tr>
@@ -800,13 +806,13 @@ export function PositionsGrid({
 
   const activeSectionLabel =
     activeTab === "active"
-      ? "Active Positions"
+      ? t("grid.tabActiveShort")
       : activeTab === "manual"
-        ? "Manual check"
-        : "Bought Items Sheet";
+        ? t("grid.tabManualShort")
+        : t("grid.tabBoughtShort");
   const activeTagObj =
     activeTagFilter !== "ALL" ? tagById.get(activeTagFilter) : undefined;
-  const activeTagLabel = activeTagObj ? activeTagObj.name : "Show All";
+  const activeTagLabel = activeTagObj ? activeTagObj.name : t("grid.showAll");
 
   const renderFiltrationControls = (idPrefix: string, withAnchors: boolean) => (
     <>
@@ -816,7 +822,7 @@ export function PositionsGrid({
       >
         <div
           role="tablist"
-          aria-label="Grid dataset view"
+          aria-label={t("grid.tablistAriaLabel")}
           className="grid min-w-0 grid-cols-1 gap-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2"
         >
           <button
@@ -833,7 +839,7 @@ export function PositionsGrid({
                 : "bg-gray-100 text-zinc-900 hover:bg-gray-200"
             }`}
           >
-            Active Positions ({items.length})
+            {t("grid.tabActive", { count: items.length })}
           </button>
           <button
             type="button"
@@ -850,7 +856,7 @@ export function PositionsGrid({
             }`}
           >
             <span className="block truncate">
-              Manual check ({manualCheckItemsAll.length})
+              {t("grid.tabManual", { count: manualCheckItemsAll.length })}
             </span>
             {manualCheckItemsAll.length > 0 && maxManualAgeDays >= 1 && (
               <span
@@ -873,7 +879,7 @@ export function PositionsGrid({
                 : "bg-gray-100 text-zinc-900 hover:bg-gray-200"
             }`}
           >
-            Bought Items Sheet ({boughtItems.length})
+            {t("grid.tabBought", { count: boughtItems.length })}
           </button>
         </div>
 
@@ -885,7 +891,7 @@ export function PositionsGrid({
                   htmlFor={`${idPrefix}-group-by`}
                   className="shrink-0 text-xs text-zinc-500"
                 >
-                  Group By
+                  {t("grid.groupByLabel")}
                 </label>
                 <select
                   id={`${idPrefix}-group-by`}
@@ -893,14 +899,14 @@ export function PositionsGrid({
                   onChange={(e) => setGroupBy(e.target.value as GroupMode)}
                   className="min-h-11 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9 sm:flex-none"
                 >
-                  <option value="none">Flat List (None)</option>
-                  <option value="tag">Tag</option>
+                  <option value="none">{t("grid.groupFlat")}</option>
+                  <option value="tag">{t("grid.groupTag")}</option>
                 </select>
               </>
             )}
           </div>
           <label htmlFor={`${idPrefix}-search`} className="sr-only">
-            Search items or tags
+            {t("grid.searchLabel")}
           </label>
           <input
             id={`${idPrefix}-search`}
@@ -910,7 +916,7 @@ export function PositionsGrid({
               setSearchQuery(e.target.value);
               setPage(1);
             }}
-            placeholder="Search products or tags..."
+            placeholder={t("grid.searchPlaceholder")}
             className="min-h-11 w-full rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 sm:min-h-9 sm:w-56"
           />
         </div>
@@ -921,7 +927,9 @@ export function PositionsGrid({
         data-scroll-container="true"
         className="no-scrollbar mb-3 flex items-center gap-2 overflow-x-auto border-b border-gray-100 pb-2.5"
       >
-        <span className="shrink-0 text-xs text-zinc-500">Filter by Tag:</span>
+        <span className="shrink-0 text-xs text-zinc-500">
+          {t("grid.filterByTagLabel")}
+        </span>
         <button
           type="button"
           aria-pressed={activeTagFilter === "ALL"}
@@ -935,7 +943,7 @@ export function PositionsGrid({
               : "border-gray-200 bg-white text-zinc-950 hover:bg-gray-50"
           }`}
         >
-          Show All
+          {t("grid.showAll")}
         </button>
         {distinctActiveTags.map((tag) => {
           const isActive = activeTagFilter === tag.tag_id;
@@ -968,7 +976,7 @@ export function PositionsGrid({
   return (
     <section
       id={ANCHORS.gridPanel}
-      aria-label="Tracked positions and bought items"
+      aria-label={t("grid.ariaLabel")}
       className="@container min-w-0 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4"
     >
       {isMobileScrolledPast && !isStickyExpanded && (
@@ -1001,7 +1009,7 @@ export function PositionsGrid({
               </span>
             </span>
             <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-zinc-500">
-              <span>Filters</span>
+              <span>{t("grid.stickyFilters")}</span>
               <svg
                 width="14"
                 height="14"
@@ -1028,15 +1036,15 @@ export function PositionsGrid({
         >
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-xs font-semibold text-zinc-950">
-              View &amp; Tag Filters
+              {t("grid.stickyPanelTitle")}
             </span>
             <button
               type="button"
-              aria-label="Collapse filters"
+              aria-label={t("grid.stickyCollapseAria")}
               onClick={() => setIsStickyExpanded(false)}
               className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-zinc-600 hover:bg-gray-100 hover:text-zinc-950"
             >
-              <span>Done</span>
+              <span>{t("grid.stickyDone")}</span>
               <svg
                 width="14"
                 height="14"
@@ -1064,7 +1072,7 @@ export function PositionsGrid({
         <div
           id={ANCHORS.gridPanelBulkBar}
           role="region"
-          aria-label="Bulk actions"
+          aria-label={t("grid.bulkActionsAria")}
           aria-busy={bulkBusy}
           className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur"
         >
@@ -1077,10 +1085,10 @@ export function PositionsGrid({
                 onClick={clearSelection}
                 className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-gray-100 hover:text-zinc-950 disabled:opacity-50 sm:min-h-8"
               >
-                Cancel
+                {t("grid.bulkCancel")}
               </button>
               <span className="tabular-nums text-xs font-semibold text-zinc-950">
-                {selectedIds.size} selected
+                {t("grid.bulkSelected", { count: selectedIds.size })}
               </span>
             </div>
 
@@ -1089,7 +1097,7 @@ export function PositionsGrid({
               <div className="flex flex-wrap items-center gap-2">
                 <div className="min-w-0">
                   <label htmlFor="bulk-manage-tags" className="sr-only">
-                    Manage tags
+                    {t("grid.bulkManageTags")}
                   </label>
                   <select
                     id="bulk-manage-tags"
@@ -1104,8 +1112,8 @@ export function PositionsGrid({
                   >
                     <option value="">
                       {bulkBusyAction === "tags"
-                        ? "Updating tags..."
-                        : "Manage tags..."}
+                        ? t("grid.bulkUpdatingTags")
+                        : t("grid.bulkManageTagsPlaceholder")}
                     </option>
                     {availableBulkTags.map((tag) => (
                       <option key={tag.tag_id} value={tag.name}>
@@ -1116,7 +1124,7 @@ export function PositionsGrid({
                       value={REMOVE_ALL_TAGS_VALUE}
                       disabled={!anySelectedHasTags}
                     >
-                      Remove all
+                      {t("grid.bulkRemoveAllTags")}
                     </option>
                   </select>
                 </div>
@@ -1128,8 +1136,8 @@ export function PositionsGrid({
                   className="tabular-nums min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-950 transition-colors hover:bg-gray-100 disabled:opacity-50 sm:min-h-8"
                 >
                   {bulkBusyAction === "recheck"
-                    ? `Re-checking (${selectedIds.size})...`
-                    : `Re-check (${selectedIds.size})`}
+                    ? t("grid.bulkRechecking", { count: selectedIds.size })
+                    : t("grid.bulkRecheck", { count: selectedIds.size })}
                 </button>
               </div>
             )}
@@ -1143,7 +1151,7 @@ export function PositionsGrid({
                   onClick={() => setConfirmBulkDelete(true)}
                   className="tabular-nums min-h-11 rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50 sm:min-h-8"
                 >
-                  Delete ({selectedIds.size})
+                  {t("grid.bulkDelete", { count: selectedIds.size })}
                 </button>
               ) : (
                 <>
@@ -1153,7 +1161,7 @@ export function PositionsGrid({
                     onClick={() => setConfirmBulkDelete(false)}
                     className="min-h-11 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-gray-50 disabled:opacity-50 sm:min-h-8"
                   >
-                    Keep
+                    {t("grid.bulkKeep")}
                   </button>
                   <button
                     type="button"
@@ -1162,8 +1170,8 @@ export function PositionsGrid({
                     className="tabular-nums min-h-11 rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 sm:min-h-8"
                   >
                     {bulkBusyAction === "delete"
-                      ? "Deleting..."
-                      : `Confirm Delete (${selectedIds.size})`}
+                      ? t("grid.bulkDeleting")
+                      : t("grid.bulkConfirmDelete", { count: selectedIds.size })}
                   </button>
                 </>
               )}
@@ -1183,11 +1191,11 @@ export function PositionsGrid({
                 checked={allVisibleSelected}
                 disabled={bulkBusy}
                 onChange={toggleSelectAllVisible}
-                aria-label="Select all visible items"
+                aria-label={t("grid.selectAllVisible")}
                 className="h-5 w-5 cursor-pointer rounded border-gray-300 accent-zinc-950"
               />
               <span className="tabular-nums">
-                Select all ({visibleItemIds.length})
+                {t("grid.selectAllMobile", { count: visibleItemIds.length })}
               </span>
             </label>
           </div>
@@ -1240,7 +1248,7 @@ export function PositionsGrid({
                     checked={allVisibleSelected}
                     disabled={bulkBusy || visibleItemIds.length === 0}
                     onChange={toggleSelectAllVisible}
-                    aria-label="Select all visible items"
+                    aria-label={t("grid.selectAllVisible")}
                     className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-zinc-950"
                   />
                 </th>
@@ -1250,17 +1258,17 @@ export function PositionsGrid({
                     onClick={() => toggleSort("name")}
                     className="hover:text-zinc-950"
                   >
-                    Product Name
+                    {t("grid.colProductName")}
                   </button>
                 </th>
-                <th className="px-2 py-2">Tags</th>
+                <th className="px-2 py-2">{t("grid.colTags")}</th>
                 <th className="px-2 py-2 text-right">
                   <button
                     type="button"
                     onClick={() => toggleSort("initial_price")}
                     className="hover:text-zinc-950"
                   >
-                    Baseline
+                    {t("grid.colBaseline")}
                   </button>
                 </th>
                 <th className="px-2 py-2 text-right">
@@ -1269,7 +1277,7 @@ export function PositionsGrid({
                     onClick={() => toggleSort("current_price")}
                     className="hover:text-zinc-950"
                   >
-                    Current Price
+                    {t("grid.colCurrentPrice")}
                   </button>
                 </th>
                 <th className="px-2 py-2 text-right">
@@ -1278,23 +1286,27 @@ export function PositionsGrid({
                     onClick={() => toggleSort("target_price")}
                     className="hover:text-zinc-950"
                   >
-                    Target Alert
+                    {t("grid.colTargetAlert")}
                   </button>
                 </th>
-                <th className="px-3 py-2 text-right">Trend Dynamic</th>
+                <th className="px-3 py-2 text-right">
+                  {t("grid.colTrendDynamic")}
+                </th>
                 <th className="px-2 py-2 text-right">
                   <button
                     type="button"
                     onClick={() => toggleSort("drop_pct")}
                     className="hover:text-zinc-950"
                   >
-                    Drop %
+                    {t("grid.colDropPct")}
                   </button>
                 </th>
                 {activeTab === "manual" && (
-                  <th className="px-2 py-2 text-right">Last check</th>
+                  <th className="px-2 py-2 text-right">
+                    {t("grid.colLastCheck")}
+                  </th>
                 )}
-                <th className="py-2 pl-3 text-right">Actions</th>
+                <th className="py-2 pl-3 text-right">{t("grid.colActions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1340,17 +1352,23 @@ export function PositionsGrid({
                     checked={allVisibleSelected}
                     disabled={bulkBusy || visibleItemIds.length === 0}
                     onChange={toggleSelectAllVisible}
-                    aria-label="Select all visible items"
+                    aria-label={t("grid.selectAllVisible")}
                     className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-zinc-950"
                   />
                 </th>
-                <th className="py-2 pr-3">Product Name</th>
-                <th className="px-2 py-2">Tags</th>
-                <th className="px-2 py-2 text-right">Baseline</th>
-                <th className="px-2 py-2 text-right">Bought Price</th>
-                <th className="px-2 py-2 text-right">Realized Savings</th>
-                <th className="px-2 py-2 text-right">Date Bought</th>
-                <th className="py-2 pl-3 text-right">Actions</th>
+                <th className="py-2 pr-3">{t("grid.colProductName")}</th>
+                <th className="px-2 py-2">{t("grid.colTags")}</th>
+                <th className="px-2 py-2 text-right">{t("grid.colBaseline")}</th>
+                <th className="px-2 py-2 text-right">
+                  {t("grid.colBoughtPrice")}
+                </th>
+                <th className="px-2 py-2 text-right">
+                  {t("grid.colRealizedSavings")}
+                </th>
+                <th className="px-2 py-2 text-right">
+                  {t("grid.colDateBought")}
+                </th>
+                <th className="py-2 pl-3 text-right">{t("grid.colActions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1369,7 +1387,7 @@ export function PositionsGrid({
                       checked={checked}
                       disabled={bulkBusy}
                       onChange={() => toggleSelectItem(item.item_id)}
-                      aria-label={`Select ${item.name}`}
+                      aria-label={t("grid.selectItemAria", { name: item.name })}
                       className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-zinc-950"
                     />
                   </td>
@@ -1384,13 +1402,19 @@ export function PositionsGrid({
                   </td>
                   <td className="px-2 py-3">{renderTagChips(item.tag_ids)}</td>
                   <td className="tabular-nums px-2 py-3 text-right text-zinc-500">
-                    {formatMoney(item.currency, item.initial_price)}
+                    {formatMoney(item.currency, item.initial_price, locale)}
                   </td>
                   <td className="tabular-nums px-2 py-3 text-right font-semibold text-zinc-950">
-                    {formatMoney(item.currency, item.purchased_price)}
+                    {formatMoney(item.currency, item.purchased_price, locale)}
                   </td>
                   <td className="tabular-nums px-2 py-3 text-right font-semibold text-zinc-950">
-                    +{formatMoney(item.currency, item.saved_cost)} SAVED
+                    {t("grid.savedBadge", {
+                      amount: formatMoney(
+                        item.currency,
+                        item.saved_cost,
+                        locale,
+                      ),
+                    })}
                   </td>
                   <td className="tabular-nums px-2 py-3 text-right text-zinc-500">
                     {item.purchased_date}
@@ -1401,7 +1425,7 @@ export function PositionsGrid({
                       onClick={() => onOpenItem(item.item_id)}
                       className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-zinc-950 hover:bg-gray-100"
                     >
-                      View Card
+                      {t("grid.viewCardBtn")}
                     </button>
                   </td>
                 </tr>
@@ -1416,14 +1440,19 @@ export function PositionsGrid({
         groupBy === "none" && (
           <div className="tabular-nums mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
             <span>
-              Showing{" "}
-              {filteredActive.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}
-              &ndash;
-              {Math.min(safePage * PAGE_SIZE, filteredActive.length)} of{" "}
-              {filteredActive.length}{" "}
-              {activeTab === "manual"
-                ? "manual check positions"
-                : "active positions"}
+              {t(
+                activeTab === "manual"
+                  ? "grid.showingManualRange"
+                  : "grid.showingActiveRange",
+                {
+                  from:
+                    filteredActive.length === 0
+                      ? 0
+                      : (safePage - 1) * PAGE_SIZE + 1,
+                  to: Math.min(safePage * PAGE_SIZE, filteredActive.length),
+                  total: filteredActive.length,
+                },
+              )}
             </span>
           <div className="flex items-center gap-1.5">
             <button
@@ -1432,7 +1461,7 @@ export function PositionsGrid({
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 py-1 font-medium text-zinc-950 hover:bg-gray-50 disabled:opacity-40 sm:min-h-8 sm:px-2.5"
             >
-              &larr; Prev
+              {t("grid.prevPage")}
             </button>
             <button
               type="button"
@@ -1440,7 +1469,7 @@ export function PositionsGrid({
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 py-1 font-medium text-zinc-950 hover:bg-gray-50 disabled:opacity-40 sm:min-h-8 sm:px-2.5"
             >
-              Next &rarr;
+              {t("grid.nextPage")}
             </button>
           </div>
         </div>
@@ -1468,6 +1497,7 @@ function FragmentGroup({
   onToggle: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <>
       <tr key={`group-${groupId}`} className="bg-gray-100/80">
@@ -1482,7 +1512,7 @@ function FragmentGroup({
               {label} ({count})
             </span>
             <span className="tabular-nums text-zinc-600">
-              Avg Drop: -{avgDrop.toFixed(1)}%
+              {t("grid.groupAvgDrop", { pct: avgDrop.toFixed(1) })}
             </span>
           </button>
         </td>
