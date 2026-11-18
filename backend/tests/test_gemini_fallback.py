@@ -9,6 +9,7 @@ import pytest
 
 from pricepulse.adapters.gemini_search_fallback import (
     GeminiSearchFallbackClient,
+    _extract_locale_prefix,
     _extract_product_id,
     _extract_search_hints,
     format_monthly_usage,
@@ -166,5 +167,11 @@ async def test_gemini_prompt_anchors_exact_url_and_sku() -> None:
     assert isinstance(contents, list)
     prompt_text = contents[0]["parts"][0]["text"]
     assert f"Exact product URL: {target_url}" in prompt_text
+    assert (
+        'First, run this exact Google Search query: site:cos.com/pl-pl "1288193001"'
+        in prompt_text
+    )
     assert "Exact product/article ID: 1288193001" in prompt_text
     assert "Poland / PLN (zł)" in prompt_text
+    assert _extract_locale_prefix(target_url) == "/pl-pl"
+    assert _extract_locale_prefix("https://example.com/product/abc") == ""

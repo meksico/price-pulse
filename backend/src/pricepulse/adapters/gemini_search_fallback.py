@@ -170,6 +170,15 @@ def _extract_search_hints(url: str) -> tuple[str, str]:
     return host, keywords
 
 
+def _extract_locale_prefix(url: str) -> str:
+    """Extract a leading locale path segment (e.g. '/pl-pl', '/uk-ua') if present."""
+    parsed = urlparse(url)
+    segments = [seg for seg in parsed.path.split("/") if seg]
+    if segments and re.fullmatch(r"[a-z]{2}(?:-[a-z]{2})?", segments[0].lower()):
+        return f"/{segments[0].lower()}"
+    return ""
+
+
 def _infer_region_hint(url: str) -> str:
     """Infer country/currency context from URL path or TLD."""
     parsed = urlparse(url)
@@ -254,19 +263,32 @@ class GeminiSearchFallbackClient:
 
         region_hint = _infer_region_hint(url)
         host, keywords = _extract_search_hints(url)
+        locale_prefix = _extract_locale_prefix(url)
+        site_scope = f"{host}{locale_prefix}" if host else url
         product_id = _extract_product_id(url)
-        target_desc = f"{keywords} on {host}" if keywords else url
-        prompt_lines = [
-            "Search Google for the current price, currency, product title, and direct product "
-            f"image URL (from {host} or its CDN) for {target_desc}.",
-            f"Exact product URL: {url}",
-            f"Expected store locale: {region_hint}",
-        ]
         if product_id:
-            prompt_lines.append(
+            exact_query = f'site:{site_scope} "{product_id}"'
+            prompt_lines = [
+                f"First, run this exact Google Search query: {exact_query}",
+                "Extract the current price, currency, product title, and direct product "
+                f"image URL (from {host} or its CDN) from the matching {site_scope} "
+                f"product page for article/SKU ID {product_id}.",
+                f"Exact product URL: {url}",
+                f"Expected store locale: {region_hint}",
                 f"Exact product/article ID: {product_id}. You MUST match this exact product "
-                f"ID ({product_id}) and exact store locale ({region_hint})."
-            )
+                f"ID ({product_id}) and exact store locale ({region_hint}). "
+                f"Only fall back to searching by product keywords ({keywords}) on "
+                f"{site_scope} if the exact query {exact_query} returns no results.",
+            ]
+        else:
+            target_desc = f"{keywords} on {site_scope}" if keywords else url
+            prompt_lines = [
+                f"Search Google (preferring site:{site_scope}) for the current price, "
+                f"currency, product title, and direct product image URL (from {host} or "
+                f"its CDN) for {target_desc}.",
+                f"Exact product URL: {url}",
+                f"Expected store locale: {region_hint}",
+            ]
         prompt_lines.append(
             "Do NOT use prices from similar or related products, different models, or other "
             "country stores. If the exact product's current price in the expected locale cannot "
