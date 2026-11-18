@@ -75,14 +75,42 @@ export function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const pushToast = useCallback<PushToastFn>((variant, title, message) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setToasts((prev) => [...prev.slice(-3), { id, variant, title, message }]);
-    toastTimersRef.current[id] = window.setTimeout(() => {
-      delete toastTimersRef.current[id];
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4500);
-  }, []);
+  const pushToast = useCallback<PushToastFn>(
+    (variant, title, message, options) => {
+      const id =
+        options?.id ??
+        `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const existingTimer = toastTimersRef.current[id];
+      if (existingTimer !== undefined) {
+        window.clearTimeout(existingTimer);
+        delete toastTimersRef.current[id];
+      }
+      const nextToast: ToastMessage = {
+        id,
+        variant,
+        title,
+        message,
+        loading: options?.loading,
+        persistent: options?.persistent,
+      };
+      setToasts((prev) => {
+        const withoutSame = prev.filter((item) => item.id !== id);
+        const persistentToasts = withoutSame.filter((item) => item.persistent);
+        const transientToasts = withoutSame
+          .filter((item) => !item.persistent)
+          .slice(-3);
+        return [...persistentToasts, ...transientToasts, nextToast];
+      });
+      if (!options?.persistent) {
+        toastTimersRef.current[id] = window.setTimeout(() => {
+          delete toastTimersRef.current[id];
+          setToasts((prev) => prev.filter((t) => t.id !== id));
+        }, 4500);
+      }
+      return id;
+    },
+    [],
+  );
 
   useEffect(() => {
     const timers = toastTimersRef.current;
@@ -243,11 +271,13 @@ export function App() {
   }, [refreshAll]);
 
   const handleRunCheck = async () => {
+    const toastId = "batch-check";
     setIsChecking(true);
     pushToast(
       "info",
       t("toast.batchCheckStartedTitle"),
       t("toast.batchCheckStartedBody"),
+      { id: toastId, loading: true, persistent: true },
     );
     try {
       const result = await store.runBatchCheck();
@@ -261,6 +291,14 @@ export function App() {
             breakdown: telemetry.breakdown,
             duration: telemetry.duration_ms,
           }),
+          { id: toastId },
+        );
+      } else if (telemetry.status === "ERROR") {
+        pushToast(
+          "error",
+          t("toast.batchCheckErrorTitle"),
+          telemetry.errors?.[0] ?? telemetry.breakdown,
+          { id: toastId },
         );
       } else {
         const alertSuffix =
@@ -271,6 +309,7 @@ export function App() {
           "success",
           t("toast.batchCheckSuccessTitle"),
           `${telemetry.breakdown}${alertSuffix} (${telemetry.duration_ms}ms).`,
+          { id: toastId },
         );
       }
     } catch (err) {
@@ -278,6 +317,7 @@ export function App() {
         "error",
         t("toast.batchCheckErrorTitle"),
         err instanceof Error ? err.message : String(err),
+        { id: toastId },
       );
     } finally {
       setIsChecking(false);
@@ -454,6 +494,13 @@ export function App() {
   };
 
   const handleBulkRecheck = async (itemIds: string[]) => {
+    const toastId = "bulk-recheck";
+    pushToast(
+      "info",
+      t("toast.bulkRecheckStartedTitle"),
+      t("toast.bulkRecheckStartedBody", { count: itemIds.length }),
+      { id: toastId, loading: true, persistent: true },
+    );
     try {
       const { telemetry } = await store.bulkRecheckItems(itemIds);
       await refreshAll();
@@ -465,18 +512,21 @@ export function App() {
             count: telemetry.items_checked,
             breakdown: telemetry.breakdown,
           }),
+          { id: toastId },
         );
       } else if (telemetry.status === "ERROR") {
         pushToast(
           "error",
           t("toast.bulkRecheckFailedTitle"),
           telemetry.errors?.[0] ?? t("toast.bulkRecheckFailedBody"),
+          { id: toastId },
         );
       } else {
         pushToast(
           "success",
           t("toast.bulkRecheckTitle"),
           t("toast.bulkRecheckBody", { count: telemetry.items_checked }),
+          { id: toastId },
         );
       }
     } catch (err) {
@@ -484,6 +534,7 @@ export function App() {
         "error",
         t("toast.bulkRecheckFailedTitle"),
         err instanceof Error ? err.message : String(err),
+        { id: toastId },
       );
       throw err;
     }

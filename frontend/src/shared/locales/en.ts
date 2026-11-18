@@ -402,6 +402,8 @@ export const en = {
     bulkTagsReplacedBody: "Updated tags for {count} items.",
     bulkTagsRemovedBody: "Removed tags from {count} items.",
     bulkTagsFailedTitle: "Bulk tag update failed",
+    bulkRecheckStartedTitle: "Bulk re-check started",
+    bulkRecheckStartedBody: "Checking {count} selected item(s)...",
     bulkRecheckTitle: "Bulk re-check complete",
     bulkRecheckBody: "Re-checked {count} items.",
     bulkRecheckPartialTitle: "Bulk re-check finished with warnings",

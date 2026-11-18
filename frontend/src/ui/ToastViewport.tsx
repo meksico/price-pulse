@@ -3,18 +3,27 @@ import { useI18n } from "../shared/i18n";
 
 export type ToastVariant = "success" | "warning" | "error" | "info";
 
+export interface ToastOptions {
+  id?: string;
+  loading?: boolean;
+  persistent?: boolean;
+}
+
 export interface ToastMessage {
   id: string;
   variant: ToastVariant;
   title: string;
   message?: string;
+  loading?: boolean;
+  persistent?: boolean;
 }
 
 export type PushToastFn = (
   variant: ToastVariant,
   title: string,
   message?: string,
-) => void;
+  options?: ToastOptions,
+) => string;
 
 interface ToastViewportProps {
   toasts: ToastMessage[];
@@ -64,10 +73,18 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
             className={`pointer-events-auto flex min-w-0 items-start justify-between gap-2.5 rounded-xl border bg-white p-3 text-xs shadow-lg ${theme.border}`}
           >
             <div className="flex min-w-0 items-start gap-2.5">
-              <span
-                aria-hidden="true"
-                className={`mt-1 h-2 w-2 shrink-0 rounded-full ${theme.dot}`}
-              />
+              {toast.loading ? (
+                <span
+                  aria-hidden="true"
+                  data-toast-spinner="true"
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-600"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className={`mt-1 h-2 w-2 shrink-0 rounded-full ${theme.dot}`}
+                />
+              )}
               <div className="min-w-0">
                 <div className="font-semibold text-zinc-950">{toast.title}</div>
                 {toast.message && (

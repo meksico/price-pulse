@@ -404,6 +404,8 @@ export const uk: TranslationDict = {
     bulkTagsReplacedBody: "Оновлено теги для {count} поз.",
     bulkTagsRemovedBody: "Прибрано теги з {count} поз.",
     bulkTagsFailedTitle: "Помилка оновлення тегів",
+    bulkRecheckStartedTitle: "Масову перевірку розпочато",
+    bulkRecheckStartedBody: "Перевірка обраних позицій ({count})...",
     bulkRecheckTitle: "Масову перевірку завершено",
     bulkRecheckBody: "Перевірено {count} поз.",
     bulkRecheckPartialTitle: "Масову перевірку завершено з попередженнями",

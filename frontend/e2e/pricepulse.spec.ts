@@ -1925,5 +1925,65 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     );
     expect(hasOverflow).toBe(false);
   });
+
+  test("Run Check and Bulk Re-check show persistent loading toast with spinner until response", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+
+    // 1. Run Check (All Items): hold /api/scrape/run-check longer than the 4500ms auto-dismiss window
+    let releaseBatchCheck!: () => void;
+    const batchCheckGate = new Promise<void>((resolve) => {
+      releaseBatchCheck = resolve;
+    });
+
+    await page.route("**/api/scrape/run-check", async (route) => {
+      await batchCheckGate;
+      await route.continue();
+    });
+
+    await page.getByRole("button", { name: "User account menu" }).click();
+    await page.getByRole("menuitem", { name: /Run Check \(\d+ Items\)/i }).click();
+
+    const toastViewport = page.locator("#toast-viewport");
+    await expect(toastViewport).toContainText(/Batch check started/i);
+    await expect(toastViewport.locator('[data-toast-spinner="true"]')).toBeVisible();
+
+    // Wait past the standard 4500ms auto-dismiss timeout to confirm persistence
+    await page.waitForTimeout(4700);
+    await expect(toastViewport).toContainText(/Batch check started/i);
+    await expect(toastViewport.locator('[data-toast-spinner="true"]')).toBeVisible();
+
+    releaseBatchCheck();
+    await expect(toastViewport).toContainText(/Batch check complete/i);
+    await expect(toastViewport.locator('[data-toast-spinner="true"]')).toHaveCount(0);
+
+    // 2. Bulk Re-check: hold /api/items/bulk-recheck and verify loading spinner transitions to complete
+    let releaseBulkRecheck!: () => void;
+    const bulkRecheckGate = new Promise<void>((resolve) => {
+      releaseBulkRecheck = resolve;
+    });
+
+    await page.route("**/api/items/bulk-recheck", async (route) => {
+      await bulkRecheckGate;
+      await route.continue();
+    });
+
+    const grid = page.locator("#grid-panel");
+    const firstCheckbox = grid
+      .locator('tbody input[type="checkbox"][aria-label^="Select "]')
+      .first();
+    await firstCheckbox.check();
+    const bulkBar = page.locator("#grid-panel__bulk-bar");
+    await bulkBar.getByRole("button", { name: "Re-check (1)" }).click();
+
+    await expect(toastViewport).toContainText(/Bulk re-check started/i);
+    await expect(toastViewport.locator('[data-toast-spinner="true"]')).toBeVisible();
+
+    releaseBulkRecheck();
+    await expect(toastViewport).toContainText(/Bulk re-check complete/i);
+    await expect(toastViewport.locator('[data-toast-spinner="true"]')).toHaveCount(0);
+  });
 });
 
