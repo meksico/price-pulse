@@ -757,7 +757,10 @@ def test_resources_inventory_masks_secrets_and_aggregates_webshare(
     async def _fake_webshare(
         api_key: str,
         client: httpx.AsyncClient | None = None,
+        *,
+        force_refresh: bool = False,
     ) -> dict[str, Any]:
+        _ = force_refresh
         assert api_key == "ws-secret-xyz"
         assert client is not None
         return {
@@ -836,7 +839,10 @@ def test_resources_probe_handles_fault_isolation(
     async def _failing_webshare(
         _api_key: str,
         client: httpx.AsyncClient | None = None,
+        *,
+        force_refresh: bool = False,
     ) -> dict[str, Any]:
+        _ = force_refresh
         raise RuntimeError("Webshare upstream timeout")
 
     async def _ok_gemini(

@@ -43,6 +43,8 @@ CRITICAL_PACKAGES: tuple[str, ...] = (
 WEBSHARE_API_BASE = "https://proxy.webshare.io/api/v2"
 DEFAULT_WEBSHARE_PROXY_LIMIT = 10
 DEFAULT_WEBSHARE_BANDWIDTH_MB = 1024.0
+_WEBSHARE_CACHE_TTL_SECONDS = 60.0
+_webshare_cache: dict[str, Any] = {}
 
 
 @dataclass(frozen=True)
@@ -209,20 +211,52 @@ def _mask_identifier(raw: str) -> str:
 async def fetch_webshare_telemetry(
     api_key: str,
     client: httpx.AsyncClient | None = None,
+    *,
+    force_refresh: bool = False,
 ) -> dict[str, Any]:
-    """Fetch subscription limits and aggregate bandwidth/request stats from Webshare API v2."""
+    """Fetch subscription limits, aggregate bandwidth/stats, and transactions."""
+    now_ts = datetime.now(UTC).timestamp()
+    cached = _webshare_cache.get("data")
+    cached_at = float(_webshare_cache.get("ts") or 0.0)
+    if (
+        not force_refresh
+        and isinstance(cached, dict)
+        and (now_ts - cached_at) < _WEBSHARE_CACHE_TTL_SECONDS
+    ):
+        return cached
+
     headers = {"Authorization": f"Token {api_key}"}
     owns_client = client is None
-    http_client = client or httpx.AsyncClient(timeout=8.0)
+    http_client = client or httpx.AsyncClient(timeout=20.0)
     try:
-        sub_resp = await http_client.get(
-            f"{WEBSHARE_API_BASE}/subscription/",
-            headers=headers,
+        sub_res, tx_res = await asyncio.gather(
+            http_client.get(f"{WEBSHARE_API_BASE}/subscription/", headers=headers),
+            http_client.get(
+                f"{WEBSHARE_API_BASE}/payment/transaction/",
+                headers=headers,
+                params={"page": 1, "page_size": 20},
+            ),
+            return_exceptions=True,
         )
-        sub_resp.raise_for_status()
-        sub_data = sub_resp.json()
-        if not isinstance(sub_data, dict):
-            sub_data = {}
+
+        sub_data: dict[str, Any] = {}
+        if isinstance(sub_res, httpx.Response):
+            sub_res.raise_for_status()
+            parsed_sub = sub_res.json()
+            if isinstance(parsed_sub, dict):
+                sub_data = parsed_sub
+        elif isinstance(sub_res, BaseException):
+            raise sub_res
+
+        tx_results: list[dict[str, Any]] = []
+        if isinstance(tx_res, httpx.Response) and tx_res.status_code == 200:
+            tx_payload = tx_res.json()
+            if isinstance(tx_payload, dict) and isinstance(
+                tx_payload.get("results"), list
+            ):
+                tx_results = [
+                    row for row in tx_payload["results"] if isinstance(row, dict)
+                ]
 
         now = datetime.now(UTC)
         start_date = str(
@@ -230,36 +264,24 @@ async def fetch_webshare_telemetry(
         )
         end_date = str(sub_data.get("end_date") or now.isoformat())
 
-        stats_resp, tx_resp = await asyncio.gather(
-            http_client.get(
-                f"{WEBSHARE_API_BASE}/stats/aggregate/",
-                headers=headers,
-                params={"timestamp__gte": start_date, "timestamp__lte": end_date},
-            ),
-            http_client.get(
-                f"{WEBSHARE_API_BASE}/payment/transaction/",
-                headers=headers,
-                params={"page": 1, "page_size": 20},
-            ),
+        stats_resp = await http_client.get(
+            f"{WEBSHARE_API_BASE}/stats/aggregate/",
+            headers=headers,
+            params={"timestamp__gte": start_date, "timestamp__lte": end_date},
         )
         stats_resp.raise_for_status()
         stats_data = stats_resp.json()
         if not isinstance(stats_data, dict):
             stats_data = {}
 
-        tx_results: list[dict[str, Any]] = []
-        if tx_resp.status_code == 200:
-            tx_payload = tx_resp.json()
-            if isinstance(tx_payload, dict) and isinstance(tx_payload.get("results"), list):
-                tx_results = [
-                    row for row in tx_payload["results"] if isinstance(row, dict)
-                ]
-
-        return {
+        result = {
             "subscription": sub_data,
             "stats": stats_data,
             "transactions": tx_results,
         }
+        _webshare_cache["data"] = result
+        _webshare_cache["ts"] = datetime.now(UTC).timestamp()
+        return result
     finally:
         if owns_client:
             await http_client.aclose()
@@ -626,10 +648,14 @@ async def collect_third_party_resources_async(
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     gemini_model = os.getenv("GEMINI_GROUNDING_MODEL", DEFAULT_GEMINI_MODEL).strip()
 
-    async with httpx.AsyncClient(timeout=8.0) as client:
+    async with httpx.AsyncClient(timeout=20.0) as client:
         tasks: dict[str, Any] = {}
         if webshare_key:
-            tasks["webshare"] = fetch_webshare_telemetry(webshare_key, client=client)
+            tasks["webshare"] = fetch_webshare_telemetry(
+                webshare_key,
+                client=client,
+                force_refresh=probe,
+            )
         if probe and gemini_key:
             tasks["gemini"] = _probe_gemini(gemini_key, gemini_model, client)
         if probe and storage_mode == "google_sheets":
