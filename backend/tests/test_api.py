@@ -867,5 +867,52 @@ def test_resources_probe_handles_fault_isolation(
     assert by_id["gemini_grounding"]["details"]["probe_verified"] is True
 
 
+def test_resources_aggregates_gcp_bigquery_billing_charges(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify GCP BigQuery Billing Export charges populate Gemini, Cloud Run, and ledger."""
+    monkeypatch.setenv("GCP_BILLING_PROJECT_ID", "pricepulse-514709")
+
+    async def _fake_gcp_billing(
+        client: httpx.AsyncClient | None = None,
+        *,
+        force_refresh: bool = False,
+    ) -> dict[str, Any]:
+        _ = (client, force_refresh)
+        return {
+            "status": "active",
+            "invoice_month": "202611",
+            "services": [
+                {
+                    "service_name": "Cloud Run",
+                    "gross_cost": 0.27,
+                    "credits_amount": -0.24,
+                    "net_cost": 0.03,
+                    "currency": "USD",
+                },
+                {
+                    "service_name": "Gemini API",
+                    "gross_cost": 0.02,
+                    "credits_amount": 0.0,
+                    "net_cost": 0.02,
+                    "currency": "USD",
+                },
+            ],
+        }
+
+    monkeypatch.setattr("pricepulse.diagnostics.fetch_gcp_billing_charges", _fake_gcp_billing)
+
+    client = _make_client(tmp_path)
+    resp = client.get("/api/resources")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total_charges_usd"] == 0.05
+    assert len(body["charges"]) == 2
+    by_id = {r["resource_id"]: r for r in body["resources"]}
+    assert by_id["cloud_run"]["monthly_cost_usd"] == 0.03
+    assert by_id["gemini_grounding"]["monthly_cost_usd"] == 0.02
+
+
 
 

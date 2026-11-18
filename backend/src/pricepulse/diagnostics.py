@@ -45,6 +45,9 @@ DEFAULT_WEBSHARE_PROXY_LIMIT = 10
 DEFAULT_WEBSHARE_BANDWIDTH_MB = 1024.0
 _WEBSHARE_CACHE_TTL_SECONDS = 60.0
 _webshare_cache: dict[str, Any] = {}
+_GCP_BILLING_CACHE_TTL_SECONDS = 300.0
+_gcp_billing_cache: dict[str, Any] = {}
+BIGQUERY_API_BASE = "https://bigquery.googleapis.com/bigquery/v2"
 
 
 @dataclass(frozen=True)
@@ -281,6 +284,118 @@ async def fetch_webshare_telemetry(
         }
         _webshare_cache["data"] = result
         _webshare_cache["ts"] = datetime.now(UTC).timestamp()
+        return result
+    finally:
+        if owns_client:
+            await http_client.aclose()
+
+
+def _get_gcp_adc_token() -> tuple[str, str]:
+    """Obtain an ADC access token and default project ID for BigQuery."""
+    import google.auth
+    from google.auth.transport.requests import Request
+
+    creds, default_project = google.auth.default(
+        scopes=["https://www.googleapis.com/auth/bigquery.readonly"]
+    )
+    creds.refresh(Request())  # type: ignore[no-untyped-call]
+    token = str(creds.token or "")
+    return token, str(default_project or "")
+
+
+async def fetch_gcp_billing_charges(
+    client: httpx.AsyncClient | None = None,
+    *,
+    force_refresh: bool = False,
+) -> dict[str, Any] | None:
+    """Query current-month GCP charges from BigQuery Billing Export if configured."""
+    now_ts = datetime.now(UTC).timestamp()
+    cached = _gcp_billing_cache.get("data")
+    cached_at = float(_gcp_billing_cache.get("ts") or 0.0)
+    if (
+        not force_refresh
+        and isinstance(cached, dict)
+        and (now_ts - cached_at) < _GCP_BILLING_CACHE_TTL_SECONDS
+    ):
+        return cached
+
+    project_id = os.getenv("GCP_BILLING_PROJECT_ID", "").strip()
+    dataset_id = os.getenv("GCP_BILLING_DATASET", "pricepulse_billing").strip()
+    explicit_table = os.getenv("GCP_BILLING_BQ_TABLE", "").strip()
+
+    try:
+        token, adc_project = await asyncio.to_thread(_get_gcp_adc_token)
+    except Exception:
+        return None
+    if not token:
+        return None
+    if not project_id:
+        project_id = adc_project
+    if not project_id:
+        return None
+
+    headers = {"Authorization": f"Bearer {token}"}
+    owns_client = client is None
+    http_client = client or httpx.AsyncClient(timeout=15.0)
+    try:
+        table_ref = explicit_table
+        if not table_ref:
+            tables_resp = await http_client.get(
+                f"{BIGQUERY_API_BASE}/projects/{project_id}/datasets/{dataset_id}/tables",
+                headers=headers,
+            )
+            if tables_resp.status_code == 404:
+                return {"status": "pending_export", "services": []}
+            tables_resp.raise_for_status()
+            tables_json = tables_resp.json()
+            for tbl in tables_json.get("tables", []) if isinstance(tables_json, dict) else []:
+                ref = tbl.get("tableReference", {}) if isinstance(tbl, dict) else {}
+                tid = str(ref.get("tableId") or "")
+                if tid.startswith("gcp_billing_export_v1_"):
+                    table_ref = f"{project_id}.{dataset_id}.{tid}"
+                    break
+        if not table_ref:
+            return {"status": "pending_export", "services": []}
+
+        yyyymm = datetime.now(UTC).strftime("%Y%m")
+        sql = (
+            "SELECT "
+            "  service.description AS service_name, "
+            "  ROUND(SUM(cost), 4) AS gross_cost, "
+            "  ROUND(SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)), 4) "
+            "    AS credits_amount, "
+            "  ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)), 4) "
+            "    AS net_cost, "
+            "  ANY_VALUE(currency) AS currency "
+            f"FROM `{table_ref}` "
+            f"WHERE invoice.month = '{yyyymm}' "
+            "GROUP BY service_name "
+            "ORDER BY net_cost DESC, gross_cost DESC"
+        )
+        query_resp = await http_client.post(
+            f"{BIGQUERY_API_BASE}/projects/{project_id}/queries",
+            headers=headers,
+            json={"query": sql, "useLegacySql": False, "timeoutMs": 10000},
+        )
+        query_resp.raise_for_status()
+        q_json = query_resp.json()
+        services: list[dict[str, Any]] = []
+        for row in q_json.get("rows", []) if isinstance(q_json, dict) else []:
+            vals = row.get("f", []) if isinstance(row, dict) else []
+            if len(vals) < 5:
+                continue
+            services.append(
+                {
+                    "service_name": str(vals[0].get("v") or "GCP Service"),
+                    "gross_cost": float(vals[1].get("v") or 0.0),
+                    "credits_amount": float(vals[2].get("v") or 0.0),
+                    "net_cost": float(vals[3].get("v") or 0.0),
+                    "currency": str(vals[4].get("v") or "USD"),
+                }
+            )
+        result = {"status": "active", "invoice_month": yyyymm, "services": services}
+        _gcp_billing_cache["data"] = result
+        _gcp_billing_cache["ts"] = datetime.now(UTC).timestamp()
         return result
     finally:
         if owns_client:
@@ -550,6 +665,39 @@ def _build_webshare_resource(
     )
 
 
+def _build_cloud_run_resource(
+    storage_mode: str,
+    gcp_billing: dict[str, Any] | None,
+) -> ThirdPartyResourceStatus:
+    """Build status and monthly cost for Google Cloud Run hosting."""
+    is_cloud = storage_mode == "google_sheets" or bool(os.getenv("K_SERVICE"))
+    net_cost = 0.0
+    gross_cost = 0.0
+    if gcp_billing and isinstance(gcp_billing.get("services"), list):
+        for svc in gcp_billing["services"]:
+            name = str(svc.get("service_name") or "").lower()
+            if "cloud run" in name:
+                net_cost += float(svc.get("net_cost") or 0.0)
+                gross_cost += float(svc.get("gross_cost") or 0.0)
+    return ThirdPartyResourceStatus(
+        resource_id="cloud_run",
+        name="Google Cloud Run (europe-central2)",
+        category="infra",
+        provider="Google Cloud",
+        mode="live" if is_cloud else "mock",
+        status="operational" if is_cloud else "disabled",
+        endpoint="https://run.googleapis.com/v2",
+        billing_tier="Pay-as-you-go (Free Tier)",
+        monthly_cost_usd=round(max(0.0, net_cost), 2),
+        details={
+            "service": os.getenv("K_SERVICE", "local"),
+            "region": "europe-central2",
+            "gross_cost_usd": round(gross_cost, 2),
+            "billing_export": (gcp_billing or {}).get("status", "not_configured"),
+        },
+    )
+
+
 def _build_playwright_resource(
     scraper_mode: str,
     probe_error: str | None = None,
@@ -656,6 +804,11 @@ async def collect_third_party_resources_async(
                 client=client,
                 force_refresh=probe,
             )
+        if storage_mode == "google_sheets" or os.getenv("GCP_BILLING_PROJECT_ID", "").strip():
+            tasks["gcp_billing"] = fetch_gcp_billing_charges(
+                client=client,
+                force_refresh=probe,
+            )
         if probe and gemini_key:
             tasks["gemini"] = _probe_gemini(gemini_key, gemini_model, client)
         if probe and storage_mode == "google_sheets":
@@ -693,16 +846,69 @@ async def collect_third_party_resources_async(
     pw_err = str(pw_raw) if isinstance(pw_raw, BaseException) else None
     pw_exe = pw_raw if isinstance(pw_raw, str) else None
 
+    gcp_raw = results.get("gcp_billing")
+    gcp_billing = gcp_raw if isinstance(gcp_raw, dict) else None
+
+    gemini_resource = _build_gemini_resource(state, gem_err, gem_verified)
+    if gcp_billing and isinstance(gcp_billing.get("services"), list):
+        gemini_net = 0.0
+        for svc in gcp_billing["services"]:
+            sname = str(svc.get("service_name") or "").lower()
+            if "gemini" in sname or "generative language" in sname:
+                gemini_net += float(svc.get("net_cost") or 0.0)
+        if gemini_net > 0:
+            gemini_resource = ThirdPartyResourceStatus(
+                resource_id=gemini_resource.resource_id,
+                name=gemini_resource.name,
+                category=gemini_resource.category,
+                provider=gemini_resource.provider,
+                mode=gemini_resource.mode,
+                status=gemini_resource.status,
+                endpoint=gemini_resource.endpoint,
+                quota_used=gemini_resource.quota_used,
+                quota_limit=gemini_resource.quota_limit,
+                quota_unit=gemini_resource.quota_unit,
+                billing_tier="Paid Account (5k free grounding/mo)",
+                monthly_cost_usd=round(gemini_net, 2),
+                reset_at=gemini_resource.reset_at,
+                last_activity_at=gemini_resource.last_activity_at,
+                details=gemini_resource.details,
+                error=gemini_resource.error,
+            )
+
     resources = [
         _build_sheets_resource(storage_mode, state, sheets_err, sheets_title),
         _build_gmail_resource(storage_mode, state, gmail_err, gmail_email),
         _build_gis_oauth_resource(auth_mode),
-        _build_gemini_resource(state, gem_err, gem_verified),
+        gemini_resource,
         _build_webshare_resource(ws_data, ws_err),
         _build_playwright_resource(scraper_mode, pw_err, pw_exe),
+        _build_cloud_run_resource(storage_mode, gcp_billing),
     ]
 
     charges: list[ChargeRecord] = []
+    if gcp_billing and isinstance(gcp_billing.get("services"), list):
+        inv_month = str(gcp_billing.get("invoice_month") or "")
+        for idx, svc in enumerate(gcp_billing["services"]):
+            gross = float(svc.get("gross_cost") or 0.0)
+            credits_val = float(svc.get("credits_amount") or 0.0)
+            net = float(svc.get("net_cost") or 0.0)
+            if gross == 0.0 and net == 0.0:
+                continue
+            charges.append(
+                ChargeRecord(
+                    charge_id=f"gcp-{inv_month}-{idx}",
+                    provider="Google Cloud",
+                    description=(
+                        f"{svc.get('service_name')} "
+                        f"(Gross ${gross:.2f}, Credits ${credits_val:.2f})"
+                    ),
+                    amount=round(net, 2),
+                    currency=str(svc.get("currency") or "USD"),
+                    status="billed" if net > 0 else "covered_by_credits",
+                    created_at=inv_month,
+                )
+            )
     if ws_data is not None and isinstance(ws_data.get("transactions"), list):
         for idx, tx in enumerate(ws_data["transactions"]):
             if not isinstance(tx, dict):
