@@ -64,9 +64,12 @@ _CURRENCY_MAP: dict[str, str] = {
     "zł": "zł",
 }
 
-_PRICE_REGEX = re.compile(r"([$€₴£])\s*([0-9]+(?:[.,\s\u00a0][0-9]+)*)")
+_PRICE_REGEX = re.compile(
+    r"([$€₴£])[ \t\u00a0]{0,2}([0-9]+(?:[., \u00a0\u202f][0-9]+)*)"
+)
 _SUFFIX_PRICE_REGEX = re.compile(
-    r"([0-9]+(?:[.,\s\u00a0][0-9]+)*)\s*(грн|UAH|USD|EUR|GBP|PLN|zł|zl|[$€₴£])",
+    r"([0-9]+(?:[., \u00a0\u202f][0-9]+)*)[ \t\u00a0]{0,2}"
+    r"(грн|UAH|USD|EUR|GBP|PLN|zł|zl|[$€₴£])",
     re.IGNORECASE,
 )
 _NON_VISIBLE_HTML_RE = re.compile(
@@ -196,16 +199,13 @@ def _find_product_in_json_ld(node: Any) -> dict[str, Any] | None:
     return None
 
 
-def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
-    """Execute 3-tier waterfall extraction (JSON-LD -> OpenGraph -> DOM RegEx)."""
-    parser = _MetaAndJsonLdParser()
-    parser.feed(html)
-
-    og_title = html_lib.unescape(
-        parser.meta_tags.get("og:title") or parser.title_text or url
-    ).strip()
-    og_image = parser.meta_tags.get("og:image", "")
-
+def _extract_structured_preview(
+    url: str,
+    parser: _MetaAndJsonLdParser,
+    og_title: str,
+    og_image: str,
+) -> ScrapePreview | None:
+    """Attempt Tier 1 (JSON-LD) and Tier 2 (OpenGraph/meta) extraction."""
     # Tier 1: Semantic JSON-LD
     for block in parser.json_ld_blocks:
         try:
@@ -253,36 +253,69 @@ def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
             image_url=og_image,
             extraction_tier="TIER_2_OPENGRAPH",
         )
+    return None
+
+
+def _has_structured_price(html: str) -> bool:
+    """Return True when Tier 1 (JSON-LD) or Tier 2 (OpenGraph) already has a price."""
+    parser = _MetaAndJsonLdParser()
+    parser.feed(html)
+    return _extract_structured_preview("", parser, "", "") is not None
+
+
+def _extract_tier3_price(visible_text: str) -> tuple[float, str] | None:
+    """Extract the earliest valid prefix or suffix price from visible DOM text."""
+    candidates: list[tuple[int, float, str]] = []
+    suffix_symbol_starts: set[int] = set()
+
+    for suffix_match in _SUFFIX_PRICE_REGEX.finditer(visible_text):
+        suffix_symbol_starts.add(suffix_match.start(2))
+        val = _parse_float(suffix_match.group(1))
+        if val is not None:
+            symbol = _normalize_currency(suffix_match.group(2))
+            candidates.append((suffix_match.start(), val, symbol))
+
+    for match in _PRICE_REGEX.finditer(visible_text):
+        if match.start(1) in suffix_symbol_starts:
+            continue
+        val = _parse_float(match.group(2))
+        if val is not None:
+            symbol = _normalize_currency(match.group(1))
+            candidates.append((match.start(), val, symbol))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item[0])
+    return candidates[0][1], candidates[0][2]
+
+
+def extract_preview_from_html(url: str, html: str) -> ScrapePreview:
+    """Execute 3-tier waterfall extraction (JSON-LD -> OpenGraph -> DOM RegEx)."""
+    parser = _MetaAndJsonLdParser()
+    parser.feed(html)
+
+    og_title = html_lib.unescape(
+        parser.meta_tags.get("og:title") or parser.title_text or url
+    ).strip()
+    og_image = parser.meta_tags.get("og:image", "")
+
+    structured = _extract_structured_preview(url, parser, og_title, og_image)
+    if structured is not None:
+        return structured
 
     # Tier 3: DOM / Currency RegEx Fallback (visible text only, never <script>/<style>)
     visible_text = _extract_visible_text(html)
-    match = _PRICE_REGEX.search(visible_text)
-    if match is not None:
-        symbol = _normalize_currency(match.group(1))
-        val = _parse_float(match.group(2))
-        if val is not None:
-            return ScrapePreview(
-                url=url,
-                title=og_title,
-                price=round(val, 2),
-                currency=symbol,
-                image_url=og_image,
-                extraction_tier="TIER_3_DOM_REGEX",
-            )
-
-    suffix_match = _SUFFIX_PRICE_REGEX.search(visible_text)
-    if suffix_match is not None:
-        val = _parse_float(suffix_match.group(1))
-        symbol = _normalize_currency(suffix_match.group(2))
-        if val is not None:
-            return ScrapePreview(
-                url=url,
-                title=og_title,
-                price=round(val, 2),
-                currency=symbol,
-                image_url=og_image,
-                extraction_tier="TIER_3_DOM_REGEX",
-            )
+    tier3_match = _extract_tier3_price(visible_text)
+    if tier3_match is not None:
+        val, symbol = tier3_match
+        return ScrapePreview(
+            url=url,
+            title=og_title,
+            price=round(val, 2),
+            currency=symbol,
+            image_url=og_image,
+            extraction_tier="TIER_3_DOM_REGEX",
+        )
 
     raise ValueError(f"Unable to extract price from URL: {url}")
 
@@ -369,7 +402,17 @@ class PlaywrightScraperAdapter:
                         f"CAPTCHA_BLOCKED (HTTP {resp.status}): {url} requires human verification."
                     )
                 raise ValueError(f"HTTP {resp.status} for URL: {url}")
-            return await page.content()
+            html = await page.content()
+            if not _has_structured_price(html):
+                try:
+                    await page.wait_for_load_state(
+                        "networkidle",
+                        timeout=min(5_000, self._timeout_ms),
+                    )
+                except Exception:
+                    pass
+                html = await page.content()
+            return html
         finally:
             await context.close()
 

@@ -281,3 +281,104 @@ def test_tier1_json_ld_with_unescaped_newline() -> None:
     assert preview.currency == "₴"
     assert preview.image_url == "https://img.test/box-500x500.PNG"
 
+
+def test_tier3_suffix_price_before_rating_and_delivery_fee() -> None:
+    """Verify Tier 3 picks suffix product price over trailing rating or delivery fee."""
+    html = """
+    <html><head><title>Unisex Brushed Jersey Barrel Leg Trousers | UNIQLO PL</title></head>
+    <body>
+      <div>Select length 0 € About alterations</div>
+      <div>39,90 €           4.9    (933)</div>
+      <div>Fees: delivery starts from 3,95 € or is free when you spend 70 € or more.</div>
+      <div>Save $10 later</div>
+    </body></html>
+    """
+    preview = extract_preview_from_html(
+        "https://www.uniqlo.com/eu-pl/en/products/E489191-000/00",
+        html,
+    )
+    assert preview.extraction_tier == "TIER_3_DOM_REGEX"
+    assert preview.price == 39.9
+    assert preview.currency == "€"
+
+
+def test_tier3_zero_suffix_does_not_turn_symbol_into_prefix() -> None:
+    """Verify a skipped 0 € suffix does not match the following rating as € 4.9."""
+    html = """
+    <html><head><title>Trousers</title></head>
+    <body>
+      <span>0 € 4.9</span>
+      <span>39,90 €</span>
+    </body></html>
+    """
+    preview = extract_preview_from_html("https://example.com/trousers", html)
+    assert preview.price == 39.9
+    assert preview.currency == "€"
+
+
+@pytest.mark.asyncio
+async def test_fetch_html_waits_for_networkidle_when_structured_price_missing() -> None:
+    """Verify _fetch_html waits for SPA hydration only when Tier 1/2 price is absent."""
+    events: list[str] = []
+
+    class FakeResp:
+        status = 200
+
+    class FakePage:
+        def __init__(self, initial_html: str, hydrated_html: str) -> None:
+            self._html = initial_html
+            self._hydrated_html = hydrated_html
+
+        async def goto(self, url: str, wait_until: str, timeout: int) -> FakeResp:
+            events.append(f"goto:{wait_until}")
+            return FakeResp()
+
+        async def wait_for_load_state(self, state: str, timeout: int) -> None:
+            events.append(f"wait:{state}")
+            self._html = self._hydrated_html
+
+        async def content(self) -> str:
+            return self._html
+
+    class FakeContext:
+        def __init__(self, page: FakePage) -> None:
+            self._page = page
+
+        async def new_page(self) -> FakePage:
+            return self._page
+
+        async def close(self) -> None:
+            events.append("close")
+
+    class FakeBrowser:
+        def __init__(self, page: FakePage) -> None:
+            self._page = page
+
+        async def new_context(self, **kwargs: object) -> FakeContext:
+            return FakeContext(self._page)
+
+    adapter = PlaywrightScraperAdapter()
+    spa_page = FakePage(
+        initial_html="<html><body><div>Fees: 3,95 €</div></body></html>",
+        hydrated_html="<html><body><div>39,90 €</div><div>Fees: 3,95 €</div></body></html>",
+    )
+    html_spa = await adapter._fetch_html(
+        FakeBrowser(spa_page),  # type: ignore[arg-type]
+        "https://example.com/spa",
+    )
+    assert "39,90 €" in html_spa
+    assert events == ["goto:domcontentloaded", "wait:networkidle", "close"]
+
+    events.clear()
+    ssr_page = FakePage(
+        initial_html='<html><head><meta property="og:price:amount" content="39.90"></head></html>',
+        hydrated_html="",
+    )
+    html_ssr = await adapter._fetch_html(
+        FakeBrowser(ssr_page),  # type: ignore[arg-type]
+        "https://example.com/ssr",
+    )
+    assert "39.90" in html_ssr
+    assert events == ["goto:domcontentloaded", "close"]
+
+
