@@ -167,12 +167,106 @@ async def test_gemini_prompt_anchors_exact_url_and_sku() -> None:
     assert isinstance(contents, list)
     prompt_text = contents[0]["parts"][0]["text"]
     assert f"Exact product URL: {target_url}" in prompt_text
-    assert (
-        'Run ONLY this exact Google Search query: site:cos.com/pl-pl "1288193001"'
-        in prompt_text
-    )
-    assert "Do NOT fall back to generic product keyword searches" in prompt_text
+    assert 'site:cos.com/pl-pl "1288193001"' in prompt_text
+    assert "Do NOT use prices from different products" in prompt_text
     assert "Exact product/article ID: 1288193001" in prompt_text
     assert "Poland / PLN (zł)" in prompt_text
     assert _extract_locale_prefix(target_url) == "/pl-pl"
     assert _extract_locale_prefix("https://example.com/product/abc") == ""
+
+
+@pytest.mark.asyncio
+async def test_gemini_two_stage_grounding_and_ungrounded_rejection() -> None:
+    """Verify two-stage prose->JSON extraction and rejection of ungrounded prose."""
+    import json
+
+    call_payloads: list[dict[str, object]] = []
+
+    def two_stage_handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode("utf-8"))
+        call_payloads.append(body)
+        if len(call_payloads) == 1:
+            assert "tools" in body
+            return httpx.Response(
+                200,
+                json={
+                    "candidates": [
+                        {
+                            "content": {
+                                "parts": [
+                                    {
+                                        "text": (
+                                            "On cos.com/pl-pl, article 1288193001 "
+                                            "(Cashmere Crew-Neck Jumper) costs 1150 zł."
+                                        )
+                                    }
+                                ]
+                            },
+                            "groundingMetadata": {
+                                "webSearchQueries": [
+                                    'site:cos.com/pl-pl "1288193001"',
+                                    "cos 1288193001 pln",
+                                ],
+                            },
+                        }
+                    ]
+                },
+            )
+        assert "tools" not in body
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        '{"price": 1150, "currency": "PLN", '
+                                        '"title": "Cashmere Crew-Neck Jumper", '
+                                        '"image_url": "https://media.cos.com/jumper.jpg"}'
+                                    )
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+        )
+
+    url = (
+        "https://www.cos.com/pl-pl/women/womenswear/knitwear/jumpers/cashmere/product/"
+        "cashmere-crew-neck-jumper-dark-grey-mlange-1288193001"
+    )
+    client = GeminiSearchFallbackClient(
+        api_key="test-key",
+        transport=httpx.MockTransport(two_stage_handler),
+    )
+    res = await client.extract_price(url)
+    assert res is not None
+    assert len(call_payloads) == 2
+    assert res.price == 1150.0
+    assert res.currency == "zł"
+    assert res.image_url == "https://media.cos.com/jumper.jpg"
+    assert res.queries_used == 2
+
+    def ungrounded_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [{"text": "I think it costs 800 PLN."}]
+                        },
+                        "groundingMetadata": {},
+                    }
+                ]
+            },
+        )
+
+    ungrounded_client = GeminiSearchFallbackClient(
+        api_key="test-key",
+        transport=httpx.MockTransport(ungrounded_handler),
+    )
+    assert await ungrounded_client.extract_price(url) is None

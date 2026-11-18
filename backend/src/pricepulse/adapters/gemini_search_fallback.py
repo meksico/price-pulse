@@ -251,16 +251,13 @@ class GeminiSearchFallbackClient:
         """Return minimum hours between grounded fallback checks per item."""
         return self._cooldown_hours
 
-    async def extract_price(
+    def _build_search_prompt(
         self,
         url: str,
         title: str = "",
         currency_hint: str = "",
-    ) -> GeminiSearchResult | None:
-        """Look up cached Google Search price for a CAPTCHA-blocked product URL."""
-        if not self.is_enabled:
-            return None
-
+    ) -> tuple[str, str]:
+        """Build a natural-language Google Search prompt and region hint."""
         region_hint = _infer_region_hint(url)
         host, keywords = _extract_search_hints(url)
         locale_prefix = _extract_locale_prefix(url)
@@ -268,42 +265,59 @@ class GeminiSearchFallbackClient:
         product_id = _extract_product_id(url)
         if product_id:
             exact_query = f'site:{site_scope} "{product_id}"'
+            keyword_hint = keywords.replace(product_id, "").strip()
+            keyword_clause = (
+                f' (and if needed, search "{keyword_hint}" on site:{site_scope})'
+                if keyword_hint
+                else ""
+            )
             prompt_lines = [
-                f"Run ONLY this exact Google Search query: {exact_query}",
-                "Extract the current price, currency, product title, and direct product "
-                f"image URL (from {host} or its CDN) from the matching {site_scope} "
-                f"product page for article/SKU ID {product_id}.",
+                "Use Google Search to find the current price, currency, exact product "
+                f"title, and direct product image URL (from {host} or its CDN) on "
+                f"{site_scope} for article/SKU ID {product_id}.",
+                f"Search Google for {exact_query}{keyword_clause} to find the exact "
+                "matching listing.",
                 f"Exact product URL: {url}",
                 f"Expected store locale: {region_hint}",
-                f"Exact product/article ID: {product_id}. You MUST match this exact product "
-                f"ID ({product_id}) and exact store locale ({region_hint}). "
-                "Do NOT fall back to generic product keyword searches, and if "
-                f"{exact_query} does not return a verified price for {product_id}, "
-                "return null for price.",
+                f"Exact product/article ID: {product_id}. Match this exact product ID "
+                f"({product_id}) and exact store locale ({region_hint}).",
             ]
         else:
             target_desc = f"{keywords} on {site_scope}" if keywords else url
             prompt_lines = [
-                f"Search Google (preferring site:{site_scope}) for the current price, "
-                f"currency, product title, and direct product image URL (from {host} or "
-                f"its CDN) for {target_desc}.",
+                f"Use Google Search (preferring site:{site_scope}) to find the current "
+                f"price, currency, product title, and direct product image URL (from {host} "
+                f"or its CDN) for {target_desc}.",
                 f"Exact product URL: {url}",
                 f"Expected store locale: {region_hint}",
             ]
         prompt_lines.append(
-            "Do NOT use prices from similar or related products, different models, or other "
-            "country stores. If the exact product's current price in the expected locale cannot "
-            "be verified from search results, return null for price."
+            "Do NOT use prices from different products, different models, or other "
+            "country stores."
         )
         if title.strip():
             prompt_lines.append(f"Known product title: {title.strip()}")
         if currency_hint.strip():
             prompt_lines.append(f"Known currency: {currency_hint.strip()}")
+        return "\n".join(prompt_lines), region_hint
 
-        endpoint = f"{GEMINI_API_BASE}/models/{self._model}:generateContent"
+    async def _extract_json_from_summary(
+        self,
+        client: httpx.AsyncClient,
+        endpoint: str,
+        summary_text: str,
+        region_hint: str,
+    ) -> dict[str, Any] | None:
+        """Convert a grounded natural-language search summary into structured JSON."""
+        extract_prompt = (
+            "Extract the product fields from the grounded Google Search summary below into JSON.\n"
+            f"Expected store locale: {region_hint}\n"
+            "If the summary states that no verified price in the expected locale was found, "
+            "set price to null.\n\n"
+            f"Summary:\n{summary_text}"
+        )
         payload: dict[str, Any] = {
-            "contents": [{"parts": [{"text": "\n".join(prompt_lines)}]}],
-            "tools": [{"google_search": {}}],
+            "contents": [{"parts": [{"text": extract_prompt}]}],
             "generationConfig": {
                 "temperature": 0.0,
                 "responseMimeType": "application/json",
@@ -319,6 +333,40 @@ class GeminiSearchFallbackClient:
                 },
             },
         }
+        resp = await client.post(
+            endpoint,
+            headers={"x-goog-api-key": self._api_key},
+            json=payload,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        candidates = data.get("candidates") or []
+        if not candidates:
+            return None
+        parts = (candidates[0].get("content") or {}).get("parts") or []
+        raw_json = "".join(p.get("text", "") for p in parts if isinstance(p, dict))
+        return parse_gemini_json(raw_json)
+
+    async def extract_price(
+        self,
+        url: str,
+        title: str = "",
+        currency_hint: str = "",
+    ) -> GeminiSearchResult | None:
+        """Look up cached Google Search price for a CAPTCHA-blocked product URL."""
+        if not self.is_enabled:
+            return None
+
+        prompt_text, region_hint = self._build_search_prompt(
+            url, title=title, currency_hint=currency_hint
+        )
+        endpoint = f"{GEMINI_API_BASE}/models/{self._model}:generateContent"
+        # Stage 1 omits responseMimeType/responseSchema so Gemini reliably invokes google_search.
+        payload: dict[str, Any] = {
+            "contents": [{"parts": [{"text": prompt_text}]}],
+            "tools": [{"google_search": {}}],
+            "generationConfig": {"temperature": 0.0},
+        }
 
         client_kwargs: dict[str, Any] = {"timeout": self._timeout_s}
         if self._transport is not None:
@@ -333,19 +381,25 @@ class GeminiSearchFallbackClient:
             resp.raise_for_status()
             data = resp.json()
 
-        candidates = data.get("candidates") or []
-        if not candidates:
-            return None
-        candidate = candidates[0]
-        grounding = candidate.get("groundingMetadata") or {}
-        search_queries = grounding.get("webSearchQueries") or []
-        queries_used = max(1, len(search_queries))
+            candidates = data.get("candidates") or []
+            if not candidates:
+                return None
+            candidate = candidates[0]
+            grounding = candidate.get("groundingMetadata") or {}
+            search_queries = grounding.get("webSearchQueries") or []
+            queries_used = max(1, len(search_queries))
 
-        parts = (candidate.get("content") or {}).get("parts") or []
-        raw_text = "".join(
-            p.get("text", "") for p in parts if isinstance(p, dict)
-        )
-        parsed = parse_gemini_json(raw_text)
+            parts = (candidate.get("content") or {}).get("parts") or []
+            raw_text = "".join(
+                p.get("text", "") for p in parts if isinstance(p, dict)
+            )
+            parsed = parse_gemini_json(raw_text)
+            if parsed is None:
+                if not search_queries or not raw_text.strip():
+                    return None
+                parsed = await self._extract_json_from_summary(
+                    client, endpoint, raw_text, region_hint
+                )
         if not parsed:
             return None
 
