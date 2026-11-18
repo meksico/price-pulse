@@ -42,7 +42,11 @@ from pricepulse.adapters.playwright_scraper import (
     CaptchaBlockedError,
     PlaywrightScraperAdapter,
 )
-from pricepulse.diagnostics import StructuredLogger, collect_runtime_diagnostics
+from pricepulse.diagnostics import (
+    StructuredLogger,
+    collect_runtime_diagnostics,
+    collect_third_party_resources_async,
+)
 from pricepulse.domain.models import (
     APP_VERSION,
     ConfigEntry,
@@ -338,6 +342,40 @@ def create_app(
         """Expose runtime diagnostics and recent structured logs."""
         diag = collect_runtime_diagnostics(storage_mode, logger)
         return asdict(diag)
+
+    @app.get("/api/resources")
+    async def get_resources(_user: str = Depends(_verify_auth)) -> dict[str, Any]:
+        """Return unified 3rd-party resources & dependency inventory."""
+        state = resolved_repo.load_state()
+        auth_mode = os.getenv("AUTH_MODE", "local_dev")
+        scraper_mode = os.getenv("SCRAPER_ADAPTER", "deterministic")
+        inventory = await collect_third_party_resources_async(
+            storage_mode=storage_mode,
+            scraper_mode=scraper_mode,
+            auth_mode=auth_mode,
+            state=state,
+            probe=False,
+            repo=resolved_repo,
+            notifier=resolved_notifier,
+        )
+        return asdict(inventory)
+
+    @app.post("/api/resources/probe")
+    async def probe_resources(_user: str = Depends(_verify_auth)) -> dict[str, Any]:
+        """Run non-mutating live connectivity checks across all 3rd-party providers."""
+        state = resolved_repo.load_state()
+        auth_mode = os.getenv("AUTH_MODE", "local_dev")
+        scraper_mode = os.getenv("SCRAPER_ADAPTER", "deterministic")
+        inventory = await collect_third_party_resources_async(
+            storage_mode=storage_mode,
+            scraper_mode=scraper_mode,
+            auth_mode=auth_mode,
+            state=state,
+            probe=True,
+            repo=resolved_repo,
+            notifier=resolved_notifier,
+        )
+        return asdict(inventory)
 
     @app.get("/api/state")
     def get_state(_user: str = Depends(_verify_auth)) -> dict[str, Any]:

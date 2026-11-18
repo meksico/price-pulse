@@ -745,4 +745,108 @@ def test_bulk_tags_recheck_and_delete(tmp_path: Path) -> None:
     )
 
 
+def test_resources_inventory_masks_secrets_and_aggregates_webshare(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify /api/resources aggregates all providers and never leaks secrets."""
+    monkeypatch.setenv("WEBSHARE_API_KEY", "ws-secret-xyz")
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-secret-abc")
+    monkeypatch.setenv("SCRAPER_PROXY_URL", "198.51.100.1:8080:proxyuser:proxypass")
+
+    async def _fake_webshare(
+        api_key: str,
+        client: httpx.AsyncClient | None = None,
+    ) -> dict[str, Any]:
+        assert api_key == "ws-secret-xyz"
+        assert client is not None
+        return {
+            "subscription": {
+                "bandwidth_limit": 1.0,
+                "proxy_limit": 10,
+                "plan_type": "free",
+                "end_date": "2026-12-01T00:00:00Z",
+            },
+            "stats": {
+                "bandwidth_total": 52_428_800,  # 50 MB
+                "requests_total": 120,
+                "requests_successful": 115,
+                "requests_failed": 5,
+                "number_of_proxies_used": 8,
+                "last_request_sent_at": "2026-11-18T14:00:00Z",
+            },
+        }
+
+    monkeypatch.setattr("pricepulse.diagnostics.fetch_webshare_telemetry", _fake_webshare)
+
+    client = _make_client(tmp_path)
+    resp = client.get("/api/resources")
+    assert resp.status_code == 200
+    raw_text = resp.text
+    assert "ws-secret-xyz" not in raw_text
+    assert "gem-secret-abc" not in raw_text
+    assert "proxyuser" not in raw_text
+    assert "proxypass" not in raw_text
+
+    body = resp.json()
+    assert body["probed"] is False
+    assert "fastapi" in body["backend_packages"]
+    by_id = {r["resource_id"]: r for r in body["resources"]}
+    assert set(by_id.keys()) >= {
+        "google_sheets",
+        "gmail_api",
+        "google_oauth",
+        "gemini_grounding",
+        "webshare_proxies",
+        "playwright_chromium",
+    }
+
+    ws = by_id["webshare_proxies"]
+    assert ws["mode"] == "live"
+    assert ws["status"] == "operational"
+    assert ws["quota_used"] == 50.0
+    assert ws["quota_limit"] == 1024.0
+    assert ws["quota_unit"] == "MB"
+    assert ws["details"]["proxy_pool_count"] == 1
+    assert ws["details"]["proxy_hosts"] == ["198.51.100.1:8080"]
+    assert ws["details"]["requests_successful"] == 115
+
+
+def test_resources_probe_handles_fault_isolation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify POST /api/resources/probe isolates provider failures cleanly."""
+    monkeypatch.setenv("WEBSHARE_API_KEY", "ws-secret-xyz")
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-secret-abc")
+
+    async def _failing_webshare(
+        _api_key: str,
+        client: httpx.AsyncClient | None = None,
+    ) -> dict[str, Any]:
+        raise RuntimeError("Webshare upstream timeout")
+
+    async def _ok_gemini(
+        _api_key: str,
+        _model: str,
+        _client: httpx.AsyncClient,
+    ) -> bool:
+        return True
+
+    monkeypatch.setattr("pricepulse.diagnostics.fetch_webshare_telemetry", _failing_webshare)
+    monkeypatch.setattr("pricepulse.diagnostics._probe_gemini", _ok_gemini)
+
+    client = _make_client(tmp_path)
+    resp = client.post("/api/resources/probe")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["probed"] is True
+    by_id = {r["resource_id"]: r for r in body["resources"]}
+    assert by_id["webshare_proxies"]["status"] == "warning"
+    assert "Webshare upstream timeout" in (by_id["webshare_proxies"]["error"] or "")
+    assert by_id["gemini_grounding"]["status"] == "operational"
+    assert by_id["gemini_grounding"]["details"]["probe_verified"] is True
+
+
+
 

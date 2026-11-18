@@ -5,6 +5,7 @@ import type {
   BoughtItem,
   BulkTagAction,
   ConfigEntry,
+  ResourcesInventory,
   RuntimeDiagnostics,
   ScrapePreview,
   Tag,
@@ -113,6 +114,16 @@ export class LocalApiDataAdapter implements DataStorePort {
 
   getHealth(): Promise<RuntimeDiagnostics> {
     return this.request<RuntimeDiagnostics>("/api/health");
+  }
+
+  getResources(): Promise<ResourcesInventory> {
+    return this.request<ResourcesInventory>("/api/resources");
+  }
+
+  probeResources(): Promise<ResourcesInventory> {
+    return this.request<ResourcesInventory>("/api/resources/probe", {
+      method: "POST",
+    });
   }
 
   previewUrl(

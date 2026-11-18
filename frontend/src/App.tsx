@@ -3,6 +3,7 @@ import { LocalApiDataAdapter } from "./adapters/localApiAdapter";
 import type {
   AddItemPayload,
   BulkTagAction,
+  ResourcesInventory,
   RuntimeDiagnostics,
   TagColor,
   UpdateItemPayload,
@@ -57,6 +58,10 @@ export function App() {
   );
   const [state, setState] = useState<WorkspaceState | null>(null);
   const [diagnostics, setDiagnostics] = useState<RuntimeDiagnostics | null>(null);
+  const [resourcesInventory, setResourcesInventory] =
+    useState<ResourcesInventory | null>(null);
+  const [resourcesLoading, setResourcesLoading] = useState(false);
+  const [resourcesProbing, setResourcesProbing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [route, setRoute] = useState<AppRoute>(() =>
@@ -233,6 +238,58 @@ export function App() {
     setSyncError(null);
     pushToast("info", t("auth.signedOutTitle"), t("auth.signedOutBody"));
   };
+
+  const healthTab = route.healthTab ?? "logs";
+
+  const refreshResources = useCallback(async () => {
+    setResourcesLoading(true);
+    try {
+      const inv = await store.getResources();
+      setResourcesInventory(inv);
+    } catch (err) {
+      pushToast(
+        "error",
+        t("toast.errorTitle"),
+        err instanceof Error ? err.message : "Failed to load 3rd-party resources.",
+      );
+    } finally {
+      setResourcesLoading(false);
+    }
+  }, [pushToast, store, t]);
+
+  const handleProbeResources = useCallback(async () => {
+    setResourcesProbing(true);
+    const toastId = pushToast(
+      "info",
+      t("health.verifyingConnections"),
+      t("health.loadingResources"),
+      { persistent: true, loading: true },
+    );
+    try {
+      const inv = await store.probeResources();
+      setResourcesInventory(inv);
+      const hasWarning = inv.resources.some((r) => r.status === "warning");
+      pushToast(
+        hasWarning ? "warning" : "success",
+        hasWarning
+          ? t("health.probeWarningTitle")
+          : t("health.probeSuccessTitle"),
+        hasWarning
+          ? t("health.probeWarningBody")
+          : t("health.probeSuccessBody"),
+        { id: toastId },
+      );
+    } catch (err) {
+      pushToast(
+        "error",
+        t("health.probeErrorTitle"),
+        err instanceof Error ? err.message : "Connection verification failed.",
+        { id: toastId },
+      );
+    } finally {
+      setResourcesProbing(false);
+    }
+  }, [pushToast, store, t]);
 
   useEffect(() => {
     void refreshAll();
@@ -686,6 +743,25 @@ export function App() {
   const isUnauthenticated = authEnabled && !authToken;
 
   useEffect(() => {
+    if (
+      activeView === "health" &&
+      healthTab === "resources" &&
+      !isUnauthenticated &&
+      !resourcesInventory &&
+      !resourcesLoading
+    ) {
+      void refreshResources();
+    }
+  }, [
+    activeView,
+    healthTab,
+    isUnauthenticated,
+    refreshResources,
+    resourcesInventory,
+    resourcesLoading,
+  ]);
+
+  useEffect(() => {
     const retryIfNeeded = () => {
       if (
         document.visibilityState === "visible" &&
@@ -1003,6 +1079,18 @@ export function App() {
               <SystemHealthView
                 telemetryLogs={state.telemetry_logs}
                 diagnostics={diagnostics}
+                activeTab={healthTab}
+                onTabChange={(nextTab) =>
+                  navigate({
+                    view: "health",
+                    healthTab: nextTab,
+                  })
+                }
+                resourcesInventory={resourcesInventory}
+                resourcesLoading={resourcesLoading}
+                resourcesProbing={resourcesProbing}
+                onRefreshResources={() => void refreshResources()}
+                onProbeResources={() => void handleProbeResources()}
                 onNotify={pushToast}
               />
             )}

@@ -4,6 +4,7 @@ import type {
   BoughtItem,
   BulkTagAction,
   ConfigEntry,
+  ResourcesInventory,
   RuntimeDiagnostics,
   ScrapePreview,
   Tag,
@@ -26,6 +27,8 @@ export type RequestRetryCallback = (info: RetryAttemptInfo) => void;
 export interface DataStorePort {
   loadState(): Promise<WorkspaceState>;
   getHealth(): Promise<RuntimeDiagnostics>;
+  getResources(): Promise<ResourcesInventory>;
+  probeResources(): Promise<ResourcesInventory>;
   previewUrl(
     url: string,
     onRetry?: RequestRetryCallback,

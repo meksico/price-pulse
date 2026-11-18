@@ -1,23 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import {
   APP_VERSION,
+  type ResourcesInventory,
   type RuntimeDiagnostics,
   type TelemetryRun,
 } from "../domain/models";
 import { ANCHORS } from "../shared/anchors";
 import { useI18n } from "../shared/i18n";
+import type { HealthTab } from "../shared/routes";
 import { useBottomSheetSwipeDismiss } from "../shared/useBottomSheetSwipeDismiss";
+import { ThirdPartyResourcesPanel } from "./ThirdPartyResourcesPanel";
 import type { PushToastFn } from "./ToastViewport";
 
 interface SystemHealthViewProps {
   telemetryLogs: TelemetryRun[];
   diagnostics: RuntimeDiagnostics | null;
+  activeTab: HealthTab;
+  onTabChange: (tab: HealthTab) => void;
+  resourcesInventory: ResourcesInventory | null;
+  resourcesLoading: boolean;
+  resourcesProbing: boolean;
+  onRefreshResources: () => void;
+  onProbeResources: () => void;
   onNotify?: PushToastFn;
 }
 
 export function SystemHealthView({
   telemetryLogs,
   diagnostics,
+  activeTab,
+  onTabChange,
+  resourcesInventory,
+  resourcesLoading,
+  resourcesProbing,
+  onRefreshResources,
+  onProbeResources,
   onNotify,
 }: SystemHealthViewProps) {
   const { t } = useI18n();
@@ -131,6 +148,51 @@ export function SystemHealthView({
           </p>
       </div>
 
+      {/* Section Tab Switcher (Telemetry Logs | 3rd-Party Resources) */}
+      <div
+        id={ANCHORS.viewHealthTabs}
+        role="tablist"
+        aria-label={t("health.title")}
+        className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-3"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "logs"}
+          onClick={() => onTabChange("logs")}
+          className={`min-h-11 rounded-full px-4 py-1.5 text-xs font-medium transition sm:min-h-9 ${
+            activeTab === "logs"
+              ? "bg-zinc-950 text-white"
+              : "bg-gray-100 text-zinc-700 hover:bg-gray-200"
+          }`}
+        >
+          {t("health.tabLogs")}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "resources"}
+          onClick={() => onTabChange("resources")}
+          className={`min-h-11 rounded-full px-4 py-1.5 text-xs font-medium transition sm:min-h-9 ${
+            activeTab === "resources"
+              ? "bg-zinc-950 text-white"
+              : "bg-gray-100 text-zinc-700 hover:bg-gray-200"
+          }`}
+        >
+          {t("health.tabResources")}
+        </button>
+      </div>
+
+      {activeTab === "resources" ? (
+        <ThirdPartyResourcesPanel
+          inventory={resourcesInventory}
+          loading={resourcesLoading}
+          probing={resourcesProbing}
+          onRefresh={onRefreshResources}
+          onProbe={onProbeResources}
+        />
+      ) : (
+        <>
               {/* Mobile-first telemetry cards (< 768px) */}
               <div className="min-w-0 space-y-2.5 md:hidden">
                       {telemetryLogs.map((run) => {
@@ -244,6 +306,8 @@ export function SystemHealthView({
                       </tbody>
                   </table>
                 </div>
+        </>
+      )}
 
       {selectedRun && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">

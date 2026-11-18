@@ -1,6 +1,7 @@
 import type { AppView } from "../ui/Header";
 
 export type GridTab = "active" | "manual" | "bought";
+export type HealthTab = "logs" | "resources";
 export type AddModalMode = "single" | "bulk";
 
 export interface AddModalPrefill {
@@ -15,6 +16,7 @@ export interface AddModalPrefill {
 export interface AppRoute {
   view: AppView;
   gridTab: GridTab;
+  healthTab?: HealthTab;
   tagFilter: string;
   itemId: string | null;
   addModalOpen: boolean;
@@ -131,9 +133,12 @@ export function parseRoute(pathname: string, search: string): AppRoute {
   }
   if (cleanPath === ROUTES.health) {
     const isAddOpen = modalParam === "add";
+    const healthTab: HealthTab =
+      rawTab === "resources" ? "resources" : "logs";
     return {
       view: "health",
       gridTab: "active",
+      healthTab,
       tagFilter: "ALL",
       itemId: null,
       addModalOpen: isAddOpen,
@@ -197,6 +202,8 @@ export function buildRouteUrl(route: AppRoute): string {
     if (route.tagFilter && route.tagFilter !== "ALL") {
       params.set("tag", route.tagFilter);
     }
+  } else if (route.view === "health" && route.healthTab === "resources") {
+    params.set("tab", "resources");
   }
   if (route.addModalOpen && route.view !== "dashboard" && !route.itemId) {
     params.set("modal", "add");

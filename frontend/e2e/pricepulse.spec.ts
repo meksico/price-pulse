@@ -1993,5 +1993,53 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await expect(toastViewport).toContainText(/Bulk re-check complete/i);
     await expect(toastViewport.locator('[data-toast-spinner="true"]')).toHaveCount(0);
   });
+
+  test("System Health 3rd-Party Resources tab supports deep-link, filtering, live probe, and 320px layout", async ({
+    page,
+  }) => {
+    await page.goto("/health?tab=resources");
+    const resourcesPanel = page.locator("#view-health__resources");
+    await expect(resourcesPanel).toBeVisible();
+
+    const desktopTable = resourcesPanel.getByRole("table");
+    await expect(
+      desktopTable.getByText("Webshare Proxy Pool"),
+    ).toBeVisible();
+    await expect(
+      desktopTable.getByText("Gemini API + Search Grounding"),
+    ).toBeVisible();
+    await expect(
+      desktopTable.getByText("Google Sheets API v4"),
+    ).toBeVisible();
+    await expect(
+      resourcesPanel.getByText("Software Dependencies"),
+    ).toBeVisible();
+
+    // Category filter pill narrows visible resources
+    await resourcesPanel.getByRole("button", { name: "Scraper & Proxies" }).click();
+    await expect(
+      desktopTable.getByText("Webshare Proxy Pool"),
+    ).toBeVisible();
+    await expect(
+      desktopTable.getByText("Google Sheets API v4"),
+    ).toHaveCount(0);
+    await resourcesPanel.getByRole("button", { name: "All" }).click();
+
+    // Verify Connections runs POST /api/resources/probe and emits toast
+    await resourcesPanel.getByRole("button", { name: "Verify Connections" }).click();
+    await expect(resourcesPanel.getByText("Live Probed")).toBeVisible();
+    await expect(page.locator("#toast-viewport")).toContainText(
+      /Connections Verified/i,
+    );
+
+    // 320px mobile viewport zero horizontal overflow check
+    await page.setViewportSize({ width: 320, height: 568 });
+    const hasOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    );
+    expect(hasOverflow).toBe(false);
+  });
 });
 

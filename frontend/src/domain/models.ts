@@ -283,3 +283,45 @@ export function extractDomain(rawUrl: string | undefined | null): string {
   }
 }
 
+export type ResourceCategory = "cloud_api" | "auth" | "scraper" | "infra";
+export type ResourceMode = "live" | "mock" | "disabled" | "configured";
+export type ResourceHealthStatus = "operational" | "warning" | "disabled";
+
+export interface ThirdPartyResource {
+  resource_id: string;
+  name: string;
+  category: ResourceCategory;
+  provider: string;
+  mode: ResourceMode;
+  status: ResourceHealthStatus;
+  endpoint: string;
+  quota_used: number | null;
+  quota_limit: number | null;
+  quota_unit: string;
+  reset_at: string | null;
+  last_activity_at: string | null;
+  details: Record<string, unknown>;
+  error: string | null;
+}
+
+export interface ResourcesInventory {
+  app_version: string;
+  fetched_at: string;
+  probed: boolean;
+  storage_adapter: string;
+  scraper_adapter: string;
+  auth_mode: string;
+  resources: ThirdPartyResource[];
+  backend_packages: Record<string, string>;
+}
+
+export const FRONTEND_PACKAGES: Record<string, string> = {
+  react: "^19.0.0",
+  "react-dom": "^19.0.0",
+  vite: "^6.0.0",
+  typescript: "^5.7.2",
+  tailwindcss: "^4.0.0",
+  "@playwright/test": "^1.49.0",
+  "eslint-plugin-jsx-a11y": "^6.10.2",
+};
+
