@@ -121,6 +121,7 @@ export const en = {
     selectItemAria: "Select {name}",
     colProductName: "Product Name",
     colTags: "Tags",
+    colPrice: "Price",
     colBaseline: "Baseline",
     colCurrentPrice: "Current Price",
     colTargetAlert: "Target Alert",

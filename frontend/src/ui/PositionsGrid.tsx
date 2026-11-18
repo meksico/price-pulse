@@ -23,10 +23,7 @@ type GroupMode = "none" | "tag";
 type SortField =
   | "added"
   | "name"
-  | "initial_price"
-  | "current_price"
-  | "target_price"
-  | "drop_pct";
+  | "current_price";
 
 const PAGE_SIZE = 15;
 const STALE_CHECK_THRESHOLD_DAYS = 2;
@@ -790,28 +787,11 @@ export function PositionsGrid({
           </div>
         </td>
         <td className="px-2 py-3">{renderTagChips(item.tag_ids)}</td>
-        <td className="tabular-nums px-2 py-3 text-right text-xs text-zinc-500">
-          {formatMoney(item.currency, item.initial_price, locale)}
-        </td>
         <td className="tabular-nums px-2 py-3 text-right text-[13px] font-semibold text-zinc-950">
           {formatMoney(item.currency, item.current_price, locale)}
         </td>
-        <td className="tabular-nums px-2 py-3 text-right text-xs text-zinc-500">
-          {formatMoney(item.currency, item.target_price, locale)}
-        </td>
         <td className="px-3 py-3 text-right">
           <Sparkline snapshots={snaps} />
-        </td>
-        <td className="px-2 py-3 text-right">
-          {item.status === "DISCOUNT" ? (
-            <span className="tabular-nums rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
-              {t("grid.statusDiscount", { pct: item.drop_pct })}
-            </span>
-          ) : (
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
-              {t("grid.statusNormal")}
-            </span>
-          )}
         </td>
         {isManualTab && (
           <td className="tabular-nums whitespace-nowrap px-2 py-3 text-right text-xs text-zinc-700">
@@ -1292,41 +1272,14 @@ export function PositionsGrid({
                 <th className="px-2 py-2 text-right">
                   <button
                     type="button"
-                    onClick={() => toggleSort("initial_price")}
-                    className="hover:text-zinc-950"
-                  >
-                    {t("grid.colBaseline")}
-                  </button>
-                </th>
-                <th className="px-2 py-2 text-right">
-                  <button
-                    type="button"
                     onClick={() => toggleSort("current_price")}
                     className="hover:text-zinc-950"
                   >
-                    {t("grid.colCurrentPrice")}
-                  </button>
-                </th>
-                <th className="px-2 py-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort("target_price")}
-                    className="hover:text-zinc-950"
-                  >
-                    {t("grid.colTargetAlert")}
+                    {t("grid.colPrice")}
                   </button>
                 </th>
                 <th className="px-3 py-2 text-right">
                   {t("grid.colTrendDynamic")}
-                </th>
-                <th className="px-2 py-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort("drop_pct")}
-                    className="hover:text-zinc-950"
-                  >
-                    {t("grid.colDropPct")}
-                  </button>
                 </th>
                 {activeTab === "manual" && (
                   <th className="px-2 py-2 text-right">
@@ -1346,7 +1299,7 @@ export function PositionsGrid({
                       Math.max(1, group.rows.length);
                     return (
                       <FragmentGroup
-                        colSpan={activeTab === "manual" ? 10 : 9}
+                        colSpan={activeTab === "manual" ? 7 : 6}
                         key={gid}
                         groupId={gid}
                         label={group.label}

@@ -123,6 +123,7 @@ export const uk: TranslationDict = {
     selectItemAria: "Обрати {name}",
     colProductName: "Назва товару",
     colTags: "Теги",
+    colPrice: "Ціна",
     colBaseline: "Початкова",
     colCurrentPrice: "Поточна ціна",
     colTargetAlert: "Цільова ціна",

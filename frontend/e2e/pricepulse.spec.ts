@@ -1425,10 +1425,10 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const firstRow = page.locator("#grid-panel tbody tr").first();
     await expect(firstRow).toContainText(uniqueTitle);
 
-    // Clicking Drop % column header still sorts by Drop %
+    // Clicking Price column header still sorts by current price
     await page
       .locator("#grid-panel thead")
-      .getByRole("button", { name: /Drop %/i })
+      .getByRole("button", { name: /^Price$/i })
       .click();
     await expect(page.locator("#grid-panel tbody tr").first()).not.toContainText(
       uniqueTitle,

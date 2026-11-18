@@ -134,12 +134,10 @@ flowchart TD
 - **`REQ-GRID-04` (Active Positions Table Columns):**
   1. `Product Name` (sortable; `44×44px` rounded thumbnail + extracted lowercase retailer domain without `www.` e.g. `levi.com` above clickable title button opening `modal-item-details`)
   2. `Tags` (semantic color-coded tag pills via `TAG_BADGE_CLASSES[tag.color]`)
-  3. `Baseline` (`initial_price`, sortable, `tabular-nums`)
-  4. `Current Price` (sortable, `tabular-nums`)
-  5. `Target Alert` (`target_price`, sortable, `tabular-nums`)
-  6. `Trend Dynamic` (inline Cobalt Blue `#2563EB` SVG sparkline)
-  7. `Drop %` (sortable; `-X%` badge or `NORMAL`, `tabular-nums`)
-  8. `Actions` (outlined `Item Card →` button on desktop `>= 768px`; on mobile `< 768px`, the entire item tile is a single clickable `<button>` with a left thumbnail constrained to `min-height: 140px` / `max-height: 160px` (`object-cover object-center`), top status badge + compact `10px` tag pills, extracted lowercase retailer domain without `www.` above the 2-line title, and compact 2-column `Baseline` / `Current` price strip without an `Item Card` button).
+  3. `Price` (`current_price`, sortable, `tabular-nums`; `Baseline`, `Target Alert`, and `Drop %` remain inside `modal-item-details` and mobile cards)
+  4. `Trend Dynamic` (inline Cobalt Blue `#2563EB` SVG sparkline)
+  5. `Last check` (`Manual check` tab only; `YYYY-MM-DD`)
+  6. `Actions` (outlined `Item Card →` button on desktop `>= 768px`; on mobile `< 768px`, the entire item tile is a single clickable `<button>` with a left thumbnail constrained to `min-height: 140px` / `max-height: 160px` (`object-cover object-center`), top status badge + compact `10px` tag pills, extracted lowercase retailer domain without `www.` above the 2-line title, and compact 2-column `Baseline` / `Current` price strip without an `Item Card` button).
 - **`REQ-GRID-05` (Clickable Tag Chips in Grid):** Every tag chip rendered in the `Tags` column (in both Active Positions and Bought Items) MUST be an interactive `<button>` that filters the grid by that tag (and syncs the Chart); clicking the already-active tag chip clears the filter back to `ALL`.
 - **`REQ-GRID-06` (Collapsible Group By Tag Mode):** When `Group By: Tag` is selected, items are partitioned under collapsible group header rows (`<TagName>`, item count, average drop `%`); pagination is hidden in grouped mode.
 - **`REQ-GRID-07` (Pagination):** In `Flat List (None)` mode, paginate at **15 items per page** with `← Prev`, numbered page buttons, and `Next →` plus range indicator (`Showing X–Y of Z active positions`).
@@ -255,3 +253,4 @@ flowchart TD
 | `0.5.0` | 2026-11-18 | Antigravity | Aligned Bulk URL `Target Discount %` and `Shared Tags` inputs on the same horizontal row via `TagAdderControl` `controlsFirst` (`REQ-MODAL-02`), removed programmatic `"manual check"` auto-tagging across `AddItemModal` and `_execute_batch_check` with legacy tag cleanup (`REQ-SCRAPE-05`), and switched the `Manual check` tab to automatic `last_checked >= 2 days` staleness detection (`REQ-GRID-03`). |
 | `0.5.0` | 2026-11-18 | Antigravity | Fixed CSR/SPA hydration and Tier 3 DOM RegEx price extraction (`REQ-SCRAPE-01`, `REQ-SCRAPE-02`): `_fetch_html` now waits for `networkidle` (up to 5s) when Tier 1/2 structured price metadata is absent at `domcontentloaded`, and Tier 3 `_extract_tier3_price` ranks prefix/suffix candidates in document order while preventing suffix currency symbols (e.g., `0 €`, `39,90 €`) and wide whitespace from matching trailing ratings (`4.9`) as prefix prices. |
 | `0.5.0` | 2026-11-18 | Antigravity | Added `extractDomain` in `domain/models.ts` and displayed the clean retailer domain (e.g. `levi.com`, `www.` stripped) directly above the product title across `PositionsGrid` desktop rows and mobile cards (`REQ-GRID-04`, `REQ-GRID-08`), with domain search matching. |
+| `0.5.0` | 2026-11-18 | Antigravity | Compacted the desktop `PositionsGrid` Active/Manual table (`REQ-GRID-04`) by removing `Baseline`, `Target Alert`, and `Drop %` columns and consolidating `Current Price` into a single sortable `Price` (`Ціна`) column alongside `Product Name`, `Tags`, `Trend Dynamic`, and `Actions` (`Last check` preserved on `Manual check`). |
