@@ -70,6 +70,19 @@ class RuntimeDiagnostics:
 
 
 @dataclass(frozen=True)
+class ChargeRecord:
+    """Single billing charge or payment transaction from a 3rd-party provider."""
+
+    charge_id: str
+    provider: str
+    description: str
+    amount: float
+    currency: str
+    status: str
+    created_at: str
+
+
+@dataclass(frozen=True)
 class ThirdPartyResourceStatus:
     """Sanitized status and quota snapshot for a single 3rd-party resource."""
 
@@ -83,6 +96,8 @@ class ThirdPartyResourceStatus:
     quota_used: float | None = None
     quota_limit: float | None = None
     quota_unit: str = ""
+    billing_tier: str = "Free Tier"
+    monthly_cost_usd: float = 0.0
     reset_at: str | None = None
     last_activity_at: str | None = None
     details: dict[str, Any] = field(default_factory=dict)
@@ -101,6 +116,8 @@ class ResourcesInventory:
     auth_mode: str
     resources: list[ThirdPartyResourceStatus]
     backend_packages: dict[str, str]
+    charges: list[ChargeRecord] = field(default_factory=list)
+    total_charges_usd: float = 0.0
 
 
 class StructuredLogger:
@@ -213,19 +230,35 @@ async def fetch_webshare_telemetry(
         )
         end_date = str(sub_data.get("end_date") or now.isoformat())
 
-        stats_resp = await http_client.get(
-            f"{WEBSHARE_API_BASE}/stats/aggregate/",
-            headers=headers,
-            params={"timestamp__gte": start_date, "timestamp__lte": end_date},
+        stats_resp, tx_resp = await asyncio.gather(
+            http_client.get(
+                f"{WEBSHARE_API_BASE}/stats/aggregate/",
+                headers=headers,
+                params={"timestamp__gte": start_date, "timestamp__lte": end_date},
+            ),
+            http_client.get(
+                f"{WEBSHARE_API_BASE}/payment/transaction/",
+                headers=headers,
+                params={"page": 1, "page_size": 20},
+            ),
         )
         stats_resp.raise_for_status()
         stats_data = stats_resp.json()
         if not isinstance(stats_data, dict):
             stats_data = {}
 
+        tx_results: list[dict[str, Any]] = []
+        if tx_resp.status_code == 200:
+            tx_payload = tx_resp.json()
+            if isinstance(tx_payload, dict) and isinstance(tx_payload.get("results"), list):
+                tx_results = [
+                    row for row in tx_payload["results"] if isinstance(row, dict)
+                ]
+
         return {
             "subscription": sub_data,
             "stats": stats_data,
+            "transactions": tx_results,
         }
     finally:
         if owns_client:
@@ -442,6 +475,10 @@ def _build_webshare_resource(
             reset_at = str(sub["end_date"])
         if sub.get("plan_type") or sub.get("status"):
             details["plan"] = str(sub.get("plan_type") or sub.get("status"))
+        if sub.get("term"):
+            details["term"] = str(sub["term"])
+        if isinstance(sub.get("free_credits"), (int, float)):
+            details["free_credits"] = float(sub["free_credits"])
 
         raw_bw_bytes = stats.get("bandwidth_total")
         if isinstance(raw_bw_bytes, (int, float)):
@@ -482,6 +519,8 @@ def _build_webshare_resource(
         quota_used=bandwidth_used_mb,
         quota_limit=bandwidth_limit_mb,
         quota_unit="MB",
+        billing_tier=f"Free {proxy_limit} Proxies / 1 GB",
+        monthly_cost_usd=0.0,
         reset_at=reset_at,
         last_activity_at=last_request_at,
         details=details,
@@ -637,6 +676,34 @@ async def collect_third_party_resources_async(
         _build_playwright_resource(scraper_mode, pw_err, pw_exe),
     ]
 
+    charges: list[ChargeRecord] = []
+    if ws_data is not None and isinstance(ws_data.get("transactions"), list):
+        for idx, tx in enumerate(ws_data["transactions"]):
+            if not isinstance(tx, dict):
+                continue
+            raw_amount = tx.get("amount", 0.0)
+            try:
+                amount_val = float(raw_amount)
+            except (TypeError, ValueError):
+                amount_val = 0.0
+            charges.append(
+                ChargeRecord(
+                    charge_id=str(tx.get("id") or f"ws-tx-{idx}"),
+                    provider="Webshare.io",
+                    description=str(
+                        tx.get("reason") or tx.get("type") or "Proxy Subscription"
+                    ),
+                    amount=round(amount_val, 2),
+                    currency=str(tx.get("currency") or "USD"),
+                    status=str(tx.get("status") or "completed"),
+                    created_at=str(tx.get("created_at") or ""),
+                )
+            )
+    total_charges_usd = round(
+        sum(c.amount for c in charges if c.currency.upper() == "USD"),
+        2,
+    )
+
     return ResourcesInventory(
         app_version=APP_VERSION,
         fetched_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -646,4 +713,6 @@ async def collect_third_party_resources_async(
         auth_mode=auth_mode,
         resources=resources,
         backend_packages={pkg: _package_version(pkg) for pkg in CRITICAL_PACKAGES},
+        charges=charges,
+        total_charges_usd=total_charges_usd,
     )

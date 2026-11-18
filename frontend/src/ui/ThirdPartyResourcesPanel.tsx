@@ -398,6 +398,7 @@ export function ThirdPartyResourcesPanel({
                         </div>
                         <div className="text-[11px] text-zinc-500">
                           {res.provider}
+                          {res.billing_tier ? ` • ${res.billing_tier}` : ""}
                         </div>
                       </td>
                       <td className="px-3 py-3 text-zinc-700">
@@ -442,6 +443,67 @@ export function ThirdPartyResourcesPanel({
           </div>
         </>
       )}
+
+      {/* Billing & Charges Ledger */}
+      <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-zinc-950">
+            {t("health.chargesTitle")}
+          </h2>
+          <div className="tabular-nums rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-zinc-950">
+            {t("health.chargesTotalLabel")}: $
+            {(inventory?.total_charges_usd ?? 0).toFixed(2)}
+          </div>
+        </div>
+        {(inventory?.charges ?? []).length === 0 ? (
+          <p className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-xs text-zinc-600">
+            {t("health.chargesEmpty")}
+          </p>
+        ) : (
+          <div
+            data-scroll-container="true"
+            className="overflow-x-auto rounded-lg border border-gray-200"
+          >
+            <table className="w-full border-collapse text-left text-xs">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50/50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <th className="px-3 py-2">{t("health.colChargeDate")}</th>
+                  <th className="px-3 py-2">{t("health.colProvider")}</th>
+                  <th className="px-3 py-2">{t("health.colChargeDesc")}</th>
+                  <th className="px-3 py-2">{t("health.colStatus")}</th>
+                  <th className="px-3 py-2 text-right">
+                    {t("health.colChargeAmount")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {(inventory?.charges ?? []).map((charge) => (
+                  <tr key={charge.charge_id} className="hover:bg-gray-50/70">
+                    <td className="tabular-nums px-3 py-2 text-zinc-500">
+                      {charge.created_at || "—"}
+                    </td>
+                    <td className="px-3 py-2 font-medium text-zinc-950">
+                      {charge.provider}
+                    </td>
+                    <td className="px-3 py-2 text-zinc-700">
+                      {charge.description}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-zinc-700">
+                        {charge.status}
+                      </span>
+                    </td>
+                    <td className="tabular-nums px-3 py-2 text-right font-mono font-semibold text-zinc-950">
+                      {charge.amount.toFixed(2)} {charge.currency}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-[11px] text-zinc-400">{t("health.chargesGcpNote")}</p>
+      </div>
 
       {/* Software Packages Ledger */}
       <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">

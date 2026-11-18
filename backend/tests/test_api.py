@@ -775,6 +775,16 @@ def test_resources_inventory_masks_secrets_and_aggregates_webshare(
                 "number_of_proxies_used": 8,
                 "last_request_sent_at": "2026-11-18T14:00:00Z",
             },
+            "transactions": [
+                {
+                    "id": "tx-001",
+                    "amount": 0.0,
+                    "currency": "USD",
+                    "status": "completed",
+                    "reason": "Free Tier Monthly Renewal",
+                    "created_at": "2026-11-14T16:29:15Z",
+                }
+            ],
         }
 
     monkeypatch.setattr("pricepulse.diagnostics.fetch_webshare_telemetry", _fake_webshare)
@@ -810,6 +820,9 @@ def test_resources_inventory_masks_secrets_and_aggregates_webshare(
     assert ws["details"]["proxy_pool_count"] == 1
     assert ws["details"]["proxy_hosts"] == ["198.51.100.1:8080"]
     assert ws["details"]["requests_successful"] == 115
+    assert body["total_charges_usd"] == 0.0
+    assert len(body["charges"]) == 1
+    assert body["charges"][0]["charge_id"] == "tx-001"
 
 
 def test_resources_probe_handles_fault_isolation(

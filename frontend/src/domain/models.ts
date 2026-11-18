@@ -287,6 +287,16 @@ export type ResourceCategory = "cloud_api" | "auth" | "scraper" | "infra";
 export type ResourceMode = "live" | "mock" | "disabled" | "configured";
 export type ResourceHealthStatus = "operational" | "warning" | "disabled";
 
+export interface ChargeRecord {
+  charge_id: string;
+  provider: string;
+  description: string;
+  amount: number;
+  currency: string;
+  status: string;
+  created_at: string;
+}
+
 export interface ThirdPartyResource {
   resource_id: string;
   name: string;
@@ -298,6 +308,8 @@ export interface ThirdPartyResource {
   quota_used: number | null;
   quota_limit: number | null;
   quota_unit: string;
+  billing_tier?: string;
+  monthly_cost_usd?: number;
   reset_at: string | null;
   last_activity_at: string | null;
   details: Record<string, unknown>;
@@ -313,6 +325,8 @@ export interface ResourcesInventory {
   auth_mode: string;
   resources: ThirdPartyResource[];
   backend_packages: Record<string, string>;
+  charges?: ChargeRecord[];
+  total_charges_usd?: number;
 }
 
 export const FRONTEND_PACKAGES: Record<string, string> = {
