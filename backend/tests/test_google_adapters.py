@@ -205,15 +205,16 @@ def test_google_sheets_add_items_batch_uses_single_append_per_tab() -> None:
 
 
 def test_gmail_captcha_report_contains_retailer_and_modal_links() -> None:
-    """Verify daily CAPTCHA report includes both retailer URL and PricePulse item link."""
+    """Verify daily CAPTCHA report sends clean HTML + text without tech jargon."""
     import base64
+    from email import message_from_bytes
 
     svc = _FakeGmailService()
     notifier = GmailDigestNotifier(svc)
     item = TrackedItem(
         item_id="item-cap-1",
         name="Imprese Faucet",
-        url="https://kaplya.com.ua/p",
+        url="https://www.kaplya.com.ua/p?gclid=123",
         image_url="",
         currency="₴",
         initial_price=3499.0,
@@ -231,7 +232,27 @@ def test_gmail_captcha_report_contains_retailer_and_modal_links() -> None:
         is True
     )
     assert len(svc.sent) == 1
-    decoded = base64.urlsafe_b64decode(svc.sent[0]["body"]["raw"]).decode("utf-8")
-    assert "https://kaplya.com.ua/p" in decoded
-    assert "https://meksico.github.io/price-pulse/items/item-cap-1" in decoded
+    raw_bytes = base64.urlsafe_b64decode(svc.sent[0]["body"]["raw"])
+    parsed = message_from_bytes(raw_bytes)
+    assert parsed.is_multipart()
+    parts: dict[str, str] = {}
+    for part in parsed.walk():
+        if part.get_content_maintype() == "text":
+            payload = part.get_payload(decode=True)
+            if isinstance(payload, bytes):
+                parts[part.get_content_type()] = payload.decode("utf-8")
+    assert "text/plain" in parts
+    assert "text/html" in parts
+
+    html_body = parts["text/html"]
+    plain_body = parts["text/plain"]
+    for body in (html_body, plain_body):
+        assert "https://www.kaplya.com.ua/p?gclid=123" in body
+        assert "https://meksico.github.io/price-pulse/items/item-cap-1" in body
+        assert "kaplya.com.ua" in body
+        assert "HTTP 403" not in body
+        assert "CAPTCHA_BLOCKED" not in body
+    assert 'role="presentation"' in html_body
+    assert "Check price on kaplya.com.ua" in html_body
+    assert "Update in PricePulse" in html_body
 
