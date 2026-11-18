@@ -720,9 +720,9 @@ export function AddItemModal({
           t("addModal.bulkPreviewReadyTitle"),
           nextFailures.length > 0
             ? t("addModal.bulkPreviewPartialBody", {
-                ok: nextCards.length,
-                fail: nextFailures.length,
-              })
+              ok: nextCards.length,
+              fail: nextFailures.length,
+            })
             : t("addModal.bulkPreviewOkBody", { ok: nextCards.length }),
         );
       } else {
@@ -878,9 +878,9 @@ export function AddItemModal({
 
   const canSaveSingle = Boolean(
     url.trim() &&
-      title.trim() &&
-      Number(initialPrice) > 0 &&
-      Number(targetPrice) > 0,
+    title.trim() &&
+    Number(initialPrice) > 0 &&
+    Number(targetPrice) > 0,
   );
 
   return (
@@ -916,747 +916,744 @@ export function AddItemModal({
         <div className="max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
           <div
             ref={swipeHandleRef}
-          data-swipe-handle="true"
-          className="touch-none sm:touch-auto"
-        >
-          <div
-            aria-hidden="true"
-            className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
-          />
+            data-swipe-handle="true"
+            className="touch-none sm:touch-auto"
+          >
+            <div
+              aria-hidden="true"
+              className="mx-auto mb-3 h-1 w-9 rounded-full bg-zinc-300 sm:hidden"
+            />
 
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2
-                id="add-item-modal-title"
-                className="text-base font-semibold text-zinc-950"
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2
+                  id="add-item-modal-title"
+                  className="text-base font-semibold text-zinc-950"
+                >
+                  {t("addModal.title")}
+                </h2>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {activeMode === "single"
+                    ? t("addModal.subtitleSingle")
+                    : t("addModal.subtitleBulk")}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label={t("addModal.closeAria")}
+                disabled={fetching}
+                onClick={onClose}
+                className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:opacity-40 sm:min-h-9 sm:min-w-9"
               >
-                {t("addModal.title")}
-              </h2>
-              <p className="mt-0.5 text-xs text-zinc-500">
-                {activeMode === "single"
-                  ? t("addModal.subtitleSingle")
-                  : t("addModal.subtitleBulk")}
-              </p>
+                &times;
+              </button>
             </div>
+          </div>
+
+          <div
+            id={ANCHORS.modalAddItemModeTabs}
+            role="tablist"
+            aria-label={t("addModal.modeTablistAria")}
+            className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 text-xs"
+          >
             <button
               type="button"
-              aria-label={t("addModal.closeAria")}
+              role="tab"
+              aria-selected={activeMode === "single"}
               disabled={fetching}
-              onClick={onClose}
-              className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-lg text-zinc-500 hover:bg-gray-100 hover:text-zinc-950 disabled:opacity-40 sm:min-h-9 sm:min-w-9"
+              onClick={() => switchMode("single")}
+              className={`min-h-9 rounded-lg px-3 py-1.5 font-medium transition-colors ${activeMode === "single"
+                ? "bg-white font-semibold text-zinc-950 shadow-xs"
+                : "text-zinc-500 hover:text-zinc-950"
+                }`}
             >
-              &times;
+              {t("addModal.tabSingle")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeMode === "bulk"}
+              disabled={fetching}
+              onClick={() => switchMode("bulk")}
+              className={`min-h-9 rounded-lg px-3 py-1.5 font-medium transition-colors ${activeMode === "bulk"
+                ? "bg-white font-semibold text-zinc-950 shadow-xs"
+                : "text-zinc-500 hover:text-zinc-950"
+                }`}
+            >
+              {t("addModal.tabBulk")}
             </button>
           </div>
-        </div>
 
-        <div
-          id={ANCHORS.modalAddItemModeTabs}
-          role="tablist"
-          aria-label={t("addModal.modeTablistAria")}
-          className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 text-xs"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeMode === "single"}
-            disabled={fetching}
-            onClick={() => switchMode("single")}
-            className={`min-h-9 rounded-lg px-3 py-1.5 font-medium transition-colors ${
-              activeMode === "single"
-                ? "bg-white font-semibold text-zinc-950 shadow-xs"
-                : "text-zinc-500 hover:text-zinc-950"
-            }`}
-          >
-            {t("addModal.tabSingle")}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeMode === "bulk"}
-            disabled={fetching}
-            onClick={() => switchMode("bulk")}
-            className={`min-h-9 rounded-lg px-3 py-1.5 font-medium transition-colors ${
-              activeMode === "bulk"
-                ? "bg-white font-semibold text-zinc-950 shadow-xs"
-                : "text-zinc-500 hover:text-zinc-950"
-            }`}
-          >
-            {t("addModal.tabBulk")}
-          </button>
-        </div>
-
-        {activeMode === "single" ? (
-          <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
-            <fieldset
-              disabled={fetching}
-              className="m-0 min-w-0 space-y-3.5 border-0 p-0"
-            >
-              <div>
-                <label
-                  htmlFor="add-item-url"
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
-                >
-                  {t("addModal.urlLabel")}
-                </label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    ref={urlInputRef}
-                    id="add-item-url"
-                    type="url"
-                    required
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder={t("addModal.urlPlaceholder")}
-                    className="min-h-11 min-w-0 flex-1 rounded-lg bg-gray-100 px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void handleFetch()}
-                    disabled={fetching}
-                    aria-busy={fetching}
-                    className="min-h-11 shrink-0 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1 disabled:opacity-40 sm:min-h-10"
-                  >
-                    {fetching
-                      ? t("addModal.fetchingPreview")
-                      : t("addModal.fetchPreview")}
-                  </button>
-                </div>
-                {prefillNotice && (
-                  <div
-                    role="status"
-                    className="mt-2 flex items-center gap-2.5 rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-[11px] text-blue-900"
-                  >
-                    {imageUrl && !prefillImageError && (
-                      <img
-                        src={imageUrl}
-                        alt={title || "Pre-filled product preview"}
-                        onError={() => setPrefillImageError(true)}
-                        className="h-10 w-10 shrink-0 rounded-md border border-blue-200 bg-white object-contain p-0.5"
-                      />
-                    )}
-                    <p className="min-w-0 leading-relaxed">
-                      {t("addModal.prefillLoadedPrefix")}
-                      {prefill?.shortcutVersion && (
-                        <span className="ml-1 inline-block rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-800">
-                          Shortcut v{prefill.shortcutVersion}
-                        </span>
-                      )}
-                      . {t("addModal.prefillLoadedSuffix")}{" "}
-                      <span className="font-semibold">
-                        {t("addModal.saveAndTrack")}
-                      </span>
-                      .
-                    </p>
-                  </div>
-                )}
-                {captchaBlockedMsg && (
-                  <div
-                    role="status"
-                    className="mt-2 space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-950"
-                  >
-                    <p className="font-semibold">
-                      {t("addModal.captchaBannerTitle")}
-                    </p>
-                    <p className="leading-relaxed text-amber-900">
-                      {captchaBlockedMsg}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label
-                  htmlFor="add-item-title"
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
-                >
-                  {t("addModal.productTitleLabel")}
-                </label>
-                <input
-                  id="add-item-title"
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder={t("addModal.productTitlePlaceholder")}
-                  className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2.5">
-                <div className="min-w-0">
+          {activeMode === "single" ? (
+            <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+              <fieldset
+                disabled={fetching}
+                className="m-0 min-w-0 space-y-3.5 border-0 p-0"
+              >
+                <div>
                   <label
-                    htmlFor="add-item-currency"
-                    className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
-                  >
-                    {t("addModal.currencyLabel")}
-                  </label>
-                  <input
-                    id="add-item-currency"
-                    type="text"
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="min-h-11 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <label
-                    htmlFor="add-item-baseline"
-                    className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
-                  >
-                    {t("addModal.baselinePriceLabel")}
-                  </label>
-                  <input
-                    id="add-item-baseline"
-                    type="number"
-                    step="0.01"
-                    required
-                    value={initialPrice}
-                    onChange={(e) => setInitialPrice(e.target.value)}
-                    placeholder="0.00"
-                    className="tabular-nums min-h-11 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <label
-                    htmlFor="add-item-target"
-                    className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
-                  >
-                    {t("addModal.targetPriceLabel")}
-                  </label>
-                  <input
-                    id="add-item-target"
-                    type="number"
-                    step="0.01"
-                    required
-                    value={targetPrice}
-                    onChange={(e) => setTargetPrice(e.target.value)}
-                    placeholder="0.00"
-                    className="tabular-nums min-h-11 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                  {t("addModal.tagsLabel")}
-                </span>
-                <TagAdderControl
-                  idPrefix="add-item-tag"
-                  availableTags={availableTags}
-                  selectedTagNames={selectedTagNames}
-                  onAddTag={handleAddTag}
-                  onRemoveTag={handleRemoveTag}
-                  readOnly={fetching}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
-                <button
-                  type="button"
-                  onClick={handleResetAndClose}
-                  className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
-                >
-                  {t("addModal.cancel")}
-                </button>
-                <button
-                  type="submit"
-                  disabled={fetching || !canSaveSingle}
-                  className="min-h-11 rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-10"
-                >
-                  {t("addModal.saveAndTrack")}
-                </button>
-              </div>
-            </fieldset>
-          </form>
-        ) : bulkStep === "input" ? (
-          <div className="space-y-3.5 text-xs">
-            <fieldset
-              disabled={fetching}
-              className="m-0 min-w-0 space-y-3.5 border-0 p-0"
-            >
-              <div>
-                <label
-                  htmlFor="bulk-url-input"
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
-                >
-                  {t("addModal.bulkUrlsLabel")}
-                </label>
-                <textarea
-                  ref={bulkTextareaRef}
-                  id="bulk-url-input"
-                  rows={5}
-                  value={bulkUrlsText}
-                  onChange={(e) => setBulkUrlsText(e.target.value)}
-                  placeholder={t("addModal.bulkUrlsPlaceholder")}
-                  className="min-h-[112px] w-full min-w-0 rounded-lg bg-gray-100 px-3 py-2.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950"
-                />
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className="tabular-nums mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-zinc-600"
-                >
-                  <span className="font-semibold text-zinc-950">
-                    {t("addModal.bulkStatsValid", {
-                      count: parsedBulk.validUrls.length,
-                    })}
-                  </span>
-                  {parsedBulk.alreadyTracked.length > 0 && (
-                    <span>
-                      {t("addModal.bulkStatsTracked", {
-                        count: parsedBulk.alreadyTracked.length,
-                      })}
-                    </span>
-                  )}
-                  {parsedBulk.duplicates.length > 0 && (
-                    <span>
-                      {t("addModal.bulkStatsDupes", {
-                        count: parsedBulk.duplicates.length,
-                      })}
-                    </span>
-                  )}
-                  {parsedBulk.invalid.length > 0 && (
-                    <span className="text-red-600">
-                      {t("addModal.bulkStatsInvalid", {
-                        count: parsedBulk.invalid.length,
-                      })}
-                    </span>
-                  )}
-                  {parsedBulk.overflowCount > 0 && (
-                    <span className="text-amber-700">
-                      {t("addModal.bulkStatsCap", {
-                        count: parsedBulk.overflowCount,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[140px_1fr]">
-                <div className="min-w-0">
-                  <label
-                    htmlFor="bulk-target-discount"
+                    htmlFor="add-item-url"
                     className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                   >
-                    {t("addModal.bulkTargetDiscountLabel")}
+                    {t("addModal.urlLabel")}
                   </label>
-                  <input
-                    id="bulk-target-discount"
-                    type="number"
-                    min={1}
-                    max={90}
-                    value={bulkDiscountPct}
-                    onChange={(e) => setBulkDiscountPct(e.target.value)}
-                    className="tabular-nums min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                    {t("addModal.bulkSharedTagsLabel")}
-                  </span>
-                  <TagAdderControl
-                    idPrefix="bulk-item-tag"
-                    availableTags={availableTags}
-                    selectedTagNames={bulkTagNames}
-                    onAddTag={handleAddBulkTag}
-                    onRemoveTag={handleRemoveBulkTag}
-                    readOnly={fetching}
-                    controlsFirst
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
-                <button
-                  type="button"
-                  onClick={handleResetAndClose}
-                  className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
-                >
-                  {t("addModal.cancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={parsedBulk.validUrls.length === 0}
-                  onClick={() => void handleFetchBulkPreviews()}
-                  className="tabular-nums min-h-11 rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
-                >
-                  {t("addModal.fetchPreviewsBtn", {
-                    count: parsedBulk.validUrls.length,
-                  })}
-                </button>
-              </div>
-            </fieldset>
-          </div>
-        ) : bulkStep === "review" && currentCard ? (
-          <div
-            id={ANCHORS.modalAddItemReviewCarousel}
-            className="min-w-0 space-y-3.5 text-xs"
-          >
-            <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-zinc-950">
-                    {t("addModal.visualValidationTitle")}
-                  </span>
-                  <span className="tabular-nums rounded-full bg-zinc-950 px-2 py-0.5 text-[11px] font-semibold text-white">
-                    ({activeCardIndex + 1}/{draftCards.length})
-                  </span>
-                </div>
-                <div className="mt-0.5 text-[11px] text-zinc-500">
-                  {t("addModal.visualValidationSub")}
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <button
-                  type="button"
-                  aria-label={t("addModal.prevCardAria")}
-                  disabled={activeCardIndex === 0 || fetching}
-                  onClick={() =>
-                    setActiveCardIndex((prev) => Math.max(0, prev - 1))
-                  }
-                  className="min-h-9 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-950 hover:bg-gray-100 disabled:opacity-40"
-                >
-                  {t("addModal.prevCard")}
-                </button>
-                <button
-                  type="button"
-                  aria-label={t("addModal.nextCardAria")}
-                  disabled={activeCardIndex >= draftCards.length - 1 || fetching}
-                  onClick={() =>
-                    setActiveCardIndex((prev) =>
-                      Math.min(draftCards.length - 1, prev + 1),
-                    )
-                  }
-                  className="min-h-9 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-950 hover:bg-gray-100 disabled:opacity-40"
-                >
-                  {t("addModal.nextCard")}
-                </button>
-              </div>
-            </div>
-
-            <div className="h-1 w-full overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-blue-600 transition-all duration-200"
-                style={{
-                  width: `${((activeCardIndex + 1) / draftCards.length) * 100}%`,
-                }}
-              />
-            </div>
-
-            <div
-              ref={carouselViewportRef}
-              role="region"
-              aria-label={t("addModal.cardRegionAria")}
-              className="touch-pan-y min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white"
-            >
-              <div
-                ref={carouselTrackRef}
-                className="min-w-0 space-y-3 p-3.5 will-change-transform"
-              >
-                <div className="flex items-start justify-between gap-2.5">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    {currentCard.imageUrl && !failedImages[currentCard.id] ? (
-                      <img
-                        src={currentCard.imageUrl}
-                        alt=""
-                        onError={() =>
-                          setFailedImages((prev) => ({
-                            ...prev,
-                            [currentCard.id]: true,
-                          }))
-                        }
-                        className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 bg-gray-50 object-cover"
-                      />
-                    ) : (
-                      <div
-                        aria-hidden="true"
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-[10px] font-semibold text-zinc-500"
-                      >
-                        IMG
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <div className="truncate text-[11px] font-medium text-zinc-500">
-                        {currentCard.url}
-                      </div>
-                      <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-400">
-                        {currentCard.extractionTier.replaceAll("_", " ")}
-                      </div>
-                    </div>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      ref={urlInputRef}
+                      id="add-item-url"
+                      type="url"
+                      required
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder={t("addModal.urlPlaceholder")}
+                      className="min-h-11 min-w-0 flex-1 rounded-lg bg-gray-100 px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleFetch()}
+                      disabled={fetching}
+                      aria-busy={fetching}
+                      className="min-h-11 shrink-0 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1 disabled:opacity-40 sm:min-h-10"
+                    >
+                      {fetching
+                        ? t("addModal.fetchingPreview")
+                        : t("addModal.fetchPreview")}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    aria-pressed={currentCard.included}
-                    onClick={() =>
-                      updateCurrentCard((card) => ({
-                        ...card,
-                        included: !card.included,
-                      }))
-                    }
-                    className={`min-h-8 shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                      currentCard.included
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                        : "border-gray-200 bg-gray-100 text-zinc-500 hover:bg-gray-200"
-                    }`}
-                  >
-                    {currentCard.included
-                      ? t("addModal.includeInBatch")
-                      : t("addModal.skippedInBatch")}
-                  </button>
+                  {prefillNotice && (
+                    <div
+                      role="status"
+                      className="mt-2 flex items-center gap-2.5 rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-[11px] text-blue-900"
+                    >
+                      {imageUrl && !prefillImageError && (
+                        <img
+                          src={imageUrl}
+                          alt={title || "Pre-filled product preview"}
+                          onError={() => setPrefillImageError(true)}
+                          className="h-10 w-10 shrink-0 rounded-md border border-blue-200 bg-white object-contain p-0.5"
+                        />
+                      )}
+                      <p className="min-w-0 leading-relaxed">
+                        {t("addModal.prefillLoadedPrefix")}
+                        {prefill?.shortcutVersion && (
+                          <span className="ml-1 inline-block rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-800">
+                            Shortcut v{prefill.shortcutVersion}
+                          </span>
+                        )}
+                        . {t("addModal.prefillLoadedSuffix")}{" "}
+                        <span className="font-semibold">
+                          {t("addModal.saveAndTrack")}
+                        </span>
+                        .
+                      </p>
+                    </div>
+                  )}
+                  {captchaBlockedMsg && (
+                    <div
+                      role="status"
+                      className="mt-2 space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-950"
+                    >
+                      <p className="font-semibold">
+                        {t("addModal.captchaBannerTitle")}
+                      </p>
+                      <p className="leading-relaxed text-amber-900">
+                        {captchaBlockedMsg}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label
-                    htmlFor="bulk-card-title"
+                    htmlFor="add-item-title"
                     className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                   >
                     {t("addModal.productTitleLabel")}
                   </label>
                   <input
-                    id="bulk-card-title"
+                    id="add-item-title"
                     type="text"
-                    value={currentCard.title}
-                    onChange={(e) =>
-                      updateCurrentCard((card) => ({
-                        ...card,
-                        title: e.target.value,
-                      }))
-                    }
-                    className="min-h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder={t("addModal.productTitlePlaceholder")}
+                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
                   />
                 </div>
 
                 <div className="grid grid-cols-3 gap-2.5">
                   <div className="min-w-0">
                     <label
-                      htmlFor="bulk-card-currency"
+                      htmlFor="add-item-currency"
                       className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                     >
                       {t("addModal.currencyLabel")}
                     </label>
                     <input
-                      id="bulk-card-currency"
+                      id="add-item-currency"
                       type="text"
-                      value={currentCard.currency}
-                      onChange={(e) =>
-                        updateCurrentCard((card) => ({
-                          ...card,
-                          currency: e.target.value,
-                        }))
-                      }
-                      className="min-h-10 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="min-h-11 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
                     />
                   </div>
                   <div className="min-w-0">
                     <label
-                      htmlFor="bulk-card-baseline"
+                      htmlFor="add-item-baseline"
                       className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                     >
                       {t("addModal.baselinePriceLabel")}
                     </label>
                     <input
-                      id="bulk-card-baseline"
+                      id="add-item-baseline"
                       type="number"
                       step="0.01"
-                      value={currentCard.initialPrice}
-                      onChange={(e) =>
-                        updateCurrentCard((card) => ({
-                          ...card,
-                          initialPrice: e.target.value,
-                        }))
-                      }
-                      className="tabular-nums min-h-10 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                      required
+                      value={initialPrice}
+                      onChange={(e) => setInitialPrice(e.target.value)}
+                      placeholder="0.00"
+                      className="tabular-nums min-h-11 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
                     />
                   </div>
                   <div className="min-w-0">
                     <label
-                      htmlFor="bulk-card-target"
+                      htmlFor="add-item-target"
                       className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                     >
                       {t("addModal.targetPriceLabel")}
                     </label>
                     <input
-                      id="bulk-card-target"
+                      id="add-item-target"
                       type="number"
                       step="0.01"
-                      value={currentCard.targetPrice}
-                      onChange={(e) =>
-                        updateCurrentCard((card) => ({
-                          ...card,
-                          targetPrice: e.target.value,
-                        }))
-                      }
-                      className="tabular-nums min-h-10 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                      required
+                      value={targetPrice}
+                      onChange={(e) => setTargetPrice(e.target.value)}
+                      placeholder="0.00"
+                      className="tabular-nums min-h-11 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                    {t("addModal.itemTagsLabel")}
+                    {t("addModal.tagsLabel")}
                   </span>
                   <TagAdderControl
-                    key={currentCard.id}
-                    idPrefix={`bulk-card-tag-${currentCard.id}`}
+                    idPrefix="add-item-tag"
                     availableTags={availableTags}
-                    selectedTagNames={currentCard.tagNames}
-                    onAddTag={(tagName) =>
-                      updateCurrentCard((card) => ({
-                        ...card,
-                        tagNames: mergeUniqueTags(card.tagNames, [tagName]),
-                      }))
-                    }
-                    onRemoveTag={(tagName) =>
-                      updateCurrentCard((card) => ({
-                        ...card,
-                        tagNames: card.tagNames.filter(
-                          (t) =>
-                            t.trim().toLowerCase() !==
-                            tagName.trim().toLowerCase(),
-                        ),
-                      }))
-                    }
+                    selectedTagNames={selectedTagNames}
+                    onAddTag={handleAddTag}
+                    onRemoveTag={handleRemoveTag}
                     readOnly={fetching}
                   />
                 </div>
-              </div>
-            </div>
 
-            {failedOutcomes.length > 0 && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
-                {t("addModal.failedPreviewBanner", {
-                  count: failedOutcomes.length,
-                })}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
-              <button
-                type="button"
+                <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={handleResetAndClose}
+                    className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
+                  >
+                    {t("addModal.cancel")}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={fetching || !canSaveSingle}
+                    className="min-h-11 rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-10"
+                  >
+                    {t("addModal.saveAndTrack")}
+                  </button>
+                </div>
+              </fieldset>
+            </form>
+          ) : bulkStep === "input" ? (
+            <div className="space-y-3.5 text-xs">
+              <fieldset
                 disabled={fetching}
-                onClick={() => setBulkStep("input")}
-                className="min-h-11 rounded-lg bg-gray-100 px-3.5 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
+                className="m-0 min-w-0 space-y-3.5 border-0 p-0"
               >
-                {t("addModal.editUrlListBtn")}
-              </button>
-              <button
-                type="button"
-                disabled={fetching || includedCards.length === 0}
-                onClick={() => void handleSaveValidatedBatch()}
-                className="tabular-nums min-h-11 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
-              >
-                {t("addModal.saveValidatedBtn", { count: includedCards.length })}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            id={ANCHORS.modalAddItemBulkSummary}
-            className="min-w-0 space-y-3.5 text-xs"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
-              <div className="tabular-nums font-semibold text-zinc-950">
-                {savedSummaries.length > 0
-                  ? t("addModal.bulkSavedHeader", {
-                      count: savedSummaries.length,
-                    })
-                  : t("addModal.bulkZeroSavedHeader")}
-              </div>
-              <div className="tabular-nums font-semibold text-red-600">
-                {t("addModal.bulkFailedHeader", {
-                  count: failedOutcomes.length,
-                })}
-              </div>
-            </div>
-
-            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
-              {savedSummaries.map((item) => (
-                <div
-                  key={`saved-${item.url}`}
-                  className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-semibold text-zinc-950">
-                      {item.name}
-                    </span>
-                    <span className="tabular-nums shrink-0 text-[11px] font-medium text-emerald-800">
-                      {t("addModal.savedPriceBadge", {
-                        price: `${item.currency}${item.price.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                <div>
+                  <label
+                    htmlFor="bulk-url-input"
+                    className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
+                  >
+                    {t("addModal.bulkUrlsLabel")}
+                  </label>
+                  <textarea
+                    ref={bulkTextareaRef}
+                    id="bulk-url-input"
+                    rows={5}
+                    value={bulkUrlsText}
+                    onChange={(e) => setBulkUrlsText(e.target.value)}
+                    placeholder={t("addModal.bulkUrlsPlaceholder")}
+                    className="min-h-[112px] w-full min-w-0 rounded-lg bg-gray-100 px-3 py-2.5 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                  />
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="tabular-nums mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-zinc-600"
+                  >
+                    <span className="font-semibold text-zinc-950">
+                      {t("addModal.bulkStatsValid", {
+                        count: parsedBulk.validUrls.length,
                       })}
                     </span>
-                  </div>
-                  <div className="mt-0.5 truncate text-[11px] text-zinc-500">
-                    {item.url}
+                    {parsedBulk.alreadyTracked.length > 0 && (
+                      <span>
+                        {t("addModal.bulkStatsTracked", {
+                          count: parsedBulk.alreadyTracked.length,
+                        })}
+                      </span>
+                    )}
+                    {parsedBulk.duplicates.length > 0 && (
+                      <span>
+                        {t("addModal.bulkStatsDupes", {
+                          count: parsedBulk.duplicates.length,
+                        })}
+                      </span>
+                    )}
+                    {parsedBulk.invalid.length > 0 && (
+                      <span className="text-red-600">
+                        {t("addModal.bulkStatsInvalid", {
+                          count: parsedBulk.invalid.length,
+                        })}
+                      </span>
+                    )}
+                    {parsedBulk.overflowCount > 0 && (
+                      <span className="text-amber-700">
+                        {t("addModal.bulkStatsCap", {
+                          count: parsedBulk.overflowCount,
+                        })}
+                      </span>
+                    )}
                   </div>
                 </div>
-              ))}
 
-              {failedOutcomes.map((failed) => (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[140px_1fr]">
+                  <div className="min-w-0">
+                    <label
+                      htmlFor="bulk-target-discount"
+                      className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
+                    >
+                      {t("addModal.bulkTargetDiscountLabel")}
+                    </label>
+                    <input
+                      id="bulk-target-discount"
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={bulkDiscountPct}
+                      onChange={(e) => setBulkDiscountPct(e.target.value)}
+                      className="tabular-nums min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 sm:min-h-10"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                      {t("addModal.bulkSharedTagsLabel")}
+                    </span>
+                    <TagAdderControl
+                      idPrefix="bulk-item-tag"
+                      availableTags={availableTags}
+                      selectedTagNames={bulkTagNames}
+                      onAddTag={handleAddBulkTag}
+                      onRemoveTag={handleRemoveBulkTag}
+                      readOnly={fetching}
+                      controlsFirst
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={handleResetAndClose}
+                    className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
+                  >
+                    {t("addModal.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={parsedBulk.validUrls.length === 0}
+                    onClick={() => void handleFetchBulkPreviews()}
+                    className="tabular-nums min-h-11 rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
+                  >
+                    {t("addModal.fetchPreviewsBtn", {
+                      count: parsedBulk.validUrls.length,
+                    })}
+                  </button>
+                </div>
+              </fieldset>
+            </div>
+          ) : bulkStep === "review" && currentCard ? (
+            <div
+              id={ANCHORS.modalAddItemReviewCarousel}
+              className="min-w-0 space-y-3.5 text-xs"
+            >
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-zinc-950">
+                      {t("addModal.visualValidationTitle")}
+                    </span>
+                    <span className="tabular-nums rounded-full bg-zinc-950 px-2 py-0.5 text-[11px] font-semibold text-white">
+                      ({activeCardIndex + 1}/{draftCards.length})
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-zinc-500">
+                    {t("addModal.visualValidationSub")}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-label={t("addModal.prevCardAria")}
+                    disabled={activeCardIndex === 0 || fetching}
+                    onClick={() =>
+                      setActiveCardIndex((prev) => Math.max(0, prev - 1))
+                    }
+                    className="min-h-9 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-950 hover:bg-gray-100 disabled:opacity-40"
+                  >
+                    {t("addModal.prevCard")}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t("addModal.nextCardAria")}
+                    disabled={activeCardIndex >= draftCards.length - 1 || fetching}
+                    onClick={() =>
+                      setActiveCardIndex((prev) =>
+                        Math.min(draftCards.length - 1, prev + 1),
+                      )
+                    }
+                    className="min-h-9 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-950 hover:bg-gray-100 disabled:opacity-40"
+                  >
+                    {t("addModal.nextCard")}
+                  </button>
+                </div>
+              </div>
+
+              <div className="h-1 w-full overflow-hidden rounded-full bg-gray-100">
                 <div
-                  key={`failed-${failed.url}`}
-                  className="rounded-lg border border-red-200 bg-red-50/70 px-3 py-2.5"
+                  className="h-full rounded-full bg-blue-600 transition-all duration-200"
+                  style={{
+                    width: `${((activeCardIndex + 1) / draftCards.length) * 100}%`,
+                  }}
+                />
+              </div>
+
+              <div
+                ref={carouselViewportRef}
+                role="region"
+                aria-label={t("addModal.cardRegionAria")}
+                className="touch-pan-y min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white"
+              >
+                <div
+                  ref={carouselTrackRef}
+                  className="min-w-0 space-y-3 p-3.5 will-change-transform"
                 >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="break-all text-[11px] font-semibold text-zinc-950">
-                        {failed.url}
-                      </div>
-                      <div className="mt-0.5 break-words text-[11px] text-red-700">
-                        {failed.error}
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      {currentCard.imageUrl && !failedImages[currentCard.id] ? (
+                        <img
+                          src={currentCard.imageUrl}
+                          alt=""
+                          onError={() =>
+                            setFailedImages((prev) => ({
+                              ...prev,
+                              [currentCard.id]: true,
+                            }))
+                          }
+                          className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 bg-gray-50 object-cover"
+                        />
+                      ) : (
+                        <div
+                          aria-hidden="true"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-[10px] font-semibold text-zinc-500"
+                        >
+                          IMG
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="truncate text-[11px] font-medium text-zinc-500">
+                          {currentCard.url}
+                        </div>
+                        <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+                          {currentCard.extractionTier.replaceAll("_", " ")}
+                        </div>
                       </div>
                     </div>
                     <button
                       type="button"
-                      aria-label={t("addModal.configureManuallyAria", {
-                        url: failed.url,
-                      })}
-                      onClick={() => handleConfigureManually(failed.url)}
-                      className="min-h-9 shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-950 hover:bg-gray-50"
+                      aria-pressed={currentCard.included}
+                      onClick={() =>
+                        updateCurrentCard((card) => ({
+                          ...card,
+                          included: !card.included,
+                        }))
+                      }
+                      className={`min-h-8 shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${currentCard.included
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                        : "border-gray-200 bg-gray-100 text-zinc-500 hover:bg-gray-200"
+                        }`}
                     >
-                      {t("addModal.configureManually")}
+                      {currentCard.included
+                        ? t("addModal.includeInBatch")
+                        : t("addModal.skippedInBatch")}
                     </button>
                   </div>
+
+                  <div>
+                    <label
+                      htmlFor="bulk-card-title"
+                      className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
+                    >
+                      {t("addModal.productTitleLabel")}
+                    </label>
+                    <input
+                      id="bulk-card-title"
+                      type="text"
+                      value={currentCard.title}
+                      onChange={(e) =>
+                        updateCurrentCard((card) => ({
+                          ...card,
+                          title: e.target.value,
+                        }))
+                      }
+                      className="min-h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div className="min-w-0">
+                      <label
+                        htmlFor="bulk-card-currency"
+                        className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
+                      >
+                        {t("addModal.currencyLabel")}
+                      </label>
+                      <input
+                        id="bulk-card-currency"
+                        type="text"
+                        value={currentCard.currency}
+                        onChange={(e) =>
+                          updateCurrentCard((card) => ({
+                            ...card,
+                            currency: e.target.value,
+                          }))
+                        }
+                        className="min-h-10 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label
+                        htmlFor="bulk-card-baseline"
+                        className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
+                      >
+                        {t("addModal.baselinePriceLabel")}
+                      </label>
+                      <input
+                        id="bulk-card-baseline"
+                        type="number"
+                        step="0.01"
+                        value={currentCard.initialPrice}
+                        onChange={(e) =>
+                          updateCurrentCard((card) => ({
+                            ...card,
+                            initialPrice: e.target.value,
+                          }))
+                        }
+                        className="tabular-nums min-h-10 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label
+                        htmlFor="bulk-card-target"
+                        className="mb-1.5 block truncate text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
+                      >
+                        {t("addModal.targetPriceLabel")}
+                      </label>
+                      <input
+                        id="bulk-card-target"
+                        type="number"
+                        step="0.01"
+                        value={currentCard.targetPrice}
+                        onChange={(e) =>
+                          updateCurrentCard((card) => ({
+                            ...card,
+                            targetPrice: e.target.value,
+                          }))
+                        }
+                        className="tabular-nums min-h-10 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                      {t("addModal.itemTagsLabel")}
+                    </span>
+                    <TagAdderControl
+                      key={currentCard.id}
+                      idPrefix={`bulk-card-tag-${currentCard.id}`}
+                      availableTags={availableTags}
+                      selectedTagNames={currentCard.tagNames}
+                      onAddTag={(tagName) =>
+                        updateCurrentCard((card) => ({
+                          ...card,
+                          tagNames: mergeUniqueTags(card.tagNames, [tagName]),
+                        }))
+                      }
+                      onRemoveTag={(tagName) =>
+                        updateCurrentCard((card) => ({
+                          ...card,
+                          tagNames: card.tagNames.filter(
+                            (t) =>
+                              t.trim().toLowerCase() !==
+                              tagName.trim().toLowerCase(),
+                          ),
+                        }))
+                      }
+                      readOnly={fetching}
+                    />
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <div>
-              <label
-                htmlFor="bulk-url-input"
-                className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
-              >
-                {t("addModal.remainingFailedLabel")}
-              </label>
-              <textarea
-                id="bulk-url-input"
-                rows={3}
-                value={bulkUrlsText}
-                onChange={(e) => setBulkUrlsText(e.target.value)}
-                className="w-full min-w-0 rounded-lg bg-gray-100 px-3 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
-              />
-            </div>
+              {failedOutcomes.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                  {t("addModal.failedPreviewBanner", {
+                    count: failedOutcomes.length,
+                  })}
+                </div>
+              )}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
-              <button
-                type="button"
-                onClick={handleResetAndClose}
-                className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
-              >
-                {t("addModal.doneClose")}
-              </button>
-              <button
-                type="button"
-                disabled={fetching || parsedBulk.validUrls.length === 0}
-                onClick={() => void handleFetchBulkPreviews()}
-                className="tabular-nums min-h-11 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
-              >
-                {t("addModal.retryFailedBtn", {
-                  count: parsedBulk.validUrls.length,
-                })}
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
+                <button
+                  type="button"
+                  disabled={fetching}
+                  onClick={() => setBulkStep("input")}
+                  className="min-h-11 rounded-lg bg-gray-100 px-3.5 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
+                >
+                  {t("addModal.editUrlListBtn")}
+                </button>
+                <button
+                  type="button"
+                  disabled={fetching || includedCards.length === 0}
+                  onClick={() => void handleSaveValidatedBatch()}
+                  className="tabular-nums min-h-11 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
+                >
+                  {t("addModal.saveValidatedBtn", { count: includedCards.length })}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div
+              id={ANCHORS.modalAddItemBulkSummary}
+              className="min-w-0 space-y-3.5 text-xs"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+                <div className="tabular-nums font-semibold text-zinc-950">
+                  {savedSummaries.length > 0
+                    ? t("addModal.bulkSavedHeader", {
+                      count: savedSummaries.length,
+                    })
+                    : t("addModal.bulkZeroSavedHeader")}
+                </div>
+                <div className="tabular-nums font-semibold text-red-600">
+                  {t("addModal.bulkFailedHeader", {
+                    count: failedOutcomes.length,
+                  })}
+                </div>
+              </div>
+
+              <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                {savedSummaries.map((item) => (
+                  <div
+                    key={`saved-${item.url}`}
+                    className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-semibold text-zinc-950">
+                        {item.name}
+                      </span>
+                      <span className="tabular-nums shrink-0 text-[11px] font-medium text-emerald-800">
+                        {t("addModal.savedPriceBadge", {
+                          price: `${item.currency}${item.price.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                        })}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 truncate text-[11px] text-zinc-500">
+                      {item.url}
+                    </div>
+                  </div>
+                ))}
+
+                {failedOutcomes.map((failed) => (
+                  <div
+                    key={`failed-${failed.url}`}
+                    className="rounded-lg border border-red-200 bg-red-50/70 px-3 py-2.5"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="break-all text-[11px] font-semibold text-zinc-950">
+                          {failed.url}
+                        </div>
+                        <div className="mt-0.5 break-words text-[11px] text-red-700">
+                          {failed.error}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={t("addModal.configureManuallyAria", {
+                          url: failed.url,
+                        })}
+                        onClick={() => handleConfigureManually(failed.url)}
+                        className="min-h-9 shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-950 hover:bg-gray-50"
+                      >
+                        {t("addModal.configureManually")}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="bulk-url-input"
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
+                >
+                  {t("addModal.remainingFailedLabel")}
+                </label>
+                <textarea
+                  id="bulk-url-input"
+                  rows={3}
+                  value={bulkUrlsText}
+                  onChange={(e) => setBulkUrlsText(e.target.value)}
+                  className="w-full min-w-0 rounded-lg bg-gray-100 px-3 py-2 text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
+                <button
+                  type="button"
+                  onClick={handleResetAndClose}
+                  className="min-h-11 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-gray-200 sm:min-h-10"
+                >
+                  {t("addModal.doneClose")}
+                </button>
+                <button
+                  type="button"
+                  disabled={fetching || parsedBulk.validUrls.length === 0}
+                  onClick={() => void handleFetchBulkPreviews()}
+                  className="tabular-nums min-h-11 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 sm:min-h-10"
+                >
+                  {t("addModal.retryFailedBtn", {
+                    count: parsedBulk.validUrls.length,
+                  })}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
