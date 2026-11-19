@@ -9,7 +9,11 @@ import type {
   UpdateItemPayload,
   WorkspaceState,
 } from "./domain/models";
-import { formatMoney, formatSavingsByCurrency } from "./domain/models";
+import {
+  extractDomain,
+  formatMoney,
+  formatSavingsByCurrency,
+} from "./domain/models";
 import { ANCHORS } from "./shared/anchors";
 import {
   clearStoredAuthToken,
@@ -33,6 +37,10 @@ import { BrandHeroLogo } from "./ui/BrandLogo";
 import { Header, MobileBottomNav } from "./ui/Header";
 import { ItemDetailsModal } from "./ui/ItemDetailsModal";
 import { PositionsGrid } from "./ui/PositionsGrid";
+import {
+  RunCheckProgress,
+  type RunCheckProgressState,
+} from "./ui/RunCheckProgress";
 import { SystemHealthView } from "./ui/SystemHealthView";
 import { TagManagerView } from "./ui/TagManagerView";
 import {
@@ -68,6 +76,16 @@ export function App() {
     parseRoute(window.location.pathname, window.location.search),
   );
   const [isChecking, setIsChecking] = useState(false);
+  const [runCheckProgress, setRunCheckProgress] =
+    useState<RunCheckProgressState>({
+      visible: false,
+      running: false,
+      expanded: false,
+      phase: "scraping",
+      startedAtMs: 0,
+      items: [],
+      errorMessage: null,
+    });
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastTimersRef = useRef<Record<string, number>>({});
 
@@ -334,21 +352,66 @@ export function App() {
   const handleRunCheck = async () => {
     const toastId = "batch-check";
     setIsChecking(true);
-    pushToast(
-      "info",
-      t("toast.batchCheckStartedTitle"),
-      t("toast.batchCheckStartedBody"),
-      {
-        id: toastId,
-        loading: true,
-        persistent: true,
-        titleKey: "toast.batchCheckStartedTitle",
-        messageKey: "toast.batchCheckStartedBody",
-      },
-    );
+    setRunCheckProgress({
+      visible: true,
+      running: true,
+      expanded: false,
+      phase: "scraping",
+      startedAtMs: Date.now(),
+      items: (state?.items ?? []).map((item) => ({
+        item_id: item.item_id,
+        name: item.name,
+        domain: extractDomain(item.url),
+        url: item.url,
+        state: "pending",
+        error_code: null,
+      })),
+      errorMessage: null,
+    });
     try {
-      const result = await store.runBatchCheck();
+      const result = await store.runBatchCheckStream((event) => {
+        if (event.type === "started") {
+          setRunCheckProgress((prev) => ({
+            ...prev,
+            phase: "scraping",
+            items: event.items.map((item) => ({
+              ...item,
+              state: "pending",
+              error_code: null,
+            })),
+          }));
+        } else if (event.type === "item_done") {
+          setRunCheckProgress((prev) => ({
+            ...prev,
+            items: prev.items.map((item) =>
+              item.item_id === event.item_id
+                ? {
+                    ...item,
+                    state: event.success ? "success" : "error",
+                    error_code: event.error_code,
+                  }
+                : item,
+            ),
+          }));
+        } else if (event.type === "phase") {
+          setRunCheckProgress((prev) => ({
+            ...prev,
+            phase: event.phase,
+          }));
+        } else if (event.type === "complete") {
+          setRunCheckProgress((prev) => ({
+            ...prev,
+            running: false,
+            phase: "complete",
+          }));
+        }
+      });
       await refreshAll();
+      setRunCheckProgress((prev) => ({
+        ...prev,
+        running: false,
+        phase: "complete",
+      }));
       const { telemetry, alerts_triggered } = result;
       if (telemetry.status === "PARTIAL") {
         pushToast(
@@ -380,12 +443,16 @@ export function App() {
         );
       }
     } catch (err) {
-      pushToast(
-        "error",
-        t("toast.batchCheckErrorTitle"),
-        err instanceof Error ? err.message : String(err),
-        { id: toastId },
-      );
+      const msg = err instanceof Error ? err.message : String(err);
+      setRunCheckProgress((prev) => ({
+        ...prev,
+        running: false,
+        phase: "error",
+        errorMessage: msg,
+      }));
+      pushToast("error", t("toast.batchCheckErrorTitle"), msg, {
+        id: toastId,
+      });
     } finally {
       setIsChecking(false);
     }
@@ -1122,6 +1189,22 @@ export function App() {
         onResumeItem={handleResumeItem}
         onDeleteItem={handleDeleteItem}
         onNotify={pushToast}
+      />
+
+      <RunCheckProgress
+        progress={runCheckProgress}
+        currentRoute={route}
+        onToggleExpand={(expanded) =>
+          setRunCheckProgress((prev) => ({ ...prev, expanded }))
+        }
+        onDismiss={() =>
+          setRunCheckProgress((prev) => ({
+            ...prev,
+            visible: false,
+            expanded: false,
+          }))
+        }
+        onOpenItem={(itemId) => navigate({ itemId })}
       />
 
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />

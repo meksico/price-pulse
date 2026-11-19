@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import Protocol
 
 from pricepulse.domain.models import (
@@ -124,7 +125,11 @@ class ScraperPort(Protocol):
         """Fetch and extract previews for multiple URLs with bounded concurrency."""
         ...
 
-    async def check_items(self, items: list[TrackedItem]) -> list[ScrapeOutcome]:
+    async def check_items(
+        self,
+        items: list[TrackedItem],
+        on_progress: Callable[[ScrapeOutcome], Awaitable[None]] | None = None,
+    ) -> list[ScrapeOutcome]:
         """Scrape all provided items with bounded concurrency."""
         ...
 

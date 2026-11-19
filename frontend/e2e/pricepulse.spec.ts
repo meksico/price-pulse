@@ -233,7 +233,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const menuVersion = (
       await userMenu.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(menuVersion).toBe("v0.5.8");
+    expect(menuVersion).toBe("v0.6.0");
     await expect(
       userMenu.getByRole("menuitem", { name: "Tag Manager" }),
     ).toHaveCount(0);
@@ -589,7 +589,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const healthVersion = (
       await healthView.getByText(/^v\d+\.\d+\.\d+$/).innerText()
     ).trim();
-    expect(healthVersion).toBe("v0.5.8");
+    expect(healthVersion).toBe("v0.6.0");
     await expect(healthView.getByText("v0.2.1")).toHaveCount(0);
 
     await page.getByRole("button", { name: "User account menu" }).click();
@@ -607,7 +607,7 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     const jsonModal = page.getByRole("dialog", { name: /Telemetry JSON:/i });
     await expect(jsonModal).toBeVisible();
     await expect(jsonModal.locator("pre")).toContainText(
-      '"app_version": "0.5.8"',
+      '"app_version": "0.6.0"',
     );
     await expect(jsonModal.locator("pre")).not.toContainText(
       '"app_version": "0.2.1"',
@@ -1932,13 +1932,13 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
 
-    // 1. Run Check (All Items): hold /api/scrape/run-check longer than the 4500ms auto-dismiss window
+    // 1. Run Check (All Items): hold /api/scrape/run-check/stream longer than the 4500ms auto-dismiss window
     let releaseBatchCheck!: () => void;
     const batchCheckGate = new Promise<void>((resolve) => {
       releaseBatchCheck = resolve;
     });
 
-    await page.route("**/api/scrape/run-check", async (route) => {
+    await page.route("**/api/scrape/run-check/stream", async (route) => {
       await batchCheckGate;
       await route.continue();
     });
@@ -1947,25 +1947,28 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
     await page.getByRole("menuitem", { name: /Run Check \(\d+ Items\)/i }).click();
 
     const toastViewport = page.locator("#toast-viewport");
-    await expect(toastViewport).toContainText(/Batch check started/i);
-    await expect(toastViewport.locator('[data-toast-spinner="true"]')).toBeVisible();
+    const compactProgress = page.locator("#run-check-progress");
+    await expect(compactProgress).toBeVisible();
+    await expect(compactProgress).toContainText(/Scraping URLs/i);
 
     // Wait past the standard 4500ms auto-dismiss timeout to confirm persistence
     await page.waitForTimeout(4700);
-    await expect(toastViewport).toContainText(/Batch check started/i);
-    await expect(toastViewport.locator('[data-toast-spinner="true"]')).toBeVisible();
+    await expect(compactProgress).toBeVisible();
+    await expect(compactProgress).toContainText(/Scraping URLs/i);
 
-    // Switching language while persistent toast is visible re-translates it immediately
+    // Switching language while compact progress card is visible re-translates it immediately
     await page.getByRole("button", { name: "User account menu" }).click();
     await page.getByRole("menuitemradio", { name: "Українська" }).click();
-    await expect(toastViewport).toContainText(/Перевірку розпочато/i);
+    await expect(compactProgress).toContainText(/Перевірка URL/i);
     await page.getByRole("menuitemradio", { name: "English" }).click();
-    await expect(toastViewport).toContainText(/Batch check started/i);
+    await expect(compactProgress).toContainText(/Scraping URLs/i);
     await page.keyboard.press("Escape");
 
     releaseBatchCheck();
     await expect(toastViewport).toContainText(/Batch check complete/i);
-    await expect(toastViewport.locator('[data-toast-spinner="true"]')).toHaveCount(0);
+    await expect(compactProgress).toContainText(/Check Complete/i);
+    await compactProgress.getByRole("button", { name: "Close progress view" }).click();
+    await expect(compactProgress).toHaveCount(0);
 
     // 2. Bulk Re-check: hold /api/items/bulk-recheck and verify loading spinner transitions to complete
     let releaseBulkRecheck!: () => void;
@@ -2040,6 +2043,129 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
         document.documentElement.clientWidth,
     );
     expect(hasOverflow).toBe(false);
+  });
+
+  test("Run Check compact progress expands to terminal details view with 3-state bullets and failed item links", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+
+    const sseBody = [
+      JSON.stringify({
+        type: "started",
+        run_id: "run-e2e-stream",
+        total: 2,
+        items: [
+          {
+            item_id: "item-1",
+            name: "Sony WH-1000XM5 Wireless Headphones",
+            domain: "example.com",
+            url: "https://example.com/products/sony-wh-1000xm5",
+          },
+          {
+            item_id: "item-2",
+            name: "Keychron Q1 Pro Mechanical Keyboard",
+            domain: "glowtech.com.ua",
+            url: "https://glowtech.com.ua/keychron-q1-pro",
+          },
+        ],
+      }),
+      JSON.stringify({
+        type: "item_done",
+        phase: "scrape",
+        item_id: "item-1",
+        name: "Sony WH-1000XM5 Wireless Headphones",
+        domain: "example.com",
+        success: true,
+        price: 340,
+        currency: "$",
+        extraction_tier: "TIER_1_JSON_LD",
+        error: null,
+        error_code: null,
+        completed: 1,
+        total: 2,
+      }),
+      JSON.stringify({
+        type: "item_done",
+        phase: "scrape",
+        item_id: "item-2",
+        name: "Keychron Q1 Pro Mechanical Keyboard",
+        domain: "glowtech.com.ua",
+        success: false,
+        price: null,
+        currency: null,
+        extraction_tier: null,
+        error: "HTTP 403 Forbidden",
+        error_code: "403",
+        completed: 2,
+        total: 2,
+      }),
+      JSON.stringify({
+        type: "complete",
+        telemetry: {
+          run_id: "run-e2e-stream",
+          started_at: new Date().toISOString(),
+          status: "PARTIAL",
+          items_checked: 2,
+          breakdown: "1/2 URLs Checked & Saved",
+          duration_ms: 420,
+          errors: ["HTTP 403 Forbidden"],
+        },
+        alerts_triggered: 0,
+        digest_sent: false,
+        captcha_report_sent: false,
+      }),
+    ]
+      .map((line) => `data: ${line}\n\n`)
+      .join("");
+
+    await page.route("**/api/scrape/run-check/stream", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: sseBody,
+      });
+    });
+
+    await page.getByRole("button", { name: "User account menu" }).click();
+    await page.getByRole("menuitem", { name: /Run Check \(\d+ Items\)/i }).click();
+
+    const compactCard = page.locator("#run-check-progress");
+    await expect(compactCard).toBeVisible();
+    await expect(compactCard).toContainText("2 / 2");
+    await expect(compactCard.locator('[data-bullet-state="success"]')).toHaveCount(1);
+    await expect(compactCard.locator('[data-bullet-state="error"]')).toHaveCount(1);
+
+    // Expand to terminal details modal
+    await compactCard.getByRole("button", { name: "Details" }).click();
+    const detailsModal = page.locator("#modal-run-check-details");
+    await expect(detailsModal).toBeVisible();
+    await expect(detailsModal).toContainText(
+      "1. Sony WH-1000XM5 Wireless Headphones (example.com)",
+    );
+    await expect(detailsModal).toContainText(
+      "2. Keychron Q1 Pro Mechanical Keyboard (glowtech.com.ua) - ●403",
+    );
+    await expect(detailsModal).toContainText("Summary: 1 / 2");
+    await expect(detailsModal).toContainText(
+      "List PricePulse URL of not succeeded items:",
+    );
+
+    // Clicking the failed item's PricePulse URL opens ItemDetailsModal
+    await detailsModal
+      .getByRole("link", { name: "Keychron Q1 Pro Mechanical Keyboard" })
+      .click();
+    await expect(detailsModal).toHaveCount(0);
+    await expect(page.locator("#modal-item-details")).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    // Re-expand and verify Escape collapses back to compact bar
+    await compactCard.getByRole("button", { name: "Details" }).click();
+    await expect(detailsModal).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(detailsModal).toHaveCount(0);
+    await expect(compactCard).toBeVisible();
   });
 });
 

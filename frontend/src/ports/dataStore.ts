@@ -1,5 +1,7 @@
 import type {
   AddItemPayload,
+  BatchCheckResult,
+  BatchCheckStreamEvent,
   BatchPreviewItemResult,
   BoughtItem,
   BulkTagAction,
@@ -60,6 +62,9 @@ export interface DataStorePort {
   ): Promise<Tag>;
   deleteTag(tagId: string): Promise<void>;
   runBatchCheck(): Promise<{ telemetry: TelemetryRun; alerts_triggered: number }>;
+  runBatchCheckStream(
+    onEvent: (event: BatchCheckStreamEvent) => void,
+  ): Promise<BatchCheckResult>;
   saveConfig(entries: ConfigEntry[]): Promise<ConfigEntry[]>;
   bootstrapSheets(): Promise<string[]>;
 }

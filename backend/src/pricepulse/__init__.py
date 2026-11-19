@@ -1,4 +1,4 @@
 """PricePulse backend package."""
 
-__version__: str = "0.5.8"
+__version__: str = "0.6.0"
 

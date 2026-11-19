@@ -496,7 +496,11 @@ class PlaywrightScraperAdapter:
             finally:
                 await browser.close()
 
-    async def check_items(self, items: list[TrackedItem]) -> list[ScrapeOutcome]:
+    async def check_items(
+        self,
+        items: list[TrackedItem],
+        on_progress: Callable[[ScrapeOutcome], Awaitable[None]] | None = None,
+    ) -> list[ScrapeOutcome]:
         """Scrape all items using a shared Chromium browser and Semaphore(4)."""
         if not items:
             return []
@@ -510,6 +514,7 @@ class PlaywrightScraperAdapter:
                     ),
                     concurrency=self._concurrency,
                     retries=self._retries,
+                    on_progress=on_progress,
                 )
             finally:
                 await browser.close()
@@ -525,33 +530,40 @@ async def check_items_pooled(
     fetch_fn: Callable[[str], Awaitable[str]],
     concurrency: int = DEFAULT_CONCURRENCY,
     retries: int = MAX_RETRIES,
+    on_progress: Callable[[ScrapeOutcome], Awaitable[None]] | None = None,
 ) -> list[ScrapeOutcome]:
     """Execute bounded concurrent scraping with per-item retry and fault isolation."""
     semaphore = asyncio.Semaphore(concurrency)
 
     async def _worker(item: TrackedItem) -> ScrapeOutcome:
         last_err = ""
+        outcome: ScrapeOutcome | None = None
         async with semaphore:
             for attempt in range(retries + 1):
                 try:
                     html = await fetch_fn(item.url)
                     preview = extract_preview_from_html(item.url, html)
-                    return ScrapeOutcome(
+                    outcome = ScrapeOutcome(
                         item_id=item.item_id,
                         success=True,
                         price=preview.price,
                         currency=preview.currency,
                         extraction_tier=preview.extraction_tier,
                     )
+                    break
                 except Exception as exc:
                     last_err = f"attempt {attempt + 1}: {exc}"
                     if _is_non_retryable_block(exc):
                         break
-        return ScrapeOutcome(
-            item_id=item.item_id,
-            success=False,
-            error=f"{item.item_id} ({item.url}): {last_err}",
-        )
+        if outcome is None:
+            outcome = ScrapeOutcome(
+                item_id=item.item_id,
+                success=False,
+                error=f"{item.item_id} ({item.url}): {last_err}",
+            )
+        if on_progress is not None:
+            await on_progress(outcome)
+        return outcome
 
     return await asyncio.gather(*(_worker(item) for item in items))
 

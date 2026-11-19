@@ -1,5 +1,7 @@
 import type {
   AddItemPayload,
+  BatchCheckResult,
+  BatchCheckStreamEvent,
   BatchPreviewItemResult,
   BatchPreviewResponse,
   BoughtItem,
@@ -276,6 +278,70 @@ export class LocalApiDataAdapter implements DataStorePort {
   runBatchCheck(): Promise<{ telemetry: TelemetryRun; alerts_triggered: number }> {
     // Non-idempotent long-running batch: never auto-retry on 504 to avoid double-billing.
     return this.request("/api/scrape/run-check", { method: "POST" }, undefined, 1);
+  }
+
+  async runBatchCheckStream(
+    onEvent: (event: BatchCheckStreamEvent) => void,
+  ): Promise<BatchCheckResult> {
+    await waitForDocumentVisible(600);
+    const token = this.getAuthToken?.();
+    const headers: Record<string, string> = token
+      ? { Authorization: `Bearer ${token}` }
+      : {};
+    const resp = await fetch(`${this.baseUrl}/api/scrape/run-check/stream`, {
+      method: "POST",
+      headers,
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`API ${resp.status}: ${text}`);
+    }
+    if (!resp.body) {
+      const fallback = await this.runBatchCheck();
+      return fallback;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+    let finalResult: BatchCheckResult | null = null;
+
+    const processLine = (rawLine: string) => {
+      const line = rawLine.trim();
+      if (!line.startsWith("data:")) return;
+      const jsonText = line.slice(5).trim();
+      if (!jsonText) return;
+      const event = JSON.parse(jsonText) as BatchCheckStreamEvent;
+      onEvent(event);
+      if (event.type === "complete") {
+        finalResult = {
+          telemetry: event.telemetry,
+          alerts_triggered: event.alerts_triggered,
+          digest_sent: event.digest_sent,
+          captcha_report_sent: event.captcha_report_sent,
+        };
+      } else if (event.type === "error") {
+        throw new Error(event.detail || "Streaming batch check failed");
+      }
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        processLine(line);
+      }
+    }
+    if (buffer.trim()) {
+      processLine(buffer);
+    }
+    if (!finalResult) {
+      throw new Error("Batch check stream ended without a completion event");
+    }
+    return finalResult;
   }
 
   async saveConfig(entries: ConfigEntry[]): Promise<ConfigEntry[]> {

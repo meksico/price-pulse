@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from pathlib import Path
 
@@ -730,21 +731,26 @@ class DeterministicScraperAdapter:
             )
         return outcomes
 
-    async def check_items(self, items: list[TrackedItem]) -> list[ScrapeOutcome]:
+    async def check_items(
+        self,
+        items: list[TrackedItem],
+        on_progress: Callable[[ScrapeOutcome], Awaitable[None]] | None = None,
+    ) -> list[ScrapeOutcome]:
         """Simulate small deterministic price checks across active items."""
         outcomes: list[ScrapeOutcome] = []
         for idx, item in enumerate(items):
             delta = -5.0 if idx % 2 == 0 else 0.0
             new_price = round(max(1.0, item.current_price + delta), 2)
-            outcomes.append(
-                ScrapeOutcome(
-                    item_id=item.item_id,
-                    success=True,
-                    price=new_price,
-                    currency=item.currency,
-                    extraction_tier="TIER_1_JSON_LD",
-                )
+            outcome = ScrapeOutcome(
+                item_id=item.item_id,
+                success=True,
+                price=new_price,
+                currency=item.currency,
+                extraction_tier="TIER_1_JSON_LD",
             )
+            outcomes.append(outcome)
+            if on_progress is not None:
+                await on_progress(outcome)
         return outcomes
 
 

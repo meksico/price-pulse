@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.5.8";
+export const APP_VERSION = "0.6.0";
 
 export type BulkTagAction = "add" | "replace" | "remove";
 
@@ -148,6 +148,56 @@ export interface BatchPreviewItemResult {
 export interface BatchPreviewResponse {
   results: BatchPreviewItemResult[];
 }
+
+export interface BatchCheckItemEntry {
+  item_id: string;
+  name: string;
+  domain: string;
+  url: string;
+}
+
+export interface BatchCheckResult {
+  telemetry: TelemetryRun;
+  alerts_triggered: number;
+  digest_sent?: boolean;
+  captcha_report_sent?: boolean;
+}
+
+export type BatchCheckStreamEvent =
+  | {
+      type: "started";
+      run_id: string;
+      total: number;
+      items: BatchCheckItemEntry[];
+    }
+  | {
+      type: "item_done";
+      phase: "scrape" | "gemini_fallback";
+      item_id: string;
+      name: string;
+      domain: string;
+      success: boolean;
+      price: number | null;
+      currency: string | null;
+      extraction_tier: string | null;
+      error: string | null;
+      error_code: string | null;
+      completed: number;
+      total: number;
+    }
+  | {
+      type: "phase";
+      phase: "gemini_fallback" | "saving" | "notifying";
+      total?: number;
+    }
+  | ({
+      type: "complete";
+    } & BatchCheckResult)
+  | {
+      type: "error";
+      detail: string;
+      traceback?: string;
+    };
 
 export interface RuntimeDiagnostics {
   app_version: string;

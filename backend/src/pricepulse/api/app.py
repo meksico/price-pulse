@@ -4,18 +4,22 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 import os
+import re
 import time
 import traceback
 import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -697,13 +701,32 @@ def create_app(
             )
         return {"results": results}
 
+    def _extract_domain(url: str) -> str:
+        host = urlsplit(url).netloc.lower()
+        return host[4:] if host.startswith("www.") else host
+
+    def _extract_short_error_code(error: str | None) -> str | None:
+        if not error:
+            return None
+        match = re.search(r"\b(?:HTTP\s+)?([45]\d{2})\b", error)
+        if match:
+            return match.group(1)
+        lowered = error.lower()
+        if "captcha" in lowered:
+            return "CAPTCHA"
+        if "timeout" in lowered or "timed out" in lowered:
+            return "Timeout"
+        return "Error"
+
     async def _execute_batch_check(
         user_email: str = "",
         respect_cooldown: bool = True,
         target_item_id: str | None = None,
         target_item_ids: list[str] | None = None,
+        on_event: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> dict[str, Any]:
         """Run pooled price check (all items or subset), update state, and send digest."""
+        run_id = f"run-{uuid.uuid4().hex[:8]}"
         started_at = utc_now_iso()
         start_ms = time.perf_counter()
         state = resolved_repo.load_state()
@@ -730,7 +753,61 @@ def create_app(
         prev_by_id = {
             item.item_id: (item.status, item.lowest_price) for item in target_items
         }
-        outcomes = await resolved_scraper.check_items(target_items)
+        items_by_target_id = {item.item_id: item for item in target_items}
+        total_items = len(target_items)
+
+        async def _emit(payload: dict[str, Any]) -> None:
+            if on_event is not None:
+                await on_event(payload)
+
+        await _emit(
+            {
+                "type": "started",
+                "run_id": run_id,
+                "total": total_items,
+                "items": [
+                    {
+                        "item_id": item.item_id,
+                        "name": item.name,
+                        "domain": _extract_domain(item.url),
+                        "url": item.url,
+                    }
+                    for item in target_items
+                ],
+            }
+        )
+
+        scrape_completed = 0
+
+        async def _on_scrape_progress(outcome: ScrapeOutcome) -> None:
+            nonlocal scrape_completed
+            scrape_completed += 1
+            matched = items_by_target_id.get(outcome.item_id)
+            await _emit(
+                {
+                    "type": "item_done",
+                    "phase": "scrape",
+                    "item_id": outcome.item_id,
+                    "name": matched.name if matched is not None else outcome.item_id,
+                    "domain": _extract_domain(matched.url) if matched is not None else "",
+                    "success": outcome.success,
+                    "price": outcome.price,
+                    "currency": outcome.currency,
+                    "extraction_tier": outcome.extraction_tier,
+                    "error": outcome.error,
+                    "error_code": _extract_short_error_code(outcome.error),
+                    "completed": scrape_completed,
+                    "total": total_items,
+                }
+            )
+
+        if on_event is not None:
+            outcomes = await resolved_scraper.check_items(
+                target_items,
+                on_progress=_on_scrape_progress,
+            )
+        else:
+            outcomes = await resolved_scraper.check_items(target_items)
         if resolved_gemini.is_enabled:
             current_month = utc_now_iso()[:7]
             initial_used = _read_gemini_usage(state.config, current_month)
@@ -760,6 +837,13 @@ def create_app(
                 )
             elif eligible:
                 to_check = eligible[:remaining_budget]
+                await _emit(
+                    {
+                        "type": "phase",
+                        "phase": "gemini_fallback",
+                        "total": len(to_check),
+                    }
+                )
                 if len(eligible) > remaining_budget:
                     cap = resolved_gemini.monthly_cap
                     logger.warn(
@@ -767,23 +851,44 @@ def create_app(
                         f"checking {len(to_check)} of {len(eligible)} blocked items."
                     )
                 gemini_sem = asyncio.Semaphore(4)
+                gemini_completed = 0
 
                 async def _run_gemini_item(
                     idx: int, item: TrackedItem
                 ) -> tuple[int, TrackedItem, Any]:
+                    nonlocal gemini_completed
                     async with gemini_sem:
+                        res: Any = None
                         try:
                             res = await resolved_gemini.extract_price(
                                 item.url,
                                 title=item.name,
                                 currency_hint=item.currency,
                             )
-                            return idx, item, res
                         except Exception as gemini_exc:
                             logger.warn(
                                 f"Gemini fallback failed for {item.url}: {gemini_exc}"
                             )
-                            return idx, item, None
+                        gemini_completed += 1
+                        if res is not None:
+                            await _emit(
+                                {
+                                    "type": "item_done",
+                                    "phase": "gemini_fallback",
+                                    "item_id": item.item_id,
+                                    "name": item.name,
+                                    "domain": _extract_domain(item.url),
+                                    "success": True,
+                                    "price": res.price,
+                                    "currency": res.currency,
+                                    "extraction_tier": "gemini_search",
+                                    "error": None,
+                                    "error_code": None,
+                                    "completed": gemini_completed,
+                                    "total": len(to_check),
+                                }
+                            )
+                        return idx, item, res
 
                 gemini_results = await asyncio.gather(
                     *(_run_gemini_item(idx, item) for idx, item in to_check)
@@ -817,8 +922,9 @@ def create_app(
             else (RunStatus.PARTIAL if succeeded > 0 else RunStatus.ERROR)
         )
         duration_ms = int((time.perf_counter() - start_ms) * 1000)
+        await _emit({"type": "phase", "phase": "saving"})
         telemetry = TelemetryRun(
-            run_id=f"run-{uuid.uuid4().hex[:8]}",
+            run_id=run_id,
             started_at=started_at,
             status=status,
             items_checked=len(outcomes),
@@ -827,6 +933,7 @@ def create_app(
             errors=errors,
         )
         resolved_repo.apply_price_checks(outcomes, telemetry)
+        await _emit({"type": "phase", "phase": "notifying"})
         updated_state = resolved_repo.load_state()
         alert_items: list[TrackedItem] = []
         for item in updated_state.items:
@@ -886,12 +993,14 @@ def create_app(
         if errors:
             logger.warn(f"Batch run {telemetry.run_id} errors: {errors}")
             print(f"[WARN] Batch run {telemetry.run_id} errors: {errors}", flush=True)
-        return {
+        result_payload = {
             "telemetry": {**asdict(telemetry), "status": telemetry.status.value},
             "alerts_triggered": len(alert_items),
             "digest_sent": digest_sent,
             "captcha_report_sent": captcha_report_sent,
         }
+        await _emit({"type": "complete", **result_payload})
+        return result_payload
 
     @app.post("/api/items/{item_id}/recheck")
     async def recheck_item(
@@ -939,6 +1048,58 @@ def create_app(
     async def run_check(_user: str = Depends(_verify_auth)) -> dict[str, Any]:
         """Trigger immediate batch price check from SPA."""
         return await _execute_batch_check(user_email=_user, respect_cooldown=False)
+
+    @app.post("/api/scrape/run-check/stream")
+    async def run_check_stream(
+        _user: str = Depends(_verify_auth),
+    ) -> StreamingResponse:
+        """Stream real-time batch price check progress events via SSE."""
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+        async def _push_event(event: dict[str, Any]) -> None:
+            await queue.put(event)
+
+        async def _worker() -> None:
+            try:
+                await _execute_batch_check(
+                    user_email=_user,
+                    respect_cooldown=False,
+                    on_event=_push_event,
+                )
+            except Exception as exc:
+                tb = traceback.format_exc()
+                logger.error(f"Streaming batch check failed: {exc}\n{tb}")
+                await queue.put(
+                    {
+                        "type": "error",
+                        "detail": str(exc),
+                        "traceback": tb,
+                    }
+                )
+            finally:
+                await queue.put(None)
+
+        async def _event_stream() -> AsyncIterator[str]:
+            task = asyncio.create_task(_worker())
+            try:
+                while True:
+                    item = await queue.get()
+                    if item is None:
+                        break
+                    yield f"data: {json.dumps(item)}\n\n"
+            finally:
+                if not task.done():
+                    task.cancel()
+
+        return StreamingResponse(
+            _event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @app.post("/api/cron/run-check")
     async def cron_run_check(

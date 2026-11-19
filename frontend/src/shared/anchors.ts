@@ -30,6 +30,8 @@ export const ANCHORS = {
   modalItemDetails: "modal-item-details",
   modalItemDetailsLoadingOverlay: "modal-item-details__loading-overlay",
   modalTelemetryJson: "modal-telemetry-json",
+  runCheckProgress: "run-check-progress",
+  modalRunCheckDetails: "modal-run-check-details",
   toastViewport: "toast-viewport",
   workspaceSyncStatus: "workspace-sync-status",
 } as const;

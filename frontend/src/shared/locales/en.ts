@@ -484,6 +484,23 @@ export const en = {
     retryWarningBody: "Bad result. Attempt #{next}",
     errorTitle: "Action failed",
   },
+  runCheck: {
+    title: "Run Check Progress",
+    phaseScraping: "Scraping URLs...",
+    phaseGemini: "Gemini Search Fallback...",
+    phaseSaving: "Saving to Sheet...",
+    phaseNotifying: "Checking Alerts...",
+    phaseComplete: "Check Complete",
+    phaseError: "Check Failed",
+    expandDetails: "Details",
+    collapseDetails: "Compact",
+    closeLabel: "Close progress view",
+    summaryLabel: "Summary: {succeeded} / {total}",
+    failedUrlsHeading: "List PricePulse URL of not succeeded items:",
+    pendingStatus: "pending",
+    progressCount: "{completed} / {total}",
+    bulletsAriaLabel: "Site check progress bullets",
+  },
 } as const;
 
 export type TranslationDict = {
