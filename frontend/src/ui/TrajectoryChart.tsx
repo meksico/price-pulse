@@ -92,6 +92,7 @@ interface TrajectoryChartProps {
   priceHistory: PriceSnapshot[];
   activeTagFilter: string;
   onTagFilterChange: (tagId: string) => void;
+  onOpenItem?: (itemId: string) => void;
 }
 
 export function TrajectoryChart({
@@ -100,6 +101,7 @@ export function TrajectoryChart({
   priceHistory,
   activeTagFilter,
   onTagFilterChange,
+  onOpenItem,
 }: TrajectoryChartProps) {
   const { locale, t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
@@ -623,6 +625,10 @@ export function TrajectoryChart({
                                         y: pt.cy,
                                       });
                                     };
+                                    const handleSelectPoint = () => {
+                                      clearHover();
+                                      onOpenItem?.(pt.itemId);
+                                    };
                                     return (
                                       <circle
                                         key={pt.historyId}
@@ -636,10 +642,32 @@ export function TrajectoryChart({
                                         stroke="#FFFFFF"
                                         strokeWidth="1.5"
                                         opacity={isDimmed ? 0.25 : 1}
-                                        className="cursor-pointer"
+                                        tabIndex={onOpenItem ? 0 : undefined}
+                                        aria-label={
+                                          onOpenItem
+                                            ? `${pt.itemName} (${pt.priceText})`
+                                            : undefined
+                                        }
+                                        className="cursor-pointer focus:outline-none"
                                         onMouseEnter={activatePoint}
                                         onMouseLeave={clearHover}
-                                        onClick={activatePoint}
+                                        onFocus={activatePoint}
+                                        onBlur={clearHover}
+                                        onClick={
+                                          onOpenItem
+                                            ? handleSelectPoint
+                                            : activatePoint
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (
+                                            onOpenItem &&
+                                            (e.key === "Enter" ||
+                                              e.key === " ")
+                                          ) {
+                                            e.preventDefault();
+                                            handleSelectPoint();
+                                          }
+                                        }}
                                       />
                                     );
                                   })}

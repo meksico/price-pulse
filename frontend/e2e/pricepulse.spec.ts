@@ -198,6 +198,22 @@ test.describe("PricePulse Core User Journeys (A11y Tree)", () => {
       "Keychron Q1 Pro Mechanical Keyboard",
     );
 
+    // Clicking a chart bullet opens the Item Details modal for that item
+    await page
+      .locator('#chart-panel svg circle[data-chart-bullet="true"][data-item-id="item-2"]')
+      .first()
+      .click();
+    const chartItemModal = page.locator("#modal-item-details");
+    await expect(chartItemModal).toBeVisible();
+    await expect(chartItemModal).toContainText(
+      "Keychron Q1 Pro Mechanical Keyboard",
+    );
+    await expect(page).toHaveURL(/\/items\/item-2$/);
+    await chartItemModal
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
+    await expect(chartItemModal).toBeHidden();
+
     // Interactive KPI tile actions
     await page.getByRole("button", { name: /Total Saved Costs/i }).click();
     await expect(

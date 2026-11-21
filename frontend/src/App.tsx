@@ -1075,6 +1075,9 @@ export function App() {
                     priceHistory={state.price_history}
                     activeTagFilter={activeTagFilter}
                     onTagFilterChange={(tagFilter) => navigate({ tagFilter })}
+                    onOpenItem={(itemId) =>
+                      navigate({ itemId, addModalOpen: false })
+                    }
                   />
                 </div>
 
