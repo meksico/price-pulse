@@ -1,0 +1,42 @@
+name: "[FEAT] Platform or User Capability"
+description: "Level 2 WBS — Cohesive capability under a parent Epic"
+title: "[FEAT] "
+labels: ["feature"]
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent Epic (#id)
+      placeholder: "Parent: #<epic-id>"
+    validations:
+      required: true
+  - type: textarea
+    id: spec
+    attributes:
+      label: Functional Specification
+      description: Detailed behavior and user-facing capability.
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: UX / API Contract & Constraints
+      placeholder: "Routes, endpoints, accessibility/mobile constraints, or data model impact"
+  - type: input
+    id: reqs
+    attributes:
+      label: Linked SRS Requirements (REQ-*)
+      placeholder: "e.g., REQ-MODAL-03"
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies & Risks
+      placeholder: "Upstream/downstream dependencies or known risks"
+  - type: textarea
+    id: children
+    attributes:
+      label: Child User Stories Checklist
+      value: |
+        - [ ] #

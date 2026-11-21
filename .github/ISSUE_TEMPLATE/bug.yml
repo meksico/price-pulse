@@ -1,0 +1,39 @@
+name: "[BUG] Defect Report"
+description: "Report a bug with reproduction steps and diagnostics (RULE-ISSUE-RCA)"
+title: "fix(scope): "
+labels: ["bug"]
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent Story / Feature (#id)
+      placeholder: "Parent: #<id> (optional for standalone defects)"
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary & Component / URL
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to Reproduce
+      value: |
+        1. 
+        2. 
+    validations:
+      required: true
+  - type: textarea
+    id: actual_expected
+    attributes:
+      label: Actual vs Expected Result
+      value: |
+        **Actual:** 
+        **Expected:** 
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics / Logs
+      placeholder: "Error messages, HTTP status, traceback, or revision/version"

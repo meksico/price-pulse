@@ -161,6 +161,8 @@ npm run test:e2e
 ## Reference Documentation
 
 - [Software Requirements Specification (SRS.md)](SRS.md)
+- [System Architecture (ARCHITECTURE.md)](ARCHITECTURE.md)
+- [Release Changelog (CHANGELOG.md)](CHANGELOG.md)
 - [iOS Safari Shortcut Guide — CAPTCHA Workaround](docs/IOS_SHORTCUT_GUIDE.md)
 - [Google Sheets Data Model](docs/GSHEETS_DATA_MODEL.md)
 - [Project Discussion & Architectural Decisions](docs/PROJECT_DISCUSSION_AND_DECISIONS.md)

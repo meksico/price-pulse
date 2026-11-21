@@ -1,0 +1,34 @@
+name: "[STORY] Atomic User Story"
+description: "Level 3 WBS — Atomic, testable vertical slice under a parent Feature"
+title: "[STORY] "
+labels: ["story"]
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent Feature (#id)
+      placeholder: "Parent: #<feature-id>"
+    validations:
+      required: true
+  - type: textarea
+    id: statement
+    attributes:
+      label: Story Statement
+      value: "As a `<role>`, I want `<capability>`, so that `<value>`."
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Technical Context & Affected Modules
+      placeholder: "e.g., frontend/src/ui/TrajectoryChart.tsx, backend/src/pricepulse/..."
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Testable Acceptance Criteria
+      value: |
+        - [ ] 
+        - [ ] `SRS.md` (`REQ-*`) updated if behavior changed
+        - [ ] Quality gates pass (`typecheck`, `lint`, `build`, `test:e2e` / `pytest`, `quality_check.py`)
+    validations:
+      required: true

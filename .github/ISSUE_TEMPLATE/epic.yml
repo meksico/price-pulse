@@ -1,0 +1,45 @@
+name: "[EPIC] Strategic Initiative"
+description: "Level 1 WBS — Strategic initiative, business capability, or release theme"
+title: "[EPIC] "
+labels: ["epic"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Business Goal & Context
+      description: Why does this Epic exist and what user/business outcome does it deliver?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In-Scope / Out-of-Scope
+      value: |
+        ### In Scope
+        - 
+
+        ### Out of Scope
+        - 
+    validations:
+      required: true
+  - type: input
+    id: reqs
+    attributes:
+      label: Linked SRS Requirements (REQ-*)
+      placeholder: "e.g., REQ-CHART-01..05, REQ-GRID-01..10"
+    validations:
+      required: true
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Success Metrics & Target Milestone
+      placeholder: "Measurable outcomes and target SemVer release"
+    validations:
+      required: true
+  - type: textarea
+    id: children
+    attributes:
+      label: Child Features Checklist
+      description: Link child [FEAT] issues here and via native GitHub Sub-issues.
+      value: |
+        - [ ] #
